@@ -14,7 +14,7 @@ export const LaunchLinkSection = () => {
 
   const handleSubmit = async(e) => {
     e.preventDefault();
-    const res = await axios.get(`http://localhost:4000/send-token?number=${phone}&email=${email}`);
+    const res = await axios.get(`https://webrtc-user-share-camera.onrender.com/send-token?number=${phone}&email=${email}`);
     setToken(res.data.token);
     setOpen(true);
   };
@@ -98,7 +98,7 @@ export const LaunchLinkSection = () => {
             Link sent successfully
           </h2>
           
-          <Link href={`http://localhost:3000/room/admin/${token}`} className='bg-green-600 text-white font-medium py-2 cursor-pointer h-12 rounded-3xl mt-10 text-2xl block w-full text-center'>
+          <Link href={`/room/admin/${token}`} className='bg-green-600 text-white font-medium py-2 cursor-pointer h-12 rounded-3xl mt-10 text-2xl block w-full text-center'>
               Join video session
           </Link>
 
