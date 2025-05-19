@@ -27,8 +27,7 @@ app.get('/send-token', async (req, res) => {
     const {number,email} = req.query;
     const token = uuidv4();
     console.log(email);
-    const url = `https://frontend-two-psi-56.vercel.app/room/${token}`;
-
+    const url = `https://webrtc-share.vercel.app/room/${token}`;
     const message = `Please click on the link below to connect with your landlord ${url}`;
     if(number){
         await sendMessage(number,message);

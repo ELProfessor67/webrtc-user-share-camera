@@ -1,3 +1,4 @@
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
@@ -29,9 +30,10 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
     const mediaRecordingChunks = useRef([]);
     const localStreamRef = useRef(null);
     const [showVideoPlayError, setShowVideoPlayError] = useState(false);
+    const router = useRouter();
 
     useEffect(() => {
-        socketConnection.current = io(process.env.NEXT_PUBLIC_API_URL,{
+        socketConnection.current = io("https://webrtc-user-share-camera.onrender.com",{
             reconnectionAttempts: 5,
             timeout: 10000,
             transports: ['websocket'],
@@ -48,9 +50,13 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
 
     const getUserMedia = async () => {
         try {
+            //choose back camera
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
+                video: {
+                    facingMode: "environment"
+                },
                 audio: false,
+
             });
             setLocalStream(stream);
             localStreamRef.current = stream;
@@ -76,11 +82,11 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
     };
     
 
-    useEffect(() => {
-        if(!isAdmin) {
-            getUserMedia();
-        }
-    },[]);
+    // useEffect(() => {
+    //     if(!isAdmin) {
+    //         getUserMedia();
+    //     }
+    // },[]);
 
 
     const createRTCPeerConnection = () => {
@@ -120,6 +126,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             videoRef.current.play().then(() => {
                 setIsConnected(true);
             }).catch((error) => {
+                setIsConnected(true);
                 setShowVideoPlayError(true);
             });
         }
@@ -138,6 +145,9 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
 
         peerConnection.oniceconnectionstatechange = () => {
             console.log('ICE connection state changed:', peerConnection.iceConnectionState);
+            if(peerConnection.iceConnectionState == "disconnected"){
+                setIsConnected(false)
+            }
         }
         
         peerConnection.onicegatheringstatechange = () => {
@@ -156,6 +166,9 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
 
     const startPeerConnection = async () => {
         try {
+            if(!isAdmin) {
+                await getUserMedia();
+            }
             const peerConnection = createRTCPeerConnection();
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
@@ -167,6 +180,8 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             console.error('Error starting peer connection:', error);
         }
     }
+
+  
 
 
     const handleOffer = async (offer) => {
@@ -211,6 +226,8 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             if(remoteStream) {
                 remoteStream.getTracks().forEach(track => track.stop());
             }
+            setIsConnected(false);
+            router.push('/');
         } catch (error) {
             console.error('Error disconnecting:', error);
         }
@@ -250,7 +267,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
           
           // Generate the image URL and save it to the state
           const screenshot = canvas.toDataURL('image/png');
-          setScreenshots((prev) => [...prev, screenshot]);
+          setScreenshots((prev) => [screenshot,...prev]);
           
           // Clean up the video element after the screenshot
           video.pause();
@@ -276,7 +293,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             mediaRecorderRef.current.stop();
             const recordingBlob = new Blob(mediaRecordingChunks.current, { type: 'video/webm' });
             const recordingUrl = URL.createObjectURL(recordingBlob);
-            setRecordings([...recordings, recordingUrl]);
+            setRecordings(prev => [recordingUrl, ...prev]);
             mediaRecordingChunks.current = [];
         }
     }

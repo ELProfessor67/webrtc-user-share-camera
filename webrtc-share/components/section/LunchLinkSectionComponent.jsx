@@ -5,18 +5,22 @@ import Image from 'next/image';
 import { Button } from '../ui/button';
 import axios from 'axios';
 import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 export const LaunchLinkSection = () => {
   const [contactMethod, setContactMethod] = useState('email');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [open, setOpen] = useState(false);
   const [token, setToken] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async(e) => {
     e.preventDefault();
+    setIsLoading(true);
     const res = await axios.get(`https://webrtc-user-share-camera.onrender.com/send-token?number=${phone}&email=${email}`);
     setToken(res.data.token);
     setOpen(true);
+    setIsLoading(false);
   };
 
   return (
@@ -83,7 +87,8 @@ export const LaunchLinkSection = () => {
                 type="submit"
                 className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition-colors"
               >
-                Send<br />video link
+                {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : <>Send<br />video link</>}
+                
               </button>
             </form>
           </div>

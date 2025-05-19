@@ -108,10 +108,10 @@ export default function Page({ params }) {
                         className="w-full h-full object-cover absolute top-0 left-0 z-0" // Set z-0 to make it behind
                       />
                       <div className="absolute bottom-2 right-2 flex gap-1 z-10"> {/* Set z-10 to bring it on top */}
-                        <button className="p-1 hover:bg-gray-300 rounded">
+                        <button className="p-1 hover:bg-gray-50 rounded text-white">
                           <ImageIcon className="w-4 h-4" />
                         </button>
-                        <button className="p-1 hover:bg-gray-300 rounded">
+                        <button className="p-1 hover:bg-gray-50 rounded text-white">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>

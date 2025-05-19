@@ -27,8 +27,8 @@ const page = ({params}) => {
 
         {
           !open && (
-            <Button onClick={handleDisconnect} size={'icon'} className='absolute bottom-4 right-[50%] translate-x-[50%] text-white bg-red-500 rounded-full hover:bg-red-600 cursor-pointer'>
-              <PhoneCall className='w-4 h-4' />
+            <Button onClick={handleDisconnect} className='absolute top-[50%] right-[50%] translate-x-[50%] translate-y-[-50%] text-white bg-red-400 rounded-md hover:bg-red-600 cursor-pointer text-xl'>
+              End Video Call
             </Button>
           )
         }
