@@ -93,6 +93,11 @@ export const LaunchLinkSection = () => {
             </form>
           </div>
         </div>
+
+       <div className='flex items-center justify-center mt-10'>
+        <img src="/device-icons.png" alt="Videodesk" className="w-30 mb-2" />
+        
+       </div>
       </section>
 
 
@@ -106,7 +111,7 @@ export const LaunchLinkSection = () => {
           <Link href={`/room/admin/${token}`} className='bg-green-600 text-white font-medium py-2 cursor-pointer h-12 rounded-3xl mt-10 text-2xl block w-full text-center'>
               Join video session
           </Link>
-
+          <img src="/device-icons.png" alt="Videodesk" className="w-30 mt-10" />
         </div>
       </DialogComponent>
     </>

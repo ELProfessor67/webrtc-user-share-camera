@@ -9,8 +9,8 @@ const Step = ({ number, title, description }) => {
           {number}
         </div>
       </div>
-      <h3 className="text-lg font-semibold text-center mb-2">{title}</h3>
-      <p className="text-gray-600 text-center">{description}</p>
+      {/* <h3 className="text-lg font-semibold text-center mb-2">{title}</h3> */}
+      <p className="text-gray-600 text-center">{title} {description}</p>
     </div>
   );
 };
@@ -19,8 +19,8 @@ export const HowItWorksSection = () => {
   const steps = [
     {
       number: 1,
-      title: "Sign up in a few steps",
-      description: "With no payment card needed"
+      title: "Sign up in 3 easy steps",
+      description: "No payment card needed"
     },
     {
       number: 2,
@@ -30,7 +30,7 @@ export const HowItWorksSection = () => {
     {
       number: 3,
       title: "View live video, take video snapshots or image",
-      description: "See exactly what your customer sees"
+      description: "See exactly what your customers see"
     },
     {
       number: 4,

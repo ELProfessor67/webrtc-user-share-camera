@@ -5,11 +5,12 @@ export const Header = () => {
   return (
     <header className="sticky top-0 z-50 bg-white shadow-sm">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center">
+        <div className="flex items-center flex-col">
           <a href="/" className="text-2xl font-bold text-gray-900 flex items-center">
             <VideoIcon className="mr-2" />
-            <span>Videonary.com</span>
+            <span>Videodesk.co.uk</span>
           </a>
+          <img src="/device-icons.png" alt="Videodesk" className="mt-2 w-20" />
         </div>
         
         <nav className="hidden md:flex items-center space-x-6">
@@ -25,7 +26,7 @@ export const Header = () => {
           <a href="#pricing" className="text-gray-700 hover:text-gray-900 transition-colors">
             Pricing
           </a>
-          <a href="#login" className="text-gray-700 hover:text-gray-900 transition-colors">
+          <a href="#login" className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-full transition-colors">
             Log in
           </a>
           <a 

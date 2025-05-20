@@ -26,7 +26,7 @@ export default function Page({ params }) {
               <div className="flex items-center">
                 <a href="/" className="text-2xl font-bold text-gray-900 flex items-center">
                   <VideoIcon className="mr-2" />
-                  <span>Videonary.com</span>
+                  <span>Videodesk.co.uk</span>
                 </a>
               </div>
             </div>
@@ -50,8 +50,8 @@ export default function Page({ params }) {
 
             {/* Live Video */}
             <div className="relative">
-              <div className="h-[32.5rem] w-[90%] bg-gray-200 rounded-md overflow-hidden relative">
-                <video ref={videoRef} autoPlay className="w-full h-full object-cover absolute top-0 left-0" />
+              <div className="h-[480px] w-[270px] bg-gray-200 rounded-md overflow-hidden relative">
+                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-contain absolute top-0 left-0" />
                 {showVideoPlayError && (
                   <button onClick={handleVideoPlay} className=" bg-yellow-500 p-3 rounded-full text-white absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"><PlayIcon className="w-6 h-6" /></button>
                 )}

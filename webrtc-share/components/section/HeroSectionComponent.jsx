@@ -23,9 +23,9 @@ export const HeroSection = () => {
       />
       <div className="container mx-auto px-4 py-24 md:py-32 relative z-10">
         <div className="max-w-2xl">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6">Videonary.com</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-6">Videodesk.co.uk</h1>
           <p className="text-xl md:text-2xl mb-10">
-            Connect with video and see what your customers see
+          Connect with an instant video link and see what your customers see
           </p>
           <a 
             href="#signup"

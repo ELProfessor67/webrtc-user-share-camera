@@ -34,6 +34,10 @@ export class SocketService {
                 socket.to(roomId).emit('ice-candidate', candidate);
             });
 
+            socket.on('user-disconnected', (roomId) => {
+                socket.to(roomId).emit('user-disconnected', roomId);
+            });
+
 
             socket.on('disconnect', () => {
                 console.log('Client disconnected');

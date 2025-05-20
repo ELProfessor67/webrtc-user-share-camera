@@ -53,7 +53,13 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             //choose back camera
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
-                    facingMode: "environment"
+                    facingMode: "environment",
+                    width: {
+                        ideal: 1280
+                    },
+                    height: {
+                        ideal: 720
+                    }
                 },
                 audio: false,
 
@@ -146,7 +152,10 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         peerConnection.oniceconnectionstatechange = () => {
             console.log('ICE connection state changed:', peerConnection.iceConnectionState);
             if(peerConnection.iceConnectionState == "disconnected"){
-                setIsConnected(false)
+                setIsConnected(false);
+                if(!isAdmin) {
+                    router.push('/');
+                }
             }
         }
         
@@ -221,15 +230,25 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
 
     const handleDisconnect = () => {
         try {
+            socketConnection.current.emit('user-disconnected', roomId);
+            setIsConnected(false);
             peerConnectionRef.current.close();
             localStream?.getTracks().forEach(track => track.stop());
             if(remoteStream) {
                 remoteStream.getTracks().forEach(track => track.stop());
             }
-            setIsConnected(false);
-            router.push('/');
+            if(isAdmin) {
+                router.push('/?show-feedback=true');
+            }
         } catch (error) {
             console.error('Error disconnecting:', error);
+        }
+    }
+
+    const handleUserDisconnected = () => {
+        setIsConnected(false);
+        if(isAdmin) {
+            router.push('/?show-feedback=true');
         }
     }
 
@@ -238,11 +257,13 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         socketConnection.current.on('offer', handleOffer);
         socketConnection.current.on('answer', handleAnswer);
         socketConnection.current.on('ice-candidate', handleIceCandidate);
+        socketConnection.current.on('user-disconnected', handleUserDisconnected);
 
         return () => {
             socketConnection.current.off('offer', handleOffer);
             socketConnection.current.off('answer', handleAnswer);
             socketConnection.current.off('ice-candidate', handleIceCandidate);
+            socketConnection.current.off('user-disconnected', handleUserDisconnected);
         }
     }, [isAdmin,roomId]);
 

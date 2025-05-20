@@ -9,7 +9,7 @@ export const Footer = () => {
           <div className="mb-6 md:mb-0">
             <a href="/" className="text-2xl font-bold text-gray-900 flex items-center mb-4">
               <VideoIcon className="mr-2" />
-              <span>Videonary.com</span>
+              <span>Videodesk.co.uk</span>
             </a>
             <div className="flex flex-col space-y-2">
               <div className="flex items-center">
@@ -41,7 +41,7 @@ export const Footer = () => {
         
         <div className="pt-8 border-t border-gray-200">
           <p className="text-sm text-gray-500 text-center">
-            © {new Date().getFullYear()} Videonary.com. All rights reserved.
+            © {new Date().getFullYear()} Videodesk.co.uk. All rights reserved.
           </p>
         </div>
       </div>
