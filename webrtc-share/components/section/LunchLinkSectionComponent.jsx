@@ -18,7 +18,7 @@ export const LaunchLinkSection = () => {
   const { user, isAuth } = useUser();
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
 
     if (isAuth == false) {
       toast("Please Login First");
@@ -27,7 +27,7 @@ export const LaunchLinkSection = () => {
 
     setIsLoading(true);
     const res = await axios.get(`https://webrtc-user-share-camera.onrender.com/send-token?number=${phone}&email=${email}`);
-    setToken(res.data.token);
+    setToken(res.data?.token);
     setOpen(true);
     setIsLoading(false);
   };

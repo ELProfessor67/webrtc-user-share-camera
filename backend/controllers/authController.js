@@ -9,6 +9,7 @@ import fs from 'fs';
 import path, {dirname} from 'path';
 import {fileURLToPath} from 'url';
 import { generateOTP } from '../utils/generateOTP.js';
+import { sendMail } from '../services/mailService.js';
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export const register = catchAsyncError(async (req, res) => {
@@ -26,6 +27,8 @@ export const register = catchAsyncError(async (req, res) => {
 	});
 	
 	const OTP = generateOTP()
+    const message = `Your OTP is ${OTP}`;
+	await sendMail(email,"Your OTP",message);
 	user.OTP = OTP;
 	await user.save();
 
@@ -48,7 +51,9 @@ export const login = catchAsyncError(async (req, res, next) => {
     if (!isMatch)
 		return sendResponse(false, 401, 'Incorrect Email or Password',res);
 	
-	const OTP = generateOTP()
+	const OTP = generateOTP();
+	const message = `Your OTP is ${OTP}`;
+	await sendMail(email,"Your OTP",message);
 	user.OTP = OTP;
 	await user.save();
 
@@ -66,7 +71,6 @@ export const verify = catchAsyncError(async (req, res, next) => {
 
 	if (!user)
       return sendResponse(false, 401, 'Invalid OTP or maybe expired',res);
-
   
     sendToken(res, user, `Welcome back, ${user.name}`, 200);
 });

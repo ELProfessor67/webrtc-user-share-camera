@@ -118,10 +118,10 @@ export default function PriceAndPlan() {
                 </SelectTrigger>
                 <SelectContent className={'border-none bg-white'}>
                   <SelectItem value="landlord" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Automotive</SelectItem>
-                  <SelectItem value="resident" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Charity</SelectItem>
-                  <SelectItem value="resident" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Hotel/Resort/Accomodation Provider</SelectItem>
-                  <SelectItem value="resident" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>NHS/Health Provider</SelectItem>
-                  <SelectItem value="resident" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Social Landlord</SelectItem>
+                  <SelectItem value="residenta" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Charity</SelectItem>
+                  <SelectItem value="residentb" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Hotel/Resort/Accomodation Provider</SelectItem>
+                  <SelectItem value="residenc" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>NHS/Health Provider</SelectItem>
+                  <SelectItem value="residentd" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Social Landlord</SelectItem>
                 </SelectContent>
               </Select>
           </div>
