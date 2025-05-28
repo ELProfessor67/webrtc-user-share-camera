@@ -3,18 +3,31 @@ import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
 
-const iceServers = [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun.l.google.com:5349" },
-    { urls: "stun:stun1.l.google.com:3478" },
-    { urls: "stun:stun1.l.google.com:5349" },
-    { urls: "stun:stun2.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:5349" },
-    { urls: "stun:stun3.l.google.com:3478" },
-    { urls: "stun:stun3.l.google.com:5349" },
-    { urls: "stun:stun4.l.google.com:19302" },
-    { urls: "stun:stun4.l.google.com:5349" }
-];
+const peerConfig = {
+	iceTransportPolicy: "relay",
+	iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun.l.google.com:5349" },
+        { urls: "stun:stun1.l.google.com:3478" },
+        { urls: "stun:stun1.l.google.com:5349" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:5349" },
+        { urls: "stun:stun3.l.google.com:3478" },
+        { urls: "stun:stun3.l.google.com:5349" },
+        { urls: "stun:stun4.l.google.com:19302" },
+        { urls: "stun:stun4.l.google.com:5349" },
+        {
+          urls: "turn:relay1.expressturn.com:3480",
+          username: "174776437859052610",
+          credential: "ZKziYTYdi6V/oRdHNuUn/INQkq4=",
+        },
+        {
+          urls: "turn:relay1.expressturn.com:3480?transport=tcp",
+          username: "174776437859052610",
+          credential: "ZKziYTYdi6V/oRdHNuUn/INQkq4=",
+        }
+    ]
+}
 
 const useWebRTC = (isAdmin, roomId, videoRef) => {
     const [localStream, setLocalStream] = useState(null);
@@ -104,9 +117,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             }
         }
 
-        const peerConnection = new RTCPeerConnection({
-            iceServers: iceServers,
-        });
+        const peerConnection = new RTCPeerConnection(peerConfig);
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
@@ -237,7 +248,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             if(remoteStream) {
                 remoteStream.getTracks().forEach(track => track.stop());
             }
-            if(isAdmin) {
+            if(!isAdmin) {
                 router.push('/?show-feedback=true');
             }
         } catch (error) {
@@ -247,7 +258,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
 
     const handleUserDisconnected = () => {
         setIsConnected(false);
-        if(isAdmin) {
+        if(!isAdmin) {
             router.push('/?show-feedback=true');
         }
     }

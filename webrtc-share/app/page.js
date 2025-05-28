@@ -6,15 +6,17 @@ import { FeaturesSection } from '@/components/section/FeatureSectionComponent'
 import { HowItWorksSection } from '@/components/section/HowItsWorkSectionComponent'
 import { LaunchLinkSection } from '@/components/section/LunchLinkSectionComponent'
 import { Footer } from '@/components/layouts/FooterComponent'
-import React from 'react'
-import { useSearchParams } from 'next/navigation'
+import React,{use} from 'react'
 import { DialogComponent } from '@/components/dialogs/DialogCompnent'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { StarIcon } from 'lucide-react'
-const page = () => {
-  const searchParams = useSearchParams();
-  const showFeedback = searchParams.get("show-feedback");
+import PriceAndPlan from '@/components/section/PriceAndPlanSectionComponent'
+import SendFriendSectionComponent from '@/components/section/SendFriendSectionComponent'
+
+const Page = ({searchParams}) => {
+  const query = use(searchParams)
+ const showFeedback= query["show-feedback"]
   const router = useRouter();
   return (
     <div className="min-h-screen flex flex-col">
@@ -24,11 +26,13 @@ const page = () => {
         <FeaturesSection />
         <HowItWorksSection />
         <LaunchLinkSection />
+        <PriceAndPlan/>
+        <SendFriendSectionComponent/>
         <Footer />
 
         <DialogComponent open={showFeedback} setOpen={() => router.push("/")} isCloseable={true}>
         <div className="h-[33rem] p-4 flex flex-col items-center justify-center">
-          <Image src="/paper-plane.png" alt="video-link-dialog-bg" className='object-contain' width={150} height={150} />
+          <Image src="/paper-plane.svg" alt="video-link-dialog-bg" className='object-contain' width={150} height={150} />
           <h2 className="text-xl font-bold mt-10 text-center">
             Thank you for joining the video session. 
             The link has now ended.
@@ -52,4 +56,4 @@ const page = () => {
   )
 }
 
-export default page
+export default Page

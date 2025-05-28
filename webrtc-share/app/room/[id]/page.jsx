@@ -36,7 +36,7 @@ const page = ({params}) => {
 
       <DialogComponent open={open} setOpen={setOpen}>
         <div className="h-[33rem] p-4 flex flex-col items-center justify-center">
-          <Image src="/paper-plane.png" alt="video-link-dialog-bg" className='object-contain' width={200} height={200} />
+          <Image src="/paper-plane.svg" alt="video-link-dialog-bg" className='object-contain' width={200} height={200} />
           <h2 className="text-3xl font-bold mt-10 text-center">
             Videodesk
           </h2>

@@ -1,7 +1,7 @@
 import React from 'react';
 
 
-const Step = ({ number, title, description }) => {
+const Step = ({ number, title, description, index }) => {
   return (
     <div className="flex-1 p-6 bg-white rounded-lg shadow-sm">
       <div className="flex justify-center mb-4">
@@ -10,7 +10,22 @@ const Step = ({ number, title, description }) => {
         </div>
       </div>
       {/* <h3 className="text-lg font-semibold text-center mb-2">{title}</h3> */}
-      <p className="text-gray-600 text-center">{title} {description}</p>
+      <p className="text-gray-600 text-center">{title}</p>
+      
+      {
+        (index === 0 || index === 2) && (
+          <>
+          <p className="text-gray-600 text-center">{description.split(' ').slice(0, 3).join(' ')}</p>
+          <p className="text-gray-600 text-center">{description.split(' ').slice(3).join(' ')}</p>
+          </>
+        )
+      }
+      {
+        (index !== 0 && index !== 2) && (
+          <p className="text-gray-600 text-center">{description}</p>
+        )
+      }
+      
     </div>
   );
 };
@@ -29,8 +44,8 @@ export const HowItWorksSection = () => {
     },
     {
       number: 3,
-      title: "View live video, take video snapshots or image",
-      description: "See exactly what your customers see"
+      title: "View live video, take video",
+      description: "snapshots or image screenshots."
     },
     {
       number: 4,
@@ -42,7 +57,7 @@ export const HowItWorksSection = () => {
   return (
     <section id="how-it-works" className="py-16 bg-amber-400">
       <div className="container mx-auto px-4">
-        <h2 className="text-3xl font-bold mb-12 text-center">How it works</h2>
+        <h2 className="text-3xl font-bold mb-12 text-center text-white">How it works</h2>
         
         <div className="relative">
           <div className="flex flex-col md:flex-row gap-6 md:gap-2 relative z-10">
@@ -52,6 +67,7 @@ export const HowItWorksSection = () => {
                 number={step.number}
                 title={step.title}
                 description={step.description}
+                index={index}
               />
             ))}
           </div>

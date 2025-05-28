@@ -6,6 +6,8 @@ import { Button } from '../ui/button';
 import axios from 'axios';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
+import { useUser } from '@/provider/UserProvider';
+import { toast } from 'sonner';
 export const LaunchLinkSection = () => {
   const [contactMethod, setContactMethod] = useState('email');
   const [phone, setPhone] = useState('');
@@ -13,9 +15,16 @@ export const LaunchLinkSection = () => {
   const [open, setOpen] = useState(false);
   const [token, setToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { user, isAuth } = useUser();
 
-  const handleSubmit = async(e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isAuth == false) {
+      toast("Please Login First");
+      return
+    }
+
     setIsLoading(true);
     const res = await axios.get(`https://webrtc-user-share-camera.onrender.com/send-token?number=${phone}&email=${email}`);
     setToken(res.data.token);
@@ -88,32 +97,51 @@ export const LaunchLinkSection = () => {
                 className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition-colors"
               >
                 {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : <>Send<br />video link</>}
-                
+
               </button>
             </form>
           </div>
         </div>
 
-       <div className='flex items-center justify-center mt-10'>
-        <img src="/device-icons.png" alt="Videodesk" className="w-30 mb-2" />
-        
-       </div>
-      </section>
+        <div className='flex items-center justify-center mt-10'>
+          <img src="/device-icons.png" alt="Videodesk" className="w-30 mb-2" />
 
+        </div>
+      </section>
 
       <DialogComponent open={open} setOpen={setOpen}>
         <div className="h-[33rem] p-16 flex flex-col items-center justify-center">
           <Image src="/paper-plane.png" alt="video-link-dialog-bg" className='object-contain' width={200} height={200} />
-          <h2 className="text-3xl font-bold mt-10 text-center">
-            Link sent successfully
-          </h2>
-          
+          <div className='mt-5'>
+            <div className='flex items-start gap-2'>
+              <img className='w-8 h-8' src='/icons/single-check.svg' />
+              <div className='flex flex-col gap-0 mb-1'>
+                <h2 className="text-2xl font-bold text-left">
+                  Link sent successfully
+                </h2>
+                <p>Please wait a second for the user to accept...</p>
+              </div>
+            </div>
+            <div className='flex items-start gap-2 mt-5'>
+              <img className='w-8 h-8' src='/icons/double-check.svg' />
+              <div className='flex flex-col gap-0 mb-1'>
+                <h2 className="text-2xl font-bold text-left">
+                  Link accepted by user
+                </h2>
+              </div>
+            </div>
+          </div>
+
           <Link href={`/room/admin/${token}`} className='bg-green-600 text-white font-medium py-2 cursor-pointer h-12 rounded-3xl mt-10 text-2xl block w-full text-center'>
-              Join video session
+            Join video session
           </Link>
-          <img src="/device-icons.png" alt="Videodesk" className="w-30 mt-10" />
+          
+          <div className='flex items-start mt-4 justify-center'>  
+              <p className='text-center'><strong className='text-red-400 whitespace-pre'>TIP - </strong> Ask the user to check their spam folder for the email link, if they can’t see it!</p>
+          </div>
         </div>
       </DialogComponent>
+
     </>
   );
 };
