@@ -35,7 +35,7 @@ const page = ({params}) => {
       </div>
 
       <DialogComponent open={open} setOpen={setOpen}>
-        <div className="h-[33rem] p-4 flex flex-col items-center justify-center gap-5">
+        <div className="h-[33rem] p-1 flex flex-col items-center justify-center gap-5">
           <Image src="/paper-plane.svg" alt="video-link-dialog-bg" className='object-contain' width={200} height={200} />
           <h2 className="text-xl font-bold mt-10 text-center">
           Landlord name/logo here

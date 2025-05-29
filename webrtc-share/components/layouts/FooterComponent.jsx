@@ -145,7 +145,7 @@ export function Footer() {
               <label className="text-black font-semibold">Message</label>
               <textarea
                 placeholder="Enter your message"
-                className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none h-[10rem]`}
+                className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none h-[4rem]`}
               />
             </div>
 

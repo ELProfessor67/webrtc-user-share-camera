@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { use, useEffect, useState } from 'react';
 import { Loader2, VideoIcon } from 'lucide-react';
 import { DialogComponent } from '../dialogs/DialogCompnent';
 import {
@@ -188,14 +188,17 @@ export const Header = () => {
 
             {
               isAuth == true && <>
-                <div>
+                <div className='flex items-center gap-4'>
 
-
+                  <div className='flex flex-col justify-end items-end'>
+                  <h2 className='text-sm font-bold text-black'>{user?.email?.split("@")[0]}</h2>
+                  <h2 className='text-xs'>{user?.email}</h2>
+                  </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Avatar>
-                        <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
-                        <AvatarFallback>CN</AvatarFallback>
+                        {/* <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" /> */}
+                        <AvatarFallback className={'bg-gray-200 text-black border border-gray-700 rounded-md'}>{user?.email?.slice(0,2)}</AvatarFallback>
                       </Avatar>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className={'bg-white border-none shadow-sm'}>
