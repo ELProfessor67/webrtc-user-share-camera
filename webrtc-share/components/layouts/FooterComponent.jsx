@@ -181,7 +181,7 @@ export function Footer() {
             <div className="flex items-start flex-col gap-2">
               <label className="text-black font-semibold">Pick a date & time</label>
               <input
-                type="datetime-local"
+                type="time"
                 className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none`}
               />
             </div>

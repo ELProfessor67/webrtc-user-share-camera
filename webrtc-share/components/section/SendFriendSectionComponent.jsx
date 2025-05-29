@@ -23,7 +23,7 @@ const SendFriendSectionComponent = () => {
                     <div className="flex-1 w-full">
                         <input
                             type="text"
-                            placeholder="Enter your message..."
+                            placeholder="To: Enter friend or Co-Worker email address"
                             className={`w-full px-4 py-2  rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white border-none`}
                     
                         ></input>
@@ -36,9 +36,9 @@ const SendFriendSectionComponent = () => {
                             className={`w-full px-4 py-2 border-none outline-none flex-1 bg-white rounded-md`}
                         ></input>
 
-                        <Button size={'icon'} className={'bg-green-500 text-white rounded-full'}>
-                            <Send/>
-                        </Button>
+                        <button size={'icon'} className={'bg-green-500 text-white rounded-full h-[auto] w-[auto] p-[0.30rem] mr-1 text-2xl cursor-pointer'}>
+                            <Send size={18}/>
+                        </button>
                     </div>
                 </form>
             </div>

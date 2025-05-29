@@ -37,11 +37,11 @@ const page = ({params}) => {
       <DialogComponent open={open} setOpen={setOpen}>
         <div className="h-[33rem] p-4 flex flex-col items-center justify-center gap-5">
           <Image src="/paper-plane.svg" alt="video-link-dialog-bg" className='object-contain' width={200} height={200} />
-          <h2 className="text-3xl font-bold mt-10 text-center">
+          <h2 className="text-xl font-bold mt-10 text-center">
           Landlord name/logo here
           </h2>
 
-          <Button className='bg-green-600 text-white font-medium py-0 cursor-pointer h-12 rounded-3xl mt-10 text-2xl block w-full' onClick={handleStrt}>
+          <Button className='bg-green-600 text-white font-medium py-0 cursor-pointer h-12 rounded-3xl mt-10 text-lg block w-full' onClick={handleStrt}>
           Tap to allow video session now
           </Button>
 

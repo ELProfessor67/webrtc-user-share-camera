@@ -377,7 +377,7 @@ export const Header = () => {
             Verify OTP
           </h2>
           <form className='w-full relative py-4 space-y-5 mt-5' onSubmit={handleVerify}>
-            <p className='text-lg font-normal my-1 text-center mb-6'>OTP Successfully send to your emails <span className='text-blue-400'>{email}</span></p>
+            <p className='text-lg font-normal my-1 text-center mb-6'>OTP has been sent successfully to your email <span className='text-blue-400'>{email}</span></p>
             <div className='flex items-center justify-center'>
               <OtpInput
                 value={otp}
