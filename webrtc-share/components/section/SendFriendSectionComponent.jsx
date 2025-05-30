@@ -8,7 +8,7 @@ const SendFriendSectionComponent = () => {
             <div className="mx-auto bg-amber-400  rounded-xl shadow-md p-8 relative overflow-hidden">
 
 
-                <h3 className="text-2xl font-semibold mb-6 text-white">Send a link to a friend or Co-Worker</h3>
+                <h3 className="text-2xl font-semibold mb-6 text-white">Send a link to a friend or co-worker</h3>
 
                 <form onSubmit={() => { }} className="flex flex-col md:flex-row items-center gap-4">
                     <div className="flex-1 w-full">

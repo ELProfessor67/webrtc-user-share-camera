@@ -38,7 +38,7 @@ export const HowItWorksSection = () => {
     },
     {
       number: 3,
-      title: "View live video, take video | snapshots or image | screenshots.",
+      title: "View live video, take video | snapshots or image | screenshots",
       description: ""
     },
     {

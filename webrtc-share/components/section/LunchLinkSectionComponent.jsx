@@ -39,7 +39,7 @@ export const LaunchLinkSection = () => {
           <div className="max-w-3xl mx-auto text-center mb-12">
             <a
               href="#launch"
-              className="inline-block bg-amber-400 hover:bg-amber-500 text-white font-medium py-3 px-8 rounded-full text-lg transition-all transform hover:scale-105 mb-4"
+              className="inline-block text-black font-bold py-3 px-8 rounded-full text-3xl transition-all transform hover:scale-105 mb-4"
             >
               Launch new video link
             </a>
