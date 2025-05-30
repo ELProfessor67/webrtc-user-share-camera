@@ -30,6 +30,13 @@ export default function PriceAndPlan() {
         "Send 1 direct shareble link to a third party for your saved videos/ images/ call notes for each call",
         "Label upto 2 of your saved videos or images in each video call",
         "Use Videodesk from any desktop/tablet to connect with any mobile device",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
       ],
     },
     {
@@ -49,6 +56,13 @@ export default function PriceAndPlan() {
         "Send up to 2 direct shareble links to third parties for your saved videos/ images/ call notes for each call",
         "Label upto 4 of your saved videos or images in each video call",
         "Use Videodesk from any desktop/tablet to connect with any mobile device",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
       ],
     },
     {
@@ -71,6 +85,8 @@ export default function PriceAndPlan() {
         "Make a professional impression, add a custom logo to your customer messages/joining links",
         "Export your saved links to anyone or any system",
         "Get insights and stats on user feedback",
+        "-",
+        "-",
       ],
     },
     {
@@ -258,7 +274,7 @@ export default function PriceAndPlan() {
               <CardHeader className="pb-4">
                 <div className="flex items-center gap-2">
                   {
-                  plan.black &&
+                    plan.black &&
                     <CardTitle className="text-3xl font-bold text-black">{plan.black}</CardTitle>
                   }
                   <CardTitle className="text-3xl font-bold text-amber-400">{plan.name}</CardTitle>
@@ -284,10 +300,24 @@ export default function PriceAndPlan() {
 
                 <div className="space-y-3 flex-1">
                   {plan.features.map((feature, featureIndex) => (
-                    <div key={featureIndex} className="flex items-start gap-3">
-                      <Check className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm text-gray-700 leading-relaxed">{feature}</span>
-                    </div>
+                    <>
+                      {
+                        feature == "-" ?
+                          (
+                            <div key={featureIndex} className="flex items-center gap-3 justify-center">
+                              <span className="text-lg font-medium text-amber-500 leading-relaxed ">{feature}</span>
+                            </div>
+                          )
+                          :
+                          (
+                            <div key={featureIndex} className="flex items-start gap-3">
+                              <Check className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                              <span className="text-sm text-gray-700 leading-relaxed">{feature}</span>
+                            </div>
+                          )
+                      }
+                    </>
+
                   ))}
                 </div>
               </CardContent>
