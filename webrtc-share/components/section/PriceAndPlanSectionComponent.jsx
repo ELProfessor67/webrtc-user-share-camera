@@ -1,0 +1,292 @@
+import { Check, Expand, Minimize2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Fragment } from "react"
+
+export default function PriceAndPlan() {
+  const plans = [
+    {
+      name: "Stantand",
+      price: "Free",
+      description: "For getting started",
+      subtitle: "No paymant card needed",
+      highlight: [],
+      buttonText: "Sign up for free",
+      buttonVariant: "default",
+      features: [
+        "Upto 15 free video links per month",
+        "Capture Video (upto 30 seconds) on each live call",
+        "Capture upto 3 image screenshots on each live call",
+        "Save and retrieve up to 10 sent links in your dashboard",
+        "Store saved links in your dashboard for upto 14 days",
+        "Send 1 direct shareable link to third party of your saved videos/images/ call notes for each call",
+        "Label upto 2 of your saved videos or images in each video call",
+        "Use VideoDesk from any desktop/tablet to connect with any mobile device",
+      ],
+    },
+    {
+      name: "Plus Account",
+      price: "",
+      description: "For small teams",
+      subtitle: "Everything in Basic, and :",
+      highlight: ["Basic,"],
+      buttonText: "Email: PlusAccount@Videodesk.co.uk",
+      buttonVariant: "default",
+      features: [
+        "Upto 60 free video links per month",
+        "Capture 2 videos (upto 45 seconds) on each live call",
+        "Capture upto 6 image screenshots on each live call",
+        "Keep up to 20 sent links in your live dashboard",
+        "Store saved links in your dashboard for upto 31 days",
+        "Send upto 2 direct shareable links to third parties for your saved videos/images/call notes for each call",
+        "Live upto 4 of your saved videos or images in each video call",
+        "Use VideoDesk from any desktop/ tablet to connect with any mobile device",
+      ],
+    },
+    {
+      name: "Professional",
+      price: "",
+      description: "For large teams",
+      subtitle: "Everything in Plus, and :",
+      highlight: ["Plus,"],
+      buttonText: "Try free for 14 days",
+      buttonVariant: "default",
+      features: [
+        "Unlimited links to send by text or email",
+        "Capture upto 4 (each 60 seconds) videos on each live call",
+        "Capture upto 15 image screenshots on each live call",
+        "Keep upto 30 saved links in your dashboard",
+        "Store saved links in your dashboard for unlimited months for arrange a shareable call notes for each call",
+        "Upto 3 Direct Shareable links to third party of your saved videos/ images/ call notes",
+        "Add unlimited labels for your saved videos or images",
+        "Live VideoDesk from any mobile to mobile device",
+        "Make a professional impression, add a custom logo to your customer messages/joining links",
+        "Export your saved links to anyone or any system",
+        "Get insights and stats on user feedback",
+      ],
+    },
+    {
+      name: "Enterprise",
+      price: "",
+      description: "For large businesses",
+      subtitle: "Everything in Professional, and :",
+      highlight: ["Professional,"],
+      buttonText: "Contact us",
+      buttonVariant: "default",
+      features: [
+        "Dedicated Account Manager",
+        "Unlimited joining time for videos in each call link",
+        "Unlimited screenshots images in each call link",
+        "Unlimited direct shareable links to third parties of your saved videos/ images/ call notes",
+        "Custom designed live video/notes page",
+        "Custom designed dashboards",
+        "Unlimited upload of saved links in your dashboard",
+        "Keep your saved links for up to 5 months",
+        "Save and back up all data to your own servers (additional fee)",
+        "1 x half day training event (online or at your place)",
+        "Custom collaboration on bespoke technology solutions for your business (no consulting fees apply)",
+        "Custom development",
+        "Custom implementation",
+        "Custom Connect",
+      ],
+    },
+  ]
+
+  return (
+    <section
+      className="w-full py-16 px-4"
+      style={{
+        background: "linear-gradient(135deg, #8B5CF6 0%, #A855F7 50%, #C084FC 100%)",
+      }}
+    >
+      <div className="container mx-auto max-w-7xl">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">Pricing and Plans</h2>
+          <p className="text-white/90 text-lg">Choose the plan thats right to you</p>
+          <div className="mt-8 flex items-center justify-center flex-col">
+            <p className="text-white/90 text-lg mb-4">Select an option:</p>
+            <Select>
+                <SelectTrigger className="bg-amber-500 text-white flex items-center justify-center text-xl font-semibold outline-none border-none">
+                  <SelectValue placeholder="Social Landlord" className="w-[180px]"/>
+                </SelectTrigger>
+                <SelectContent className={'border-none bg-white'}>
+                  <SelectItem value="landlord" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Automotive</SelectItem>
+                  <SelectItem value="residenta" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Charity</SelectItem>
+                  <SelectItem value="residentb" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Hotel/Resort/Accomodation Provider</SelectItem>
+                  <SelectItem value="residenc" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>NHS/Health Provider</SelectItem>
+                  <SelectItem value="residentd" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Social Landlord</SelectItem>
+                </SelectContent>
+              </Select>
+          </div>
+
+
+
+          <div className="w-full bg-amber-400 p-8 rounded-2xl mt-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {/* Small Providers */}
+              <div className="bg-white rounded-2xl p-6 shadow-lg">
+                <div className="mb-2">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 text-left">Small Providers:</h3>
+                  <div className="flex justify-end gap-8 text-md font-bold text-gray-700 mb-2">
+                    <span>Monthly</span>
+                    <span>Annual</span>
+                  </div>
+                </div>
+
+                <div className="space-y-0">
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm text-gray-700">Upto 250 homes</span>
+                    <div className="flex gap-8">
+                      <span className="text-sm font-medium w-12 text-center">£108</span>
+                      <span className="text-sm font-medium w-12 text-center">£1300</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm text-gray-700">250-500 homes</span>
+                    <div className="flex gap-8">
+                      <span className="text-sm font-medium w-12 text-center">£150</span>
+                      <span className="text-sm font-medium w-12 text-center">£1800</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm text-gray-700">500-750 homes</span>
+                    <div className="flex gap-8">
+                      <span className="text-sm font-medium w-12 text-center">£191</span>
+                      <span className="text-sm font-medium w-12 text-center">£2300</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm text-gray-700">750-1000 homes</span>
+                    <div className="flex gap-8">
+                      <span className="text-sm font-medium w-12 text-center">£233</span>
+                      <span className="text-sm font-medium w-12 text-center">£2800</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Small to Medium Providers */}
+              <div className="bg-white rounded-2xl p-6 shadow-lg">
+                <div className="mb-2">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 text-left">Small to Medium Providers:</h3>
+                  <div className="flex justify-end gap-8 text-md font-bold text-gray-700 mb-2">
+                    <span>Monthly</span>
+                    <span>Annual</span>
+                  </div>
+                </div>
+
+                <div className="space-y-0">
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm text-gray-700">1000-1250 homes</span>
+                    <div className="flex gap-8">
+                      <span className="text-sm font-medium w-12 text-center">£275</span>
+                      <span className="text-sm font-medium w-12 text-center">£3300</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm text-gray-700">1250-5000 homes</span>
+                    <div className="flex gap-8">
+                      <span className="text-sm font-medium w-12 text-center">£375</span>
+                      <span className="text-sm font-medium w-12 text-center">£4500</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm text-gray-700">5000-10000 homes</span>
+                    <div className="flex gap-8">
+                      <span className="text-sm font-medium w-12 text-center">£750</span>
+                      <span className="text-sm font-medium w-12 text-center">£9000</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Large Providers */}
+              <div className="bg-white rounded-2xl p-6 shadow-lg">
+                <div className="mb-7 flex justify-start items-center">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">Large Providers:</h3>
+                </div>
+
+                <div className="flex items-center w-full relative">
+                  <div className="space-y-0 w-[50%] border-r border-black">
+                    <div className="flex justify-between items-center py-2">
+                      <span className="text-sm text-gray-700">10000-15000 homes</span>
+                    </div>
+
+                    <div className="flex justify-between items-center py-2">
+                      <span className="text-sm text-gray-700">15000-20000 homes</span>
+                    </div>
+
+                    <div className="flex justify-between items-center py-2">
+                      <span className="text-sm text-gray-700">20000+ homes</span>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 h-full">
+                    <span className="text-left">Custom pricing, <br/>Contact us.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {plans.map((plan, index) => (
+            <Card key={index} className="bg-white border-0 shadow-lg h-full flex flex-col gap-2 p-0">
+              <div className="flex items-center justify-end px-2 py-1 gap-3">
+                <button className="bg-none border-none text-gray-600 cursor-pointer">
+                  <Minimize2 size={16}/>
+                </button>
+                <button className="bg-none border-none text-gray-600 cursor-pointer">
+                  <Expand  size={16}/>
+                </button>
+              </div>
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-2">
+                <CardTitle className="text-3xl font-bold text-gray-900">{plan.name}</CardTitle>
+                <div className="text-3xl font-bold text-amber-400">{plan.price}</div>
+                </div>
+                <p className="text-md font-semibold text-black mb-2">{plan.description}</p>
+                {plan.subtitle && <p className="text-sm text-gray-600 font-normal">{plan.subtitle?.split(" ").map(word => (
+                  <Fragment key={word}>
+                    {
+                      plan.highlight.includes(word) ? <strong className="text-black font-bold"> {word}</strong> : <> {word}</>
+                    }
+                  </Fragment>
+                ))}</p>}
+              </CardHeader>
+
+              <CardContent className="flex-1 flex flex-col">
+                <Button className="w-full mb-6 bg-amber-400 hover:bg-amber-600 text-white font-medium py-2 px-4 rounded-md">
+                  {plan.buttonText}
+                </Button>
+
+                <div className="space-y-3 flex-1">
+                  {plan.features.map((feature, featureIndex) => (
+                    <div key={featureIndex} className="flex items-start gap-3">
+                      <Check className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm text-gray-700 leading-relaxed">{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}

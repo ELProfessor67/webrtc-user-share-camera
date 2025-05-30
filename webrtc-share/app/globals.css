@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+
+html
+{
+  scroll-behavior: smooth;
+}
+
+:root
+{
+  --popover: #ffffff;
+}
+@theme {
+  --color-purple: #9452FF
+}
+
+
+
+.dialog-content button
+{
+  color: white !important;
+  opacity: 100% !important;
+  border-width: 0;
+  border-color: transparent;
+  outline: none;
+}
