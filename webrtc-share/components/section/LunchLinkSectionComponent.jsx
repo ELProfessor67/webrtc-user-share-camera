@@ -104,7 +104,7 @@ export const LaunchLinkSection = () => {
         </div>
 
         <div className='flex items-center justify-center mt-10'>
-          <img src="/device-icons.png" alt="Videodesk" className="w-30 mb-2" />
+          <img src="/devices.svg" alt="Videodesk" className="w-60 mb-2" />
 
         </div>
       </section>

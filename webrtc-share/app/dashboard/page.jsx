@@ -21,6 +21,51 @@ import { toast } from "sonner"
 import axios from "axios"
 import Link from "next/link"
 import { DialogComponent } from "@/components/dialogs/DialogCompnent"
+import { LockIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon } from "@heroicons/react/20/solid";
+import { Disclosure } from "@headlessui/react";
+
+const faqs = [
+  "What is Videodesk?",
+  "How do I use Videodesk?",
+  "How do I send a video link?",
+  "Can I take videos in the call?",
+  "Can I take screenshots in the call?",
+  "How do I generate page links to saved videos and images?",
+  "What does the actions button do?",
+  "How do I provide feedback to Videodesk?",
+  "Can Videodesk develop other solutions and apps?",
+];
+import {
+  TrashIcon,
+  ArrowDownTrayIcon,
+  ArrowsPointingOutIcon,
+  ClockIcon,
+} from "@heroicons/react/20/solid";
+
+const residents = [
+  {
+    name: "Margaret Smith",
+    address: "1 High Street, London, HT2 9TT",
+    link: "https://www.videodesk.co.uk/video/1",
+    time: "09.28 AM",
+    date: "24/5/2025",
+  },
+  {
+    name: "David Brown",
+    address: "2 High Street, London, HT2 9TT",
+    link: "https://www.videodesk.co.uk/video/2",
+    time: "1.45 PM",
+    date: "23/5/2025",
+  },
+  {
+    name: "Mohammed Hussain",
+    address: "3 High Street, London, HT2 9TT",
+    link: "https://www.videodesk.co.uk/video/3",
+    time: "11.40 AM",
+    date: "22/5/2025",
+  },
+];
 
 export default function Page() {
   const { user, isAuth, setIsAuth, setUser } = useUser();
@@ -36,6 +81,21 @@ export default function Page() {
   const [supportQuery, setSupportQuery] = useState('');
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
+    const [resetOpen, setResetOpen] = useState(false);
+const [resetEmail, setResetEmail] = useState('');
+const [resetLoading, setResetLoading] = useState(false);
+const [messageOpen, setMessageOpen] = useState(true);
+
+  const [landlordName, setLandlordName] = useState("");
+const [useLogoAsProfile, setUseLogoAsProfile] = useState(false);
+const [redirectUrlDefault, setRedirectUrlDefault] = useState("");
+const [redirectUrlTailored, setRedirectUrlTailored] = useState("");
+const [profileShape, setProfileShape] = useState("square"); 
+
+const [landlordDialogOpen, setLandlordDialogOpen] = useState(false);
+const [inviteOpen, setInviteOpen] = useState(false);
+const [feedbackOpen, setFeedbackOpen] = useState(false);
+const [faqOpen, setFaqOpen] = useState(false);
 
   useEffect(() => {
     fetchMeetings();
@@ -90,6 +150,14 @@ export default function Page() {
     setOpen(true);
     setIsLoading(false);
   };
+  const handleSend = () => {
+    // Add your logic here (e.g., API call)
+    if (!phone && !email) {
+      alert('Please enter a mobile number or email address.');
+      return;
+    }
+    console.log('Sending video link to:', phone || email);
+  };
 
   return (
     <>
@@ -121,10 +189,13 @@ export default function Page() {
 
                     <button className='bg-none border-none cursor-pointer' onClick={() => setTickerOpen(true)}>Raise Support Ticket</button>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>Reset Password</DropdownMenuItem>
-                  <DropdownMenuItem>Amend Message</DropdownMenuItem>
-                  <DropdownMenuItem>Add Landlord Name/Logo/Profile Image</DropdownMenuItem>
-                  <DropdownMenuItem>Give Feedback</DropdownMenuItem>
+                  <DropdownMenuItem><button className='bg-none border-none cursor-pointer' onClick={() => setResetOpen(true)}>Reset Password</button></DropdownMenuItem>
+                   <DropdownMenuItem > <button className='bg-none border-none cursor-pointer'onClick={() => setInviteOpen(true)}>Invite Coworkers</button></DropdownMenuItem>
+                  <DropdownMenuItem><button className='bg-none border-none cursor-pointer' onClick={() => setMessageOpen(true)}>Amend Message</button></DropdownMenuItem>
+                  <DropdownMenuItem> <button className='bg-none border-none cursor-pointer' onClick={() => setLandlordDialogOpen(true)}>Add Landlord Name / Logo / Profile Image </button></DropdownMenuItem>
+               
+                    <DropdownMenuItem > <button className='bg-none border-none cursor-pointer'onClick={() => setFaqOpen(true)}>FAQ's</button></DropdownMenuItem>
+                    <DropdownMenuItem > <button className='bg-none border-none cursor-pointer'onClick={() => setFeedbackOpen(true)}>feed back</button></DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -170,58 +241,51 @@ export default function Page() {
           </Button>
 
 
-          <div className="bg-white p-4 mb-8">
-            <table className="min-w-full text-left">
-              <thead>
-                <tr>
-                  <th className="px-4 py-2 font-bold text-gray-800">Resident name and address</th>
-                  <th className="px-4 py-2 font-bold text-gray-800">Video Link</th>
-                  <th className="px-4 py-2 font-bold text-gray-800">Time and Date</th>
-                  <th className="px-4 py-2 font-bold text-gray-800">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="4" className="px-4 py-2 text-center">Loading...</td>
-                  </tr>
-                ) : meetings.length === 0 ? (
-                  <tr>
-                    <td colSpan="4" className="px-4 py-2 text-center">No meetings found</td>
-                  </tr>
-                ) : (
-                  meetings.map((meeting, index) => (
-                    <tr className="border-none" key={meeting._id}>
-                      <td className="px-4 py-2">{index + 1}. {meeting.name}, {meeting.address}</td>
-                      <td className="px-4 py-2">
-                        <Link href={`/room/admin/${meeting.meeting_id}`} className="text-blue-600 underline cursor-pointer">
-                          www.videodesk.co.uk/room/{meeting.meeting_id}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-2">{new Date(meeting.createdAt).toLocaleString()}</td>
-                      <td className="px-4 py-2 flex gap-2">
-                        <button 
-                          onClick={() => handleDeleteMeeting(meeting._id)}
-                          className="text-red-500 cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                        <button className="text-black cursor-pointer">
-                          <ArchiveRestore className="w-4 h-4" />
-                        </button>
-                        <Link href={`/room/admin/${meeting.meeting_id}`} className="text-black cursor-pointer">
-                          <ExternalLink className="w-4 h-4" />
-                        </Link>
-                        <button className="text-black cursor-pointer">
-                          <FileSearch className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+           <div className="bg-white p-5 rounded-xl shadow-md overflow-x-auto">
+      <table className="min-w-full text-left text-sm">
+        <thead>
+          <tr>
+            <th className="px-4 py-2 font-semibold text-black">Resident name and address</th>
+            <th className="px-4 py-2 font-semibold text-black">Video Link</th>
+            <th className="px-4 py-2 font-semibold text-black">Time and Date</th>
+            <th className="px-4 py-2 font-semibold text-black text-right">Discard/Archive/Export/History</th>
+          </tr>
+        </thead>
+        <tbody>
+          {residents.map((res, index) => (
+            <tr key={index} className="hover:bg-gray-50 border-b">
+              <td className="px-4 py-3">{index + 1}. {res.name}, {res.address}</td>
+              <td className="px-4 py-3">
+                <Link
+                  href={res.link}
+                  className="text-blue-600 underline"
+                  target="_blank"
+                >
+                  www.Videodesk.co.uk/...
+                </Link>
+              </td>
+              <td className="px-4 py-3">{res.time} {res.date}</td>
+              <td className="px-4 py-3">
+                <div className="flex justify-end gap-3">
+                  <button title="Delete">
+                    <TrashIcon className="w-5 h-5 text-red-500 hover:text-red-700" />
+                  </button>
+                  <button title="Download">
+                    <ArrowDownTrayIcon className="w-5 h-5 text-black hover:text-gray-700" />
+                  </button>
+                  <button title="Expand View">
+                    <ArrowsPointingOutIcon className="w-5 h-5 text-black hover:text-gray-700" />
+                  </button>
+                  <button title="History">
+                    <ClockIcon className="w-5 h-5 text-black hover:text-gray-700" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
 
 
 
@@ -286,7 +350,34 @@ export default function Page() {
           }
         </div>
       </div>
-
+      <div className="bg-white p-4 rounded-xl shadow-md w-full max-w-2xl mx-auto">
+  <label className="block mb-3 text-[16px] font-medium text-gray-800">
+    Customer details :
+  </label>
+  <div className="flex items-center justify-center gap-3">
+    <input
+      type="text"
+      placeholder="Enter customer mobile number"
+      className="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-[15px]"
+      value={phone}
+      onChange={(e) => setPhone(e.target.value)}
+    />
+    <span className="text-gray-500 font-medium">or</span>
+    <input
+      type="email"
+      placeholder="Enter customer email address"
+      className="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-[15px]"
+      value={email}
+      onChange={(e) => setEmail(e.target.value)}
+    />
+    <button
+      onClick={handleSend}
+      className="bg-green-500 text-white px-3 py-2 rounded-md text-sm font-semibold hover:bg-green-600 leading-tight text-center"
+    >
+      Send <br /> video link
+    </button>
+  </div>
+</div>
 
 
       <DialogComponent open={open} setOpen={setOpen}>
@@ -317,32 +408,370 @@ export default function Page() {
           </Link>
 
           <div className='flex items-start mt-4 justify-center'>
-            <p className='text-center'><strong className='text-red-400 whitespace-pre'>TIP - </strong> Ask the user to check their spam folder for the email link, if they can't see it!</p>
+            <p className='text-center'><strong className='text-red-400 whitespace-pre'>TIP - </strong> Ask the user to check their spam folder for the email link, if they can't see it!</p>
           </div>
         </div>
       </DialogComponent>
 
+<DialogComponent open={resetOpen} setOpen={setResetOpen} isCloseable={true}>
+  <div className="w-[340px] rounded-2xl bg-white shadow-md p-5">
+    {/* Header */}
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+        <LockIcon className="w-5 h-5 text-gray-700" />
+        <h2 className="text-base font-semibold">Reset Password</h2>
+      </div>
+      <button
+        onClick={() => setResetOpen(false)}
+        aria-label="Close"
+        className="text-gray-500 hover:text-gray-800"
+      >
+        <XIcon className="w-4 h-4" />
+      </button>
+    </div>
 
-      <DialogComponent open={ticketOpen} setOpen={setTickerOpen} isCloseable={true}>
-        <div className="flex items-center gap-3">
-          <MailIcon />
-          <h2 className="text-lg text-black font-bold">Raise Support Ticket</h2>
+    {/* Fields */}
+    <div className="space-y-3">
+      <input
+        type="password"
+        placeholder="Enter current password"
+        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+      />
+      <input
+        type="password"
+        placeholder="Enter new password"
+        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+      />
+      <p className="text-xs text-red-500 -mt-1">
+        Minimum 8 characters including 1 capital, 1 lower case and 1 special character
+      </p>
+      <input
+        type="password"
+        placeholder="Retype new password"
+        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+      />
+      <input
+        type="text"
+        placeholder="Type secret account recovery word"
+        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+      />
+    </div>
+
+    {/* Save Button */}
+    <button className="mt-4 w-full bg-green-500 text-white py-2 rounded-full text-sm font-medium">
+      Save new password
+    </button>
+
+    {/* Forgot Link */}
+    <div className="text-center mt-3">
+      <button className="text-sm text-blue-600 hover:underline">
+        Forgot Password?
+      </button>
+    </div>
+  </div>
+</DialogComponent>
+<DialogComponent open={messageOpen} setOpen={setMessageOpen} isCloseable={true}>
+  <div className="w-[500px] bg-white rounded-2xl p-6 shadow-md">
+    {/* Header */}
+    <div className="flex items-center justify-between mb-5">
+      <h2 className="text-lg font-semibold text-black">Amend Message:</h2>
+      <button
+        onClick={() => setMessageOpen(false)}
+        className="text-black hover:text-gray-600 transition"
+        aria-label="Close dialog"
+      >
+        <XIcon className="w-5 h-5" />
+      </button>
+    </div>
+
+    {/* Default Message */}
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-1">
+        <label className="font-medium text-sm text-black">Default message:</label>
+        <select className="bg-black text-white text-xs px-2 py-1 rounded-md">
+          <option>Text size: 12</option>
+          {/* Add more options as needed */}
+        </select>
+      </div>
+      <div className="flex items-start gap-2">
+        <input type="checkbox" defaultChecked className="mt-1" />
+        <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white">
+          <p>Please click on the link below to connect with your landlord</p>
+          <a
+            href="https://www.videodesk.co.uk/xyz91dasd"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline"
+          >
+            www.Videodesk.co.uk/xyz91dasd
+          </a>
         </div>
+      </div>
+    </div>
 
-        <div className="flex items-start flex-col gap-2">
-          <textarea
-            placeholder="Enter Support query"
-            className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none h-[10rem]`}
-          />
-        </div>
+    {/* Tailored Message */}
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-1">
+        <label className="font-medium text-sm text-black">Or type tailored message:</label>
+        <select className="bg-black text-white text-xs px-2 py-1 rounded-md">
+          <option>Text size: 12</option>
+          {/* Add more options as needed */}
+        </select>
+      </div>
+      <div className="flex gap-2">
+        <input type="checkbox" className="mt-1" />
+        <textarea
+          placeholder="Type here"
+          rows={3}
+          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+    </div>
 
-        <button
-          type="submit"
-          className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition-colors w-full"
-        >
-          Send
-        </button>
-      </DialogComponent>
+    {/* Save Button */}
+    <button
+      onClick={() => {}}
+      className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-full text-sm transition"
+    >
+      Save
+    </button>
+  </div>
+</DialogComponent>
+<DialogComponent open={landlordDialogOpen} setOpen={setLandlordDialogOpen} isCloseable>
+  <div className="w-[320px] mx-auto bg-white rounded-2xl p-4 space-y-3 shadow-lg">
+    <h2 className="text-base font-semibold text-center">Add Landlord Info</h2>
+
+    {/* Landlord Name */}
+    <div>
+      <label className="text-xs font-medium block mb-1">Landlord Name:</label>
+      <input
+        type="text"
+        placeholder="Type here"
+        className="w-full px-3 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
+      />
+    </div>
+
+    {/* Upload Landlord Logo */}
+    <div className="space-y-1">
+      <label className="flex items-center gap-1 text-xs">
+        <input type="checkbox" />
+        Upload Landlord logo
+      </label>
+      <div className="border border-dashed border-gray-400 p-3 rounded-lg text-center bg-gray-50">
+        <span className="text-xl text-gray-500">⬆️</span>
+      </div>
+      <button className="text-red-500 text-xs flex items-center gap-1">🗑 Remove</button>
+    </div>
+
+    {/* Use logo for profile photo */}
+    <label className="flex items-center gap-1 text-xs">
+      <input type="checkbox" />
+      Use logo as profile photo
+    </label>
+
+    {/* Upload Officer Image */}
+    <div>
+      <label className="flex items-center gap-1 text-xs mb-1">
+        <input type="checkbox" />
+        Officer image for profile:
+      </label>
+      <img
+        src="/your-image.jpg"
+        alt="Profile Preview"
+        className="w-14 h-14 object-cover rounded-lg border mx-auto"
+      />
+    </div>
+
+    {/* Profile Shape */}
+    <div>
+      <label className="text-xs font-medium block mb-1">Profile Shape:</label>
+      <div className="flex justify-center gap-3 text-xs">
+        <label className="flex items-center gap-1">
+          <input type="radio" name="shape" value="square" />
+          Square
+        </label>
+        <label className="flex items-center gap-1">
+          <input type="radio" name="shape" value="circle" />
+          Circle
+        </label>
+      </div>
+    </div>
+
+    {/* Redirect URLs */}
+    <div>
+      <label className="text-xs font-medium block mb-1">
+        On call end, redirect to:
+      </label>
+      <input
+        type="text"
+        placeholder="e.g. www.videodesk.co.uk"
+        className="w-full px-3 py-1 text-xs border border-gray-300 rounded-md mb-1"
+      />
+      <input
+        type="text"
+        placeholder="Tailored e.g. www..."
+        className="w-full px-3 py-1 text-xs border border-gray-300 rounded-md"
+      />
+    </div>
+
+    {/* Save Button */}
+    <button className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-1.5 rounded-full text-xs transition">
+      Save
+    </button>
+  </div>
+</DialogComponent>
+<DialogComponent open={ticketOpen} setOpen={setTickerOpen} isCloseable={true}>
+  <div className="w-[400px] rounded-2xl bg-white shadow-md p-5 space-y-5 relative">
+    {/* Close Button */}
+    <button
+      onClick={() => setTickerOpen(false)}
+      aria-label="Close"
+      className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
+    >
+      <XIcon className="w-4 h-4" />
+    </button>
+
+    {/* Header */}
+    <div className="flex items-center gap-2">
+      <MailIcon className="w-5 h-5 text-gray-700" />
+      <h2 className="text-lg font-bold text-black">Raise Support Ticket</h2>
+    </div>
+
+    {/* Textarea */}
+    <div>
+      <textarea
+        placeholder="Enter support query"
+        className="w-full h-40 px-4 py-2 text-sm border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    {/* Submit Button */}
+    <button
+      type="submit"
+      className="w-full bg-green-500 hover:bg-green-600 text-white font-medium py-2 rounded-full text-sm transition"
+    >
+      Send
+    </button>
+  </div>
+</DialogComponent>
+<DialogComponent open={inviteOpen} setOpen={setInviteOpen} isCloseable={true}>
+  <div className="w-[360px] bg-white rounded-2xl shadow-md p-5 relative space-y-4">
+    {/* Close Button */}
+    <button
+      onClick={() => setInviteOpen(false)}
+      aria-label="Close"
+      className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
+    >
+      <XIcon className="w-4 h-4" />
+    </button>
+
+    {/* Header */}
+    <div className="flex items-center gap-2">
+      
+      <h2 className="text-base font-semibold text-black">Invite Co-Worker(s)</h2>
+    </div>
+
+    {/* Input Fields */}
+    <div className="space-y-3">
+      <input
+        type="email"
+        placeholder="1. Enter email address for Co-worker"
+        className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg"
+      />
+      <input
+        type="email"
+        placeholder="2. Enter email address for Co-worker"
+        className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg"
+      />
+      <input
+        type="email"
+        placeholder="3. Enter email address for Co-worker"
+        className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg"
+      />
+      <textarea
+        rows={3}
+        defaultValue={`Hey, I'm using Videodesk , check it out here www.videodesk.co.uk`}
+        className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg resize-none"
+      />
+    </div>
+
+    {/* Invite Button */}
+    <button
+      className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 rounded-full text-sm transition"
+    >
+      Invite
+    </button>
+  </div>
+</DialogComponent>
+<DialogComponent open={feedbackOpen} setOpen={setFeedbackOpen} isCloseable={true}>
+  <div className="w-[340px] rounded-2xl bg-white shadow-md p-5">
+    {/* Header */}
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+
+        <h2 className="text-base font-semibold">Give Feedback/Make Suggestions</h2>
+      </div>
+      <button
+        onClick={() => setFeedbackOpen(false)}
+        aria-label="Close"
+        className="text-gray-500 hover:text-gray-800"
+      >
+        <XIcon className="w-4 h-4" />
+      </button>
+    </div>
+
+    {/* Feedback Field */}
+    <textarea
+      placeholder="Enter feedback/make suggestion..."
+      className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg h-28 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+    />
+
+    {/* Send Button */}
+    <button
+      className="mt-4 w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-full text-sm font-medium"
+    >
+      Send
+    </button>
+  </div>
+</DialogComponent>
+
+<DialogComponent open={faqOpen} setOpen={setFaqOpen} isCloseable={true}>
+  <div className="w-[360px] rounded-2xl bg-white shadow-md p-5 max-h-[90vh] overflow-y-auto">
+    
+    {/* Header */}
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+        <img src="/faq-icon.svg" alt="FAQ" className="w-5 h-5" /> {/* Replace with your icon or HeroIcon */}
+        <h2 className="text-base font-semibold">FAQs</h2>
+      </div>
+      <button onClick={() => setFaqOpen(false)} aria-label="Close">
+        <XIcon className="w-5 h-5 text-gray-500 hover:text-gray-800" />
+      </button>
+    </div>
+
+    {/* FAQ Accordion List */}
+    <div className="space-y-2">
+      {faqs.map((question, index) => (
+        <Disclosure key={index}>
+          {({ open }) => (
+            <div className="rounded-md bg-yellow-500">
+              <Disclosure.Button className="flex justify-between items-center w-full px-4 py-2 text-left text-black font-medium focus:outline-none">
+                <span>{question}</span>
+                <ChevronDownIcon
+                  className={`w-5 h-5 transition-transform ${open ? "rotate-180" : ""}`}
+                />
+              </Disclosure.Button>
+              <Disclosure.Panel className="px-4 pb-2 text-sm text-black bg-yellow-100">
+                This is the answer for: <strong>{question}</strong>. You can customize this.
+              </Disclosure.Panel>
+            </div>
+          )}
+        </Disclosure>
+      ))}
+    </div>
+  </div>
+   </DialogComponent>
+
     </>
   )
 }

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 
 export const HeroSection = () => {
   const [activeSlide, setActiveSlide] = useState(0);
-  
+
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -24,18 +24,21 @@ export const HeroSection = () => {
             backgroundSize: "cover"
           }}
         />
-        <div className="container mx-auto px-4 py-24 md:py-32 relative z-10">
+        <div className="mx-auto relative z-10 h-[31rem] px-10 flex flex-col justify-center">
           <div className="max-w-2xl">
-            <h1 className="text-4xl md:text-5xl font-bold mb-6">Videodesk.co.uk</h1>
-            <p className="text-xl md:text-2xl mb-10">
-              Connect with an instant video link and see what your customers see
-            </p>
-            <div className='flex gap-2 items-center'>
+            <div className='mb-10 ml-14 translate-y-[50px]'>
+              <h1 className="text-4xl md:text-5xl font-bold mb-6">Videodesk.co.uk</h1>
+              <p className="text-lg font-normal">
+                Connect Customer service calls with an <br /> instant video link and see what your <br /> customers see
+              </p>
+            </div>
+
+            <div className='flex gap-2 items-center translate-y-[100px]'>
               <a
                 href="#how-it-works"
                 className="inline-block bg-amber-500 hover:bg-amber-600 text-white font-medium py-3 px-8 rounded-full text-lg transition-all transform hover:scale-105"
               >
-                See how it works
+                How it works
               </a>
               <a
                 href="#signup"
@@ -44,22 +47,23 @@ export const HeroSection = () => {
                 Sign up in 3 easy steps!
               </a>
             </div>
-
-            <div className="flex space-x-2 mt-12">
-              {[0, 1, 2].map((index) => (
-                <button
-                  key={index}
-                  onClick={() => setActiveSlide(index)}
-                  className={`w-3 h-3 rounded-full transition-colors ${activeSlide === index ? 'bg-amber-500' : 'bg-white bg-opacity-50'
-                    }`}
-                />
-              ))}
-            </div>
           </div>
+
+          <div className="flex space-x-2 mt-12 absolute bottom-10 left-[50%] -translate-x-[50%]">
+            {[0, 1, 2].map((index) => (
+              <button
+                key={index}
+                onClick={() => setActiveSlide(index)}
+                className={`w-3 h-3 rounded-full transition-colors ${activeSlide === index ? 'bg-amber-500' : 'bg-white bg-opacity-50'
+                  }`}
+              />
+            ))}
+          </div>
+
         </div>
       </section>
 
-     
+
     </>
   );
 };

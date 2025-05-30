@@ -157,14 +157,14 @@ export const Header = () => {
             <img src="/device-icons.png" alt="Videodesk" className="mt-2 w-20" />
           </div>
 
-          <nav className="hidden md:flex items-center space-x-6">
-            <a href="#about" className="text-gray-700 hover:text-gray-900 transition-colors">
+          <nav className="hidden md:flex items-center space-x-5">
+            <a href="#about" className="text-gray-700 hover:text-gray-900 transition-colors border-r-2 border-purple pr-5">
               About
             </a>
-            <a href="#how-it-works" className="text-gray-700 hover:text-gray-900 transition-colors">
+            <a href="#how-it-works" className="text-gray-700 hover:text-gray-900 transition-colors border-r-2 border-purple pr-5">
               How it works
             </a>
-            <a href="#launch-link" className="text-gray-700 hover:text-gray-900 transition-colors">
+            <a href="#launch-link" className="text-gray-700 hover:text-gray-900 transition-colors border-r-2 border-purple pr-5">
               Launch new video link
             </a>
             <a href="#pricing" className="text-gray-700 hover:text-gray-900 transition-colors">

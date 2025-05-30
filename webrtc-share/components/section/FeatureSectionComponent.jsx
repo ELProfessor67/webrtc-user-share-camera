@@ -9,8 +9,20 @@ const FeatureCard = ({ icon, title, description }) => {
       <div className="w-16 h-16 rounded-full bg-purple flex items-center justify-center mb-4">
         {icon}
       </div>
-      <h3 className="font-bold mb-2 text-lg">{title}</h3>
-      <p className="text-gray-600">{description}</p>
+      <h3 className="font-bold mb-2 text-lg whitespace-pre">{title.split("").map(cha => (
+        <>
+          {
+            cha == "|" ? <br /> : `${cha}`
+          }
+        </>
+      ))}</h3>
+      <p className="text-gray-600 whitespace-pre">{description.split("").map(cha => (
+        <>
+          {
+            cha == "|" ? <br /> : `${cha}`
+          }
+        </>
+      ))}</p>
     </div>
   );
 };
@@ -19,51 +31,54 @@ export const FeaturesSection = () => {
   const features = [
     {
       icon: <img src="/icons/video-icons.png" />,
-      title: "Make conversations faster and easier",
-      description: "See what your customers see"
+      title: "Make conversations | faster and easier",
+      description: "See what your | customers see"
     },
     {
       icon: <img src="/icons/majesticons_search.png" />,
-      title: "Diagnose faults 3x faster",
-      description: "Get visual confirmation of issues"
-    },
-    {
-      icon: <img src="/icons/tdesign_device-filled.png" />,
-      title: "Reduce service calls and improve first-time resolution",
-      description: "Save time and money with accurate diagnostics"
+      title: "Diagnose faults | 3x faster",
+      description: "Get visual | confirmation of issues"
     },
     {
       icon: <img src="/icons/tabler_clock-filled.png" />,
-      title: "Guide your customers with live video",
-      description: "Communicate with clarity and precision"
+      title: "Reduce service calls and | improve first-time resolution",
+      description: "Save time and money with | accurate diagnostics"
     },
     {
       icon: <img src="/icons/fa-solid_user-friends.png" />,
-      title: "Record videos and images your way",
-      description: "Record whats on your screen instantly"
+      title: "Guide your customers | with live video",
+      description: "Communicate with | clarity and precision"
     },
     {
       icon: <img src="/icons/fluent_record-12-regular.png" />,
-      title: "Capture and share crucial information visually",
-      description: "Collaborate and solve problem faster"
-    },
-    {
-      icon: <img src="/icons/lang-icon.png" />,
-      title: "Support vulnerable customers ",
-      description: "Visual communication bridges language barriers"
+      title: "Record videos and | images your way",
+      description: "Record whats on your | screen instantly"
     },
     {
       icon: <img src="/icons/diagnose-icon.png" />,
-      title: "Goodbye long messages",
-      description: "Say hello to videos and screenshots"
+      title: "Capture and share crucial | information visually",
+      description: "Collaborate and solve | problem faster"
+    },
+    {
+      icon: <img src="/icons/lang-icon.png" />,
+      title: "Support vulnerable | customers ",
+      description: "Visual communication | bridges language barriers"
+    },
+    {
+      icon: <img src="/icons/video-icons.png" />,
+      title: "Goodbye long | messages",
+      description: "Say hello to videos | and screenshots"
     }
   ];
 
   return (
-    <section className="py-16 bg-white">
+    <section className="py-16 bg-white relative overflow-hidden">
+      <div className='w-[12rem] h-[12rem] bg-purple text-white flex items-end justify-center p-2 rotate-[-40deg] absolute -top-[7rem] -left-[6rem] -z-0'>
+        <h1 className='text-xl'>Benefits</h1>
+      </div>
       <div className="container mx-auto px-4">
         <h2 className="text-3xl font-bold mb-12 text-center">
-        Connect , engage and support your customers with an instant video link
+          Connect , engage and support your customers <br /> with an instant video link
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {features.map((feature, index) => (
@@ -76,8 +91,8 @@ export const FeaturesSection = () => {
           ))}
         </div>
         <div className="flex justify-center items-center flex-col mt-8">
-        <img src="/devices.svg" alt="Videodesk" className="w-60 mb-2" />
-        <h2 className="text-3xl font-bold mb-12 text-center text-black">Connect. Engage. Support.</h2>
+          <img src="/devices.svg" alt="Videodesk" className="w-60 mb-2" />
+          <h2 className="text-3xl font-bold mb-12 text-center text-black">Connect. Engage. Support.</h2>
         </div>
       </div>
     </section>
