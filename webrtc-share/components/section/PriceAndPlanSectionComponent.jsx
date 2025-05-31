@@ -126,6 +126,7 @@ export default function PriceAndPlan() {
       style={{
         background: "linear-gradient(135deg, #8B5CF6 0%, #A855F7 50%, #C084FC 100%)",
       }}
+      id="pricing"
     >
       <div className="container mx-auto max-w-7xl">
         <div className="text-center mb-12">
@@ -297,12 +298,12 @@ export default function PriceAndPlan() {
                     {plan.name == "Free" && <TypeAnimation
                       sequence={[
                         'Free',
-                        1000,
+                        6000,
                         '',
                         500
                       ]}
                       wrapper="span"
-                      speed={30}
+                      speed={400}
                       style={{ fontSize: '35px', display: 'inline-block' }}
                       repeat={Infinity}
                     />}

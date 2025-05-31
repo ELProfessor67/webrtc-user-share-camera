@@ -136,11 +136,25 @@ export function Footer() {
                     <div className="flex items-center gap-2">
                       {/* <input type="time" className={`w-[200px] px-4 py-2 border border-gray-300 rounded-md focus:outline-none`} /> */}
                       <select
-                        className="w-[200px] px-4 py-2 border border-gray-300 rounded-md focus:outline-none"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none"
                       >
                         {Array.from({ length: 12 }, (_, i) => {
                           const hour = i + 8; // 8 to 19
-                          const display = hour.toString().padStart(2, '0') + ":00";
+                          const display = hour.toString().padStart(2, '0');
+                          return (
+                            <option key={hour} value={display}>
+                              {display}
+                            </option>
+                          );
+                        })}
+                      </select>
+
+                      <select
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none"
+                      >
+                        {Array.from({ length: 60 }, (_, i) => {
+                          const hour = i; // 8 to 19
+                          const display = hour.toString().padStart(2, '0');
                           return (
                             <option key={hour} value={display}>
                               {display}
@@ -194,7 +208,7 @@ export function Footer() {
             <div className="flex items-start flex-col gap-2">
               <label className="text-black font-semibold">Pick a date & time</label>
 
-              <div className="grid grid-cols-2 gap-2 w-full">
+              <div className="grid grid-cols-3 gap-2 w-full">
                 <input
                   type="date"
                   className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none`}
@@ -204,7 +218,7 @@ export function Footer() {
                 >
                   {Array.from({ length: 12 }, (_, i) => {
                     const hour = i + 8; // 8 to 19
-                    const display = hour.toString().padStart(2, '0') + ":00";
+                    const display = hour.toString().padStart(2, '0');
                     return (
                       <option key={hour} value={display}>
                         {display}
@@ -213,6 +227,20 @@ export function Footer() {
                   })}
                 </select>
 
+
+                <select
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none"
+                >
+                  {Array.from({ length: 60 }, (_, i) => {
+                    const hour = i; // 8 to 19
+                    const display = hour.toString().padStart(2, '0');
+                    return (
+                      <option key={hour} value={display}>
+                        {display}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
 
             </div>

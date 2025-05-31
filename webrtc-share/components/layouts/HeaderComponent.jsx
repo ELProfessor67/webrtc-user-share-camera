@@ -28,7 +28,17 @@ import {
 import { Button } from '../ui/button';
 import Link from 'next/link';
 import { evaluatePasswordStrength } from '@/lib/utils';
+import useIntersectionObserver from '@/hooks/useInserctionObserver';
+import CustomDialog from '../dialogs/CustomDialog';
 
+
+
+const NavLink = ({ targetId, label, rootMargin = "0px" }) => {
+  const { isIntersecting } = useIntersectionObserver(targetId, { rootMargin: rootMargin });
+  return <a href={`#${targetId}`} className={`text-gray-700 hover:bg-amber-500 hover:!text-black hover:pl-6 transition-colors border-r-2 border-purple pr-5 ${isIntersecting ? "bg-amber-500 !text-black pl-6" : "bg-transparent"}`}>
+    {label}
+  </a>
+}
 
 export const Header = () => {
   const [signUpOpen, setSignUpOpen] = useState(false);
@@ -158,21 +168,11 @@ export const Header = () => {
           </div>
 
           <nav className="hidden md:flex items-center space-x-5">
-            <a href="#about" className="text-gray-700 hover:text-gray-900 transition-colors border-r-2 border-purple pr-5">
-              About
-            </a>
-            <a href="#benefit" className="text-gray-700 hover:text-gray-900 transition-colors border-r-2 border-purple pr-5">
-              Benefits
-            </a>
-            <a href="#how-it-works" className="text-gray-700 hover:text-gray-900 transition-colors border-r-2 border-purple pr-5">
-              How it works
-            </a>
-            <a href="#launch-link" className="text-gray-700 hover:text-gray-900 transition-colors border-r-2 border-purple pr-5">
-              Launch new video link
-            </a>
-            <a href="#pricing" className="text-gray-700 hover:text-gray-900 transition-colors">
-              Pricing and Plans
-            </a>
+            <NavLink label={"About"} targetId={"about"} rootMargin={"-10% 0px -90% 0px"} />
+            <NavLink label={"Benefits"} targetId={"benefit"} rootMargin={"-20% 0px -80% 0px"} />
+            <NavLink label={"How it works"} targetId={"how-it-works"} rootMargin={"-20% 0px -80% 0px"} />
+            <NavLink label={"Launch new video link"} targetId={"launch-link"} rootMargin={"-20% 0px -80% 0px"} />
+            <NavLink label={"Pricing and Plans"} targetId={"pricing"} rootMargin={"-20% 0px -80% 0px"} />
 
             {
               isAuth == false && <>
@@ -233,11 +233,9 @@ export const Header = () => {
       </header>
 
 
-      <DialogComponent open={signUpOpen} setOpen={setSignUpOpen} isCloseable={true}>
+      <CustomDialog open={signUpOpen} setOpen={setSignUpOpen} isCloseable={true} heading={"Sign up today for free, in 3 easy steps"}>
         <div className=" p-4 flex flex-col items-center">
-          <h2 className="text-[1.8rem] font-bold mt-1 text-center">
-            Sign up today for free, in 3 easy steps
-          </h2>
+
           <form className='w-full relative py-4 space-y-5 mt-8' onSubmit={handleRegister}>
             <input
               type="email"
@@ -298,11 +296,14 @@ export const Header = () => {
               <label className='font-medium text-black'>Select an option</label>
               <Select value={role} onValueChange={value => setRole(value)} defaultValue={'landlord'}>
                 <SelectTrigger className="w-full bg-amber-500 text-white flex items-center justify-center text-xl font-semibold">
-                  <SelectValue placeholder="I’m a Social Landlord" />
+                  <SelectValue placeholder="I'm a Social Landlord" />
                 </SelectTrigger>
                 <SelectContent className={'border-none bg-white'}>
-                  <SelectItem value="landlord" className={`cursor-pointer text-sm font-medium ${role == "landlord" ? "bg-amber-400" : ""}`}>I’m a Social Landlord</SelectItem>
-                  <SelectItem value="resident" className={`cursor-pointer text-sm font-medium ${role == "resident" ? "bg-amber-400" : ""}`}>I’m a Resident</SelectItem>
+                  <SelectItem value="landlordd" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Automotive</SelectItem>
+                  <SelectItem value="residenta" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Charity</SelectItem>
+                  <SelectItem value="residentb" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Hotel/Resort/Accomodation Provider</SelectItem>
+                  <SelectItem value="residenc" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>NHS/Health Provider</SelectItem>
+                  <SelectItem value="landlord" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Social Landlord</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -321,17 +322,15 @@ export const Header = () => {
             </div>
             <div className='flex items-center gap-2 justify-center'>
               <p className='text-md'>Already got an account?</p>
-              <button className='border-none bg-none text-blue-500 text-md cursor-pointer' type='button' onClick={() => { setSignInOpen(true); setSignUpOpen(false) }}>Sign in</button>
+              <button className='border-none bg-none !text-blue-500 text-md cursor-pointer' type='button' onClick={() => { setSignInOpen(true); setSignUpOpen(false) }}>Sign in</button>
             </div>
           </form>
         </div>
-      </DialogComponent>
+      </CustomDialog>
 
-      <DialogComponent open={signInOpen} setOpen={setSignInOpen} isCloseable={true}>
+      <CustomDialog open={signInOpen} setOpen={setSignInOpen} isCloseable={true} heading={"Log in"}>
         <div className=" p-4 flex flex-col items-center">
-          <h2 className="text-[1.8rem] font-bold mt-1 text-center">
-            Log In
-          </h2>
+
           <form className='w-full relative py-4 space-y-5 mt-8' onSubmit={handleLogin}>
             <input
               type="email"
@@ -365,25 +364,23 @@ export const Header = () => {
 
             <div className='flex items-center gap-2 justify-center mb-1'>
               <p className='text-md'>Not got an account?</p>
-              <button className='border-none bg-none text-blue-500 text-md cursor-pointer' type='button' onClick={() => { setSignInOpen(false); setSignUpOpen(true) }}>Sign Up</button>
+              <button className='border-none bg-none !text-blue-500 text-md cursor-pointer' type='button' onClick={() => { setSignInOpen(false); setSignUpOpen(true) }}>Sign Up</button>
               <p className='text-md'>here</p>
             </div>
 
             <div className='flex items-center gap-2 w-full justify-center'>
-              <button className='border-none bg-none text-blue-500 text-md cursor-pointer' onClick={() => { setSignInOpen(false); setIsForgotOpen(true) }}>Forgot Password?</button>
+              <button className='border-none bg-none !text-blue-500 text-md cursor-pointer' onClick={() => { setSignInOpen(false); setIsForgotOpen(true) }}>Forgot Password?</button>
             </div>
           </form>
         </div>
-      </DialogComponent>
+      </CustomDialog>
 
 
-      <DialogComponent open={isOtpOpen} setOpen={setIsOtpOpen} isCloseable={true}>
+      <CustomDialog open={isOtpOpen} setOpen={setIsOtpOpen} isCloseable={true} heading={"Verify OTP"}>
         <div className=" p-4 flex flex-col items-center">
-          <h2 className="text-[1.8rem] font-bold mt-1 text-center">
-            Verify OTP
-          </h2>
+
           <form className='w-full relative py-4 space-y-5 mt-5' onSubmit={handleVerify}>
-            <p className='text-lg font-normal my-1 text-center mb-6'>OTP has been sent successfully to your email <span className='text-blue-400'>{email}</span></p>
+            <p className='text-lg font-normal my-1 text-center mb-6'>OTP has been sent successfully to your email <span className='!text-blue-400'>{email}</span></p>
             <div className='flex items-center justify-center'>
               <OtpInput
                 value={otp}
@@ -407,14 +404,11 @@ export const Header = () => {
             </div>
           </form>
         </div>
-      </DialogComponent>
+      </CustomDialog>
 
 
-      <DialogComponent open={isForgotOpen} setOpen={setIsForgotOpen} isCloseable={true}>
+      <CustomDialog open={isForgotOpen} setOpen={setIsForgotOpen} isCloseable={true} heading={"Forgot Password"}>
         <div className=" p-4 flex flex-col items-center">
-          <h2 className="text-[1.8rem] font-bold mt-1 text-center">
-            Forgot Password
-          </h2>
 
           <form className='w-full relative py-4 space-y-5 mt-5'>
             <p className='text-lg font-normal my-1 text-center mb-6'>Enter email address you used to
@@ -443,7 +437,7 @@ export const Header = () => {
             </div> */}
           </form>
         </div>
-      </DialogComponent>
+      </CustomDialog>
     </>
   );
 };

@@ -52,10 +52,8 @@ export const LaunchLinkSection = () => {
             </div>
           </div>
 
-          <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md border border-gray-100 p-8 relative overflow-hidden">
-
-
-            <h3 className="text-xl font-semibold mb-6">Enter your customer's mobile number or email address below to send an instant video link:</h3>
+          <div className=" mx-auto bg-white rounded-xl shadow-md border border-gray-100 p-8 relative overflow-hidden">
+            <h3 className="text-xl font-semibold mb-6 text-center">Enter your customer's mobile number or email address below to send an instant video link</h3>
 
             <form onSubmit={handleSubmit} className="flex flex-col md:flex-row items-center gap-4">
               <div className="flex-1 w-full">
@@ -137,7 +135,7 @@ export const LaunchLinkSection = () => {
           </Link>
           
           <div className='flex items-start mt-4 justify-center'>  
-              <p className='text-center'><strong className='text-red-400 whitespace-pre'>TIP - </strong> Ask the user to check their spam folder for the email link, if they can’t see it!</p>
+              <p className='text-center'><strong className='text-red-400 whitespace-pre'>Tip - </strong> Ask the user to check their spam folder for the email link, if they can’t see it!</p>
           </div>
         </div>
       </DialogComponent>

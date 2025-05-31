@@ -14,6 +14,10 @@ html
   --color-purple: #9452FF
 }
 
+.shape
+{
+  clip-path: polygon(79% 0, 100% 100%, 100% 100%, 0 100%, 0 14%);
+}
 
 
 .dialog-content button

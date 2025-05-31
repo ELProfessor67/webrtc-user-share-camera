@@ -35,15 +35,15 @@ const page = ({params}) => {
       </div>
 
       <DialogComponent open={open} setOpen={setOpen}>
-        <div className="h-[33rem] p-1 flex flex-col items-center justify-center gap-5">
+        <div className="h-[33rem] w-[350px] p-3 flex flex-col items-center justify-center gap-5">
           <Image src="/paper-plane.svg" alt="video-link-dialog-bg" className='object-contain' width={200} height={200} />
           <h2 className="text-xl font-bold mt-10 text-center">
           Landlord name/logo here
           </h2>
 
-          <Button className='bg-green-600 text-white font-medium py-0 cursor-pointer h-12 rounded-3xl mt-10 text-lg block w-full' onClick={handleStrt}>
-          Tap to allow video session now
-          </Button>
+          <button className='bg-green-600 text-white font-medium py-0 cursor-pointer  rounded-3xl mt-10 text-lg block w-full outline-none' onClick={handleStrt}>
+          Tap to allow video <br/> session now
+          </button>
 
           <img src="/device-icons.png" alt="Videodesk" className="w-30 mt-10" />
         </div>

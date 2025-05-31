@@ -12,6 +12,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useDialog } from "@/provider/DilogsProvider"
+import { Button } from "@/components/ui/button"
+import { logoutRequest } from "@/http/authHttp"
+import { useUser } from "@/provider/UserProvider"
 
 export default function Page({ params }) {
   const { id } = use(params);
@@ -23,7 +35,8 @@ export default function Page({ params }) {
   const [repairDetails, setRepairDetails] = useState("")
   const videoRef = useRef(null);
   const { handleDisconnect, isConnected, screenshots, recordings, recordingActive, takeScreenshot, takeRecording, startPeerConnection, handleVideoPlay, showVideoPlayError } = useWebRTC(true, id, videoRef);
-
+  const {setResetOpen,setMessageOpen,setLandlordDialogOpen,setTickerOpen,setInviteOpen, setFeedbackOpen, setFaqOpen} = useDialog();
+  const { user, isAuth, setIsAuth, setUser } = useUser();
   const handleSave = async () => {
     try {
       const formData = {
@@ -34,12 +47,29 @@ export default function Page({ params }) {
         repair_detail: repairDetails,
         target_time: targetTime
       };
-      
+
       const response = await createRequest(formData);
       toast(response.data.message)
 
     } catch (error) {
       toast(error?.response?.data?.message || error.message)
+    }
+  }
+
+
+
+  const handleLogout = async () => {
+    try {
+      const res = await logoutRequest();
+      toast("Logout Successfull", {
+        description: res.data.message
+      });
+      setIsAuth(false);
+      setUser(null);
+    } catch (error) {
+      toast("Logout Unsuccessfull", {
+        description: error?.response?.data?.message || error.message
+      });
     }
   }
 
@@ -100,6 +130,23 @@ export default function Page({ params }) {
                 </button>
               </div>
             </div>
+
+            <div className="w-full flex flex-col gap-5 mt-5">
+
+              <button onClick={takeRecording} disabled={!isConnected} className="disabled:opacity-50 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-medium py-4 rounded-md transition-colors w-[270px]">
+                <span className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
+                  <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                </span>
+                {
+                  recordingActive ? "Stop Recording" : "Take Recording"
+                }
+              </button>
+
+              <button onClick={takeScreenshot} disabled={!isConnected} className="disabled:opacity-50 flex items-center justify-center gap-2 bg-orange-400 hover:bg-orange-500 text-white font-medium py-4 rounded-md transition-colors w-[270px]">
+                <Maximize2 className="w-5 h-5" />
+                Take Screenshot Image
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 flex flex-col gap-10">
@@ -127,26 +174,29 @@ export default function Page({ params }) {
                 }
                 {
                   recordings.map((recording, index) => (
-                    <div className="aspect-square bg-gray-200 rounded-md flex flex-col items-center justify-center relative">
-                      <div className="absolute top-2 right-2 flex gap-1 z-10"> {/* Set z-10 to bring it on top */}
-                        <button className="p-1 hover:bg-gray-300 rounded text-white">
-                          <Minimize2 className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 hover:bg-gray-50 rounded text-white">
-                          <Expand className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <video src={recording} controls className="w-full h-full object-cover absolute top-0 left-0" />
-                      <div className="absolute bottom-2 right-2 flex gap-1">
-                        <button className="p-1 hover:bg-gray-300 rounded text-white">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 hover:bg-gray-300 rounded text-white">
-                          <Save className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 hover:bg-gray-300 rounded text-white">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                    <div>
+                      <img src="/icons/ci_label.svg" />
+                      <div className="aspect-square bg-gray-200 rounded-md flex flex-col items-center justify-center relative">
+                        <div className="absolute top-2 right-2 flex gap-1 z-10"> {/* Set z-10 to bring it on top */}
+                          <button className="p-1 hover:bg-gray-300 rounded text-white">
+                            <Minimize2 className="w-4 h-4" />
+                          </button>
+                          <button className="p-1 hover:bg-gray-50 rounded text-white">
+                            <Expand className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <video src={recording} controls className="w-full h-full object-cover absolute top-0 left-0" />
+                        <div className="absolute bottom-2 right-2 flex gap-1">
+                          <button className="p-1 hover:bg-gray-300 rounded text-white">
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button className="p-1 hover:bg-gray-300 rounded text-white">
+                            <Save className="w-4 h-4" />
+                          </button>
+                          <button className="p-1 hover:bg-gray-300 rounded text-white">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -167,31 +217,34 @@ export default function Page({ params }) {
 
                 {
                   screenshots.map((screenshot, index) => (
-                    <div className="aspect-square bg-gray-200 rounded-md flex items-center justify-center relative">
-                      <div className="absolute top-2 right-2 flex gap-1 z-10"> {/* Set z-10 to bring it on top */}
+                    <div>
+                      <img src="/icons/ci_label.svg" />
+                      <div className="aspect-square bg-gray-200 rounded-md flex items-center justify-center relative">
+                        <div className="absolute top-2 right-2 flex gap-1 z-10"> {/* Set z-10 to bring it on top */}
 
-                        <button className="p-1 hover:bg-gray-300 rounded text-white">
-                          <Minimize2 className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 hover:bg-gray-50 rounded text-white">
-                          <Expand className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <img
-                        src={screenshot}
-                        alt="screenshot"
-                        className="w-full h-full object-cover absolute top-0 left-0 z-0" // Set z-0 to make it behind
-                      />
-                      <div className="absolute bottom-2 right-2 flex gap-1 z-10"> {/* Set z-10 to bring it on top */}
-                        <button className="p-1 hover:bg-gray-300 rounded text-white">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 hover:bg-gray-300 rounded text-white">
-                          <Save className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 hover:bg-gray-50 rounded text-white">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                          <button className="p-1 hover:bg-gray-300 rounded text-white">
+                            <Minimize2 className="w-4 h-4" />
+                          </button>
+                          <button className="p-1 hover:bg-gray-50 rounded text-white">
+                            <Expand className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <img
+                          src={screenshot}
+                          alt="screenshot"
+                          className="w-full h-full object-cover absolute top-0 left-0 z-0" // Set z-0 to make it behind
+                        />
+                        <div className="absolute bottom-2 right-2 flex gap-1 z-10"> {/* Set z-10 to bring it on top */}
+                          <button className="p-1 hover:bg-gray-300 rounded text-white">
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button className="p-1 hover:bg-gray-300 rounded text-white">
+                            <Save className="w-4 h-4" />
+                          </button>
+                          <button className="p-1 hover:bg-gray-50 rounded text-white">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -215,15 +268,29 @@ export default function Page({ params }) {
                     Resident Address :
                   </label>
 
-                  <Select defaultValue="action">
-                    <SelectTrigger className="w-[150px] rounded-3xl bg-amber-500 text-white flex items-center justify-center text-xl font-normal">
-                      <SelectValue placeholder="Action" />
-                    </SelectTrigger>
-                    <SelectContent className={'border-none bg-white'}>
-                      <SelectItem value="action" className={`cursor-pointer text-sm font-medium`}>Action</SelectItem>
-                      <SelectItem value="not" className={`cursor-pointer text-sm font-medium `}>Not</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button className={"bg-amber-500 text-white rounded-3xl flex items-center gap-2 text-xl"}>Actions <img src="/icons/arrow-down.svg" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className={'bg-white border-none shadow-sm'}>
+                      <DropdownMenuItem>
+                        <button className='bg-none border-none cursor-pointer' onClick={handleLogout}>Logout</button>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>Dashboard</DropdownMenuItem>
+                      <DropdownMenuItem>
+
+                        <button className='bg-none border-none cursor-pointer' onClick={() => setTickerOpen(true)}>Raise Support Ticket</button>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem><button className='bg-none border-none cursor-pointer' onClick={() => setResetOpen(true)}>Reset Password</button></DropdownMenuItem>
+                      <DropdownMenuItem > <button className='bg-none border-none cursor-pointer' onClick={() => setInviteOpen(true)}>Invite Coworkers</button></DropdownMenuItem>
+                      <DropdownMenuItem><button className='bg-none border-none cursor-pointer' onClick={() => setMessageOpen(true)}>Amend Message</button></DropdownMenuItem>
+                      <DropdownMenuItem> <button className='bg-none border-none cursor-pointer text-left' onClick={() => setLandlordDialogOpen(true)}>Add Landlord Name/Logo/ <br />Profile Image </button></DropdownMenuItem>
+
+                      <DropdownMenuItem > <button className='bg-none border-none cursor-pointer' onClick={() => setFaqOpen(true)}>FAQ's</button></DropdownMenuItem>
+                      <DropdownMenuItem > <button className='bg-none border-none cursor-pointer' onClick={() => setFeedbackOpen(true)}>Give Feedback</button></DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
                 </div>
                 <input
                   id="residentAddress"
@@ -329,36 +396,22 @@ export default function Page({ params }) {
           </div>
 
           {/* Generate Link Button */}
-          <button className="w-full bg-orange-400 hover:bg-orange-500 text-white font-medium py-4 rounded-md transition-colors mt-8 mb-2">
-            Generate page link to send to contractor
+          <button className="w-full bg-orange-400 hover:bg-orange-500 text-white font-medium py-4 rounded-md transition-colors mt-8 mb-2 flex flex-col gap-1 items-center justify-center">
+            <span>Create Share Link</span>
+            <span className="text-xs font-normal">to send to Contractor/Supplier or Co-workers</span>
           </button>
-          <p className="text-center text-gray-600 mt-0">(Copy and paste link to your job ticket or any system)</p>
+          <p className="text-center text-gray-600 mt-0 text-sm">(Copy and paste link to your job ticket or any system)</p>
+
+          <div className="w-full flex items-center gap-4">
+            <button onClick={handleDisconnect} disabled={!isConnected} className="bg-red-500 disabled:opacity-50 hover:bg-red-600 text-white font-medium py-4 rounded-md transition-colors flex-1 whitespace-pre">
+              End Video Call <br /> (Without Saving)
+            </button>
+            <button onClick={handleSave} disabled={!isConnected} className="bg-green-500 disabled:opacity-50 hover:bg-green-600 text-white font-medium py-4 rounded-md transition-colors flex-1 whitespace-pre">
+              End Video and <br />
+              Save Images
+            </button>
+          </div>
         </div>
-      </div>
-
-      {/* Footer Buttons */}
-      <div className="grid grid-cols-4 gap-4 mt-10">
-        <button onClick={takeRecording} disabled={!isConnected} className="disabled:opacity-50 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-medium py-4 rounded-md transition-colors">
-          <span className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
-            <span className="w-3 h-3 bg-green-500 rounded-full"></span>
-          </span>
-          {
-            recordingActive ? "Stop Recording" : "Take Recording"
-          }
-        </button>
-
-        <button onClick={takeScreenshot} disabled={!isConnected} className="disabled:opacity-50 flex items-center justify-center gap-2 bg-orange-400 hover:bg-orange-500 text-white font-medium py-4 rounded-md transition-colors">
-          <Maximize2 className="w-5 h-5" />
-          Take Screenshot Image
-        </button>
-
-        <button onClick={handleDisconnect} disabled={!isConnected} className="bg-red-500 disabled:opacity-50 hover:bg-red-600 text-white font-medium py-4 rounded-md transition-colors">
-          End Video Call (Without Saving)
-        </button>
-        <button onClick={handleSave} disabled={!isConnected} className="bg-red-500 disabled:opacity-50 hover:bg-red-600 text-white font-medium py-4 rounded-md transition-colors">
-          End Video and
-          Save Images
-        </button>
       </div>
 
       <p className="text-xs mt-5">User : Sharon Smith 24 May 2025, 10.00 am</p>
