@@ -119,10 +119,10 @@ export function Footer() {
                       <p className="text-black">Early Evening</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-black">9.00AM - 12 Noon</p>
-                      <p className="text-black">12 Noon - 2.00PM</p>
-                      <p className="text-black">2.00PM - 5.00PM</p>
-                      <p className="text-black">5.00PM - 6.00PM</p>
+                      <p className="text-black flex items-center justify-between"><span>9.00AM</span> <span>-</span> <span>12 Noon</span></p>
+                      <p className="text-black flex items-center justify-between"><span>12 Noon</span> <span>-</span> <span>2.00PM</span></p>
+                      <p className="text-black flex items-center justify-between"><span>2.00PM</span> <span>-</span> <span>5.00PM</span></p>
+                      <p className="text-black flex items-center justify-between"><span>5.00PM</span> <span>-</span> <span>6.00PM</span></p>
                     </div>
                     <div className="space-y-1 flex flex-col gap-3">
                       <input type="radio" name="time" />
@@ -134,7 +134,20 @@ export function Footer() {
                   <div className="flex-1 flex flex-col">
                     <p className="text-black">or Pick a time</p>
                     <div className="flex items-center gap-2">
-                      <input type="time" className={`w-[200px] px-4 py-2 border border-gray-300 rounded-md focus:outline-none`} />
+                      {/* <input type="time" className={`w-[200px] px-4 py-2 border border-gray-300 rounded-md focus:outline-none`} /> */}
+                      <select
+                        className="w-[200px] px-4 py-2 border border-gray-300 rounded-md focus:outline-none"
+                      >
+                        {Array.from({ length: 12 }, (_, i) => {
+                          const hour = i + 8; // 8 to 19
+                          const display = hour.toString().padStart(2, '0') + ":00";
+                          return (
+                            <option key={hour} value={display}>
+                              {display}
+                            </option>
+                          );
+                        })}
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -207,7 +220,7 @@ export function Footer() {
               <label className="text-black font-semibold">Message</label>
               <textarea
                 placeholder="Enter your message"
-                className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none h-[10rem]`}
+                className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none h-[4rem]`}
               />
             </div>
 

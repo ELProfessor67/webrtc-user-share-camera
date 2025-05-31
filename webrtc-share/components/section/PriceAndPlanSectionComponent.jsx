@@ -1,3 +1,4 @@
+"use client"
 import { Check, Expand, Minimize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,9 +9,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Fragment } from "react"
+import { Fragment, useState } from "react"
+import { TypeAnimation } from "react-type-animation"
 
 export default function PriceAndPlan() {
+  const [role, setRole] = useState("landlord");
+
   const plans = [
     {
       black: "Standard",
@@ -129,16 +133,16 @@ export default function PriceAndPlan() {
           <p className="text-white/90 text-lg">Choose the plan that's right to you</p>
           <div className="mt-4 flex items-center justify-center flex-col">
             <p className="text-white/90 text-lg mb-4">Select an option:</p>
-            <Select>
+            <Select value={role} onValueChange={value => setRole(value)}>
               <SelectTrigger className="bg-amber-500 text-white flex items-center justify-center text-xl font-semibold outline-none border-none">
                 <SelectValue placeholder="Social Landlord" className="w-[180px]" />
               </SelectTrigger>
               <SelectContent className={'border-none bg-white'}>
-                <SelectItem value="landlord" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Automotive</SelectItem>
+                <SelectItem value="landlordd" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Automotive</SelectItem>
                 <SelectItem value="residenta" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Charity</SelectItem>
                 <SelectItem value="residentb" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Hotel/Resort/Accomodation Provider</SelectItem>
                 <SelectItem value="residenc" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>NHS/Health Provider</SelectItem>
-                <SelectItem value="residentd" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Social Landlord</SelectItem>
+                <SelectItem value="landlord" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Social Landlord</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -146,138 +150,161 @@ export default function PriceAndPlan() {
 
 
           <div className="w-full bg-amber-400 p-8 rounded-2xl mt-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              {/* Small Providers */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg">
-                <div className="mb-2">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 text-left">Small Providers:</h3>
-                  <div className="flex justify-end gap-8 text-md font-bold text-gray-700 mb-2">
-                    <span>Monthly</span>
-                    <span>Annual</span>
-                  </div>
-                </div>
+            {
+              role == "landlord" ?
+                (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                    {/* Small Providers */}
+                    <div className="bg-white rounded-2xl p-6 shadow-lg">
+                      <div className="mb-2">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 text-left">Small Providers:</h3>
+                        <div className="flex justify-end gap-8 text-md font-bold text-gray-700 mb-2">
+                          <span>Monthly</span>
+                          <span>Annual</span>
+                        </div>
+                      </div>
 
-                <div className="space-y-0">
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm text-gray-700">Upto 250 homes</span>
-                    <div className="flex gap-8">
-                      <span className="text-sm font-medium w-12 text-center">£108</span>
-                      <span className="text-sm font-medium w-12 text-center">£1300</span>
-                    </div>
-                  </div>
+                      <div className="space-y-0">
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-sm text-gray-700">Upto 250 homes</span>
+                          <div className="flex gap-8">
+                            <span className="text-sm font-medium w-12 text-center">£108</span>
+                            <span className="text-sm font-medium w-12 text-center">£1300</span>
+                          </div>
+                        </div>
 
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm text-gray-700">250-500 homes</span>
-                    <div className="flex gap-8">
-                      <span className="text-sm font-medium w-12 text-center">£150</span>
-                      <span className="text-sm font-medium w-12 text-center">£1800</span>
-                    </div>
-                  </div>
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-sm text-gray-700">250-500 homes</span>
+                          <div className="flex gap-8">
+                            <span className="text-sm font-medium w-12 text-center">£150</span>
+                            <span className="text-sm font-medium w-12 text-center">£1800</span>
+                          </div>
+                        </div>
 
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm text-gray-700">500-750 homes</span>
-                    <div className="flex gap-8">
-                      <span className="text-sm font-medium w-12 text-center">£191</span>
-                      <span className="text-sm font-medium w-12 text-center">£2300</span>
-                    </div>
-                  </div>
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-sm text-gray-700">500-750 homes</span>
+                          <div className="flex gap-8">
+                            <span className="text-sm font-medium w-12 text-center">£191</span>
+                            <span className="text-sm font-medium w-12 text-center">£2300</span>
+                          </div>
+                        </div>
 
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm text-gray-700">750-1000 homes</span>
-                    <div className="flex gap-8">
-                      <span className="text-sm font-medium w-12 text-center">£233</span>
-                      <span className="text-sm font-medium w-12 text-center">£2800</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Small to Medium Providers */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg">
-                <div className="mb-2">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 text-left">Small to Medium Providers:</h3>
-                  <div className="flex justify-end gap-8 text-md font-bold text-gray-700 mb-2">
-                    <span>Monthly</span>
-                    <span>Annual</span>
-                  </div>
-                </div>
-
-                <div className="space-y-0">
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm text-gray-700">1000-1250 homes</span>
-                    <div className="flex gap-8">
-                      <span className="text-sm font-medium w-12 text-center">£275</span>
-                      <span className="text-sm font-medium w-12 text-center">£3300</span>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm text-gray-700">1250-5000 homes</span>
-                    <div className="flex gap-8">
-                      <span className="text-sm font-medium w-12 text-center">£375</span>
-                      <span className="text-sm font-medium w-12 text-center">£4500</span>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm text-gray-700">5000-10000 homes</span>
-                    <div className="flex gap-8">
-                      <span className="text-sm font-medium w-12 text-center">£750</span>
-                      <span className="text-sm font-medium w-12 text-center">£9000</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Large Providers */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg">
-                <div className="mb-7 flex justify-start items-center">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">Large Providers:</h3>
-                </div>
-
-                <div className="flex items-center w-full relative">
-                  <div className="space-y-0 w-[50%] border-r border-black">
-                    <div className="flex justify-between items-center py-2">
-                      <span className="text-sm text-gray-700">10000-15000 homes</span>
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-sm text-gray-700">750-1000 homes</span>
+                          <div className="flex gap-8">
+                            <span className="text-sm font-medium w-12 text-center">£233</span>
+                            <span className="text-sm font-medium w-12 text-center">£2800</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex justify-between items-center py-2">
-                      <span className="text-sm text-gray-700">15000-20000 homes</span>
+                    {/* Small to Medium Providers */}
+                    <div className="bg-white rounded-2xl p-6 shadow-lg">
+                      <div className="mb-2">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 text-left">Small to Medium Providers:</h3>
+                        <div className="flex justify-end gap-8 text-md font-bold text-gray-700 mb-2">
+                          <span>Monthly</span>
+                          <span>Annual</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-0">
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-sm text-gray-700">1000-1250 homes</span>
+                          <div className="flex gap-8">
+                            <span className="text-sm font-medium w-12 text-center">£275</span>
+                            <span className="text-sm font-medium w-12 text-center">£3300</span>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-sm text-gray-700">1250-5000 homes</span>
+                          <div className="flex gap-8">
+                            <span className="text-sm font-medium w-12 text-center">£375</span>
+                            <span className="text-sm font-medium w-12 text-center">£4500</span>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-sm text-gray-700">5000-10000 homes</span>
+                          <div className="flex gap-8">
+                            <span className="text-sm font-medium w-12 text-center">£750</span>
+                            <span className="text-sm font-medium w-12 text-center">£9000</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex justify-between items-center py-2">
-                      <span className="text-sm text-gray-700">20000+ homes</span>
+                    {/* Large Providers */}
+                    <div className="bg-white rounded-2xl p-6 shadow-lg">
+                      <div className="mb-7 flex justify-start items-center">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Large Providers:</h3>
+                      </div>
+
+                      <div className="flex items-center w-full relative">
+                        <div className="space-y-0 w-[50%] border-r border-black">
+                          <div className="flex justify-between items-center py-2">
+                            <span className="text-sm text-gray-700">10000-15000 homes</span>
+                          </div>
+
+                          <div className="flex justify-between items-center py-2">
+                            <span className="text-sm text-gray-700">15000-20000 homes</span>
+                          </div>
+
+                          <div className="flex justify-between items-center py-2">
+                            <span className="text-sm text-gray-700">20000+ homes</span>
+                          </div>
+                        </div>
+
+                        <div className="flex-1 h-full">
+                          <span className="text-left">Custom pricing, <br />Contact us.</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                ) :
+                (
+                  <h1 className="text-white text-3xl font-medium">
+                    Custom pricing, please contact us
+                  </h1>
+                )
+            }
 
-                  <div className="flex-1 h-full">
-                    <span className="text-left">Custom pricing, <br />Contact us.</span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {plans.map((plan, index) => (
-            <Card key={index} className="bg-white border-0 shadow-lg h-full flex flex-col gap-2 p-0">
-              <div className="flex items-center justify-end px-2 py-1 gap-3">
+            <Card key={index} className="bg-white border-0 shadow-lg h-full flex flex-col gap-2 p-4">
+              {/* <div className="flex items-center justify-end px-2 py-1 gap-3">
                 <button className="bg-none border-none text-gray-600 cursor-pointer">
                   <Minimize2 size={16} />
                 </button>
                 <button className="bg-none border-none text-gray-600 cursor-pointer">
                   <Expand size={16} />
                 </button>
-              </div>
+              </div> */}
               <CardHeader className="pb-4">
                 <div className="flex items-center gap-2">
                   {
                     plan.black &&
                     <CardTitle className="text-3xl font-bold text-black">{plan.black}</CardTitle>
                   }
-                  <CardTitle className="text-3xl font-bold text-amber-400">{plan.name}</CardTitle>
+                  <CardTitle className="text-3xl font-bold text-amber-400">
+                    {plan.name != "Free" && `${plan.free}`}
+                    {plan.name == "Free" && <TypeAnimation
+                      sequence={[
+                        'Free',
+                        0
+                      ]}
+                      wrapper="span"
+                      speed={50}
+                      style={{ fontSize: '50px', display: 'inline-block' }}
+                      repeat={6}
+                    />}
+                  </CardTitle>
                   {
                     plan.price &&
                     <div className="text-3xl font-bold text-amber-400">{plan.price}</div>

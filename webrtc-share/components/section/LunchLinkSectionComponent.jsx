@@ -52,7 +52,7 @@ export const LaunchLinkSection = () => {
             </div>
           </div>
 
-          <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md p-8 relative overflow-hidden">
+          <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md border border-gray-100 p-8 relative overflow-hidden">
 
 
             <h3 className="text-xl font-semibold mb-6">Customer details:</h3>

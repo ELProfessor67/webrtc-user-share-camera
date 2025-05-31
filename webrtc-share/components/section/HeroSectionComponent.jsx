@@ -1,6 +1,5 @@
 'use client'
 import React, { useState, useEffect } from 'react';
-
 export const HeroSection = () => {
   const [activeSlide, setActiveSlide] = useState(0);
 
@@ -15,6 +14,7 @@ export const HeroSection = () => {
 
   return (
     <>
+    
       <section className="relative bg-gray-800 text-white">
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -32,8 +32,10 @@ export const HeroSection = () => {
                 Connect Customer service calls with an <br /> instant video link and see what your <br /> customers see
               </p>
             </div>
+              <span id="about" className='translate-y-[5rem] block'></span>
 
             <div className='flex gap-2 items-center translate-y-[100px]'>
+           
               <a
                 href="#how-it-works"
                 className="inline-block bg-amber-500 hover:bg-amber-600 text-white font-medium py-3 px-8 rounded-full text-lg transition-all transform hover:scale-105"
@@ -62,7 +64,7 @@ export const HeroSection = () => {
 
         </div>
       </section>
-
+      
 
     </>
   );

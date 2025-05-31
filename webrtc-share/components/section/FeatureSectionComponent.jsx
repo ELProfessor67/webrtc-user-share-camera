@@ -1,6 +1,7 @@
+"use client"
 import React from 'react';
 import { MessageCircle, Search, Languages, DollarSign, Users, CircleOffIcon, LanguagesIcon, SearchIcon, Video, VideoIcon, SearchCheck } from 'lucide-react';
-
+import { TypeAnimation } from 'react-type-animation';
 
 
 const FeatureCard = ({ icon, title, description }) => {
@@ -72,14 +73,27 @@ export const FeaturesSection = () => {
   ];
 
   return (
-    <section className="py-16 bg-white relative overflow-hidden">
+    <section className="py-16 bg-white relative overflow-hidden" id="benefit" >
       <div className='w-[12rem] h-[12rem] bg-purple text-white flex items-end justify-center p-2 rotate-[-40deg] absolute -top-[7rem] -left-[6rem] -z-0'>
         <h1 className='text-xl'>Benefits</h1>
       </div>
       <div className="container mx-auto px-4">
-        <h2 className="text-3xl font-bold mb-12 text-center">
-          Connect , engage and support your customers <br /> with an instant video link
+        <h2 className="text-3xl font-bold mb-12 text-center max-w-6xl mx-auto">
+
+          <TypeAnimation
+            sequence={[
+              'Connect , engage and support your customers with an instant video link',
+              1000
+            ]}
+            wrapper="span"
+            speed={50}
+            style={{ fontSize: '50px', display: 'inline-block' }}
+            repeat={Infinity}
+          />
         </h2>
+
+
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {features.map((feature, index) => (
             <FeatureCard

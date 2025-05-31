@@ -43,7 +43,7 @@ export const HowItWorksSection = () => {
     },
     {
       number: 4,
-      title: "Share and send page | links to any colleague, |  your contractor | or any system",
+      title: "Share and send page | links to any colleague, |  any contractor  or | any system",
     }
   ];
 
