@@ -83,7 +83,9 @@ export const FeaturesSection = () => {
           <TypeAnimation
             sequence={[
               'Connect , engage and support your customers with an instant video link',
-              1000
+              1000,
+              "",
+              500
             ]}
             wrapper="span"
             speed={50}

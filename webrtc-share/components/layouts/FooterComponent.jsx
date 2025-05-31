@@ -68,7 +68,7 @@ export function Footer() {
               <label className="text-black font-semibold">Your Name</label>
               <input
                 type="text"
-                placeholder="Enter your message..."
+                placeholder="Enter your name"
                 className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none`}
               />
             </div>

@@ -55,7 +55,7 @@ export const LaunchLinkSection = () => {
           <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md border border-gray-100 p-8 relative overflow-hidden">
 
 
-            <h3 className="text-xl font-semibold mb-6">Customer details:</h3>
+            <h3 className="text-xl font-semibold mb-6">Enter your customer's mobile number or email address below to send an instant video link:</h3>
 
             <form onSubmit={handleSubmit} className="flex flex-col md:flex-row items-center gap-4">
               <div className="flex-1 w-full">

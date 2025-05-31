@@ -130,7 +130,7 @@ export default function PriceAndPlan() {
       <div className="container mx-auto max-w-7xl">
         <div className="text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">Pricing and Plans</h2>
-          <p className="text-white/90 text-lg">Choose the plan that's right to you</p>
+          <p className="text-white/90 text-lg">Choose the plan that's right for you</p>
           <div className="mt-4 flex items-center justify-center flex-col">
             <p className="text-white/90 text-lg mb-4">Select an option:</p>
             <Select value={role} onValueChange={value => setRole(value)}>
@@ -277,7 +277,7 @@ export default function PriceAndPlan() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {plans.map((plan, index) => (
-            <Card key={index} className="bg-white border-0 shadow-lg h-full flex flex-col gap-2 p-4">
+            <Card key={index} className="bg-white border-0 shadow-lg h-full flex flex-col gap-2 p-0">
               {/* <div className="flex items-center justify-end px-2 py-1 gap-3">
                 <button className="bg-none border-none text-gray-600 cursor-pointer">
                   <Minimize2 size={16} />
@@ -286,23 +286,25 @@ export default function PriceAndPlan() {
                   <Expand size={16} />
                 </button>
               </div> */}
-              <CardHeader className="pb-4">
+              <CardHeader className="pb-4 mt-4">
                 <div className="flex items-center gap-2">
                   {
                     plan.black &&
                     <CardTitle className="text-3xl font-bold text-black">{plan.black}</CardTitle>
                   }
                   <CardTitle className="text-3xl font-bold text-amber-400">
-                    {plan.name != "Free" && `${plan.free}`}
+                    {plan.name != "Free" && `${plan.name}`}
                     {plan.name == "Free" && <TypeAnimation
                       sequence={[
                         'Free',
-                        0
+                        1000,
+                        '',
+                        500
                       ]}
                       wrapper="span"
-                      speed={50}
-                      style={{ fontSize: '50px', display: 'inline-block' }}
-                      repeat={6}
+                      speed={30}
+                      style={{ fontSize: '35px', display: 'inline-block' }}
+                      repeat={Infinity}
                     />}
                   </CardTitle>
                   {
