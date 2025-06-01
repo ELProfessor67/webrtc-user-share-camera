@@ -201,7 +201,7 @@ export const Header = () => {
                     <DropdownMenuTrigger asChild>
                       <Avatar>
                         {/* <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" /> */}
-                        <AvatarFallback className={'bg-gray-200 text-black border border-gray-700 rounded-md'}>{user?.email?.slice(0, 2)}</AvatarFallback>
+                        <AvatarFallback className={'bg-gray-200 text-black rounded-md'}>{user?.email?.slice(0, 2)}</AvatarFallback>
                       </Avatar>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className={'bg-white border-none shadow-sm'}>

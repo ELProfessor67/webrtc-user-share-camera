@@ -204,7 +204,7 @@ export const DialogProvider = ({ children }) => {
                 <button className="absolute bottom-4 right-4 cursor-pointer"><img src="/icons/trash-red.svg" className="w-6 h-6" /></button>
                 <img src="/icons/material-symbols_upload-rounded.svg" />
               </div>
-              <label className="text-black font-semibold flex items-center gap-2"><input type="checkbox" /> Use logo for profile photo:</label>
+              <label className="text-black font-semibold flex items-center gap-2"><input type="checkbox" /> Use landlord logo for profile photo:</label>
             </div>
             <div className="flex items-start flex-col gap-2">
               <label className="text-black font-semibold flex items-center gap-2"><input type="checkbox" /> Upload Officer image to use as profile photo:</label>

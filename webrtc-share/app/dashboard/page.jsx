@@ -16,7 +16,7 @@ import {
 import { logoutRequest } from "@/http/authHttp"
 import { getAllMeetings, deleteMeeting } from "@/http/meetingHttp"
 import { useUser } from "@/provider/UserProvider"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { toast } from "sonner"
 import axios from "axios"
 import Link from "next/link"
@@ -33,6 +33,7 @@ import {
   ClockIcon,
 } from "@heroicons/react/20/solid";
 import { useDialog } from "@/provider/DilogsProvider"
+import CustomDialog from "@/components/dialogs/CustomDialog"
 
 const residents = [
   {
@@ -69,18 +70,64 @@ export default function Page() {
   const [open, setOpen] = useState(false);
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
-
-
-
-
-  
-
+  const [lastTypingTime, setLastTypingTime] = useState(0);
+  const [isTyping, setIsTyping] = useState(false);
+  const phoneInputRef = useRef(null);
+  const emailInputRef = useRef(null);
+  const typingTimerRef = useRef(null);
 
   const {setResetOpen,setMessageOpen,setLandlordDialogOpen,setTickerOpen,setInviteOpen, setFeedbackOpen, setFaqOpen} = useDialog();
 
   useEffect(() => {
     fetchMeetings();
   }, []);
+
+  useEffect(() => {
+    let focusTimer;
+
+    if (showForm) {
+      focusTimer = setInterval(() => {
+        const currentTime = Date.now();
+        if (!isTyping && currentTime - lastTypingTime > 3000) {
+          if (contactMethod === 'phone') {
+            emailInputRef.current?.focus();
+            setContactMethod('email');
+          } else {
+            phoneInputRef.current?.focus();
+            setContactMethod('phone');
+          }
+        }
+      }, 3000);
+    }
+
+    return () => {
+      clearInterval(focusTimer);
+      if (typingTimerRef.current) {
+        clearTimeout(typingTimerRef.current);
+      }
+    };
+  }, [showForm, isTyping, lastTypingTime, contactMethod]);
+
+  const handleInputChange = (value, type) => {
+    setIsTyping(true);
+    setLastTypingTime(Date.now());
+    
+    if (type === 'phone') {
+      setPhone(value);
+      setContactMethod('phone');
+    } else {
+      setEmail(value);
+      setContactMethod('email');
+    }
+
+    // Reset typing state after 1 second of no input
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+    }
+    typingTimerRef.current = setTimeout(() => {
+      setIsTyping(false);
+    }, 1000);
+  };
 
   const fetchMeetings = async () => {
     try {
@@ -128,6 +175,7 @@ export default function Page() {
     setIsLoading(true);
     const res = await axios.get(`https://webrtc-user-share-camera.onrender.com/send-token?number=${phone}&email=${email}`);
     setToken(res.data.token);
+    setShowForm(false);
     setOpen(true);
     setIsLoading(false);
   };
@@ -154,7 +202,7 @@ export default function Page() {
             </div>
             <div className="flex items-center gap-2 flex-col">
               <h1 className="text-2xl font-bold">Dashboard</h1>
-              <img src="/device-icons.png" alt="Videodesk" className="mt-2 w-20" />
+              <img src="/device-icons.png" alt="Videodesk" className="mt-2 w-30" />
             </div>
             <div className="flex items-center gap-4">
               <DropdownMenu>
@@ -201,7 +249,7 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="space-y-3 w-full">
+              <div className="space-y-0 w-full">
                 <div className="flex items-center gap-6 justify-start">
                   <p className="text-left mr-10">Logged In</p>
                   <span>:</span>
@@ -229,7 +277,7 @@ export default function Page() {
                   <th className="px-4 py-2 font-semibold text-black">Resident name and address</th>
                   <th className="px-4 py-2 font-semibold text-black">Video Link</th>
                   <th className="px-4 py-2 font-semibold text-black">Time and Date</th>
-                  <th className="px-4 py-2 font-semibold text-black text-right">Discard/Archive/Export/History</th>
+                  <th className="px-4 py-2 font-semibold text-black text-right flex flex-col items-end"><div><span className="text-left block">Discard/Archive/</span><span className="text-left block">Export/History</span></div></th>
                 </tr>
               </thead>
               <tbody>
@@ -248,14 +296,14 @@ export default function Page() {
                     <td className="px-4 py-3">{res.time} {res.date}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-3">
-                        <button title="Delete">
+                        <button title="Discard">
                           <img src="/icons/trash-red.svg" className="w-4 h-4" />
                         </button>
-                        <button title="Download">
+                        <button title="Export">
                           <img src="/icons/download.svg" className="w-4 h-4" />
 
                         </button>
-                        <button title="Expand View">
+                        <button title="Archive">
                           <img src="/icons/icon-park_share.svg" className="w-5 h-5" />
 
                         </button>
@@ -291,15 +339,12 @@ export default function Page() {
             <form onSubmit={handleSubmit} className="flex flex-col md:flex-row items-center gap-4">
               <div className="flex-1 w-full">
                 <input
+                  ref={phoneInputRef}
                   type="text"
                   placeholder="Enter customer mobile number"
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${contactMethod === 'phone' ? 'bg-white' : 'bg-gray-100'
-                    }`}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${contactMethod === 'phone' ? 'bg-white' : 'bg-gray-100'}`}
                   value={phone}
-                  onChange={(e) => {
-                    setPhone(e.target.value);
-                    setContactMethod('phone');
-                  }}
+                  onChange={(e) => handleInputChange(e.target.value, 'phone')}
                   onClick={() => setContactMethod('phone')}
                 />
               </div>
@@ -310,15 +355,12 @@ export default function Page() {
 
               <div className="flex-1 w-full">
                 <input
+                  ref={emailInputRef}
                   type="email"
                   placeholder="Enter customer email address"
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${contactMethod === 'email' ? 'bg-white' : 'bg-gray-100'
-                    }`}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${contactMethod === 'email' ? 'bg-white' : 'bg-gray-100'}`}
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setContactMethod('email');
-                  }}
+                  onChange={(e) => handleInputChange(e.target.value, 'email')}
                   onClick={() => setContactMethod('email')}
                 />
               </div>
@@ -335,7 +377,7 @@ export default function Page() {
         </div>
       }
 
-      <DialogComponent open={open} setOpen={setOpen}>
+      <CustomDialog open={open} setOpen={() => {}} heading={"Link sent successfully"}>
         <div className="h-[33rem] p-16 flex flex-col items-center justify-center">
           <Image src="/paper-plane.png" alt="video-link-dialog-bg" className='object-contain' width={200} height={200} />
           <div className='mt-5'>
@@ -366,7 +408,7 @@ export default function Page() {
             <p className='text-center'><strong className='text-red-400 whitespace-pre'>TIP - </strong> Ask the user to check their spam folder for the email link, if they can't see it!</p>
           </div>
         </div>
-      </DialogComponent>
+      </CustomDialog>
 
       
 

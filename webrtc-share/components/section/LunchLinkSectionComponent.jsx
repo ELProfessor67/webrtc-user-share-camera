@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { useUser } from '@/provider/UserProvider';
 import { toast } from 'sonner';
+import CustomDialog from '../dialogs/CustomDialog';
 export const LaunchLinkSection = () => {
   const [contactMethod, setContactMethod] = useState('email');
   const [phone, setPhone] = useState('');
@@ -52,7 +53,7 @@ export const LaunchLinkSection = () => {
             </div>
           </div>
 
-          <div className=" mx-auto bg-white rounded-xl shadow-md border border-gray-100 p-8 relative overflow-hidden">
+          <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md border border-gray-100 p-8 relative overflow-hidden">
             <h3 className="text-xl font-semibold mb-6 text-center">Enter your customer's mobile number or email address below to send an instant video link</h3>
 
             <form onSubmit={handleSubmit} className="flex flex-col md:flex-row items-center gap-4">
@@ -107,9 +108,9 @@ export const LaunchLinkSection = () => {
         </div>
       </section>
 
-      <DialogComponent open={open} setOpen={setOpen}>
+      <CustomDialog open={open} setOpen={() => {}} heading={"Link sent successfully"}>
         <div className="h-[33rem] p-16 flex flex-col items-center justify-center">
-          <Image src="/paper-plane.png" alt="video-link-dialog-bg" className='object-contain' width={200} height={200} />
+          <img src="/paper-plane.png" alt="video-link-dialog-bg" className='object-contain' width={200} height={200} />
           <div className='mt-5'>
             <div className='flex items-start gap-2'>
               <img className='w-8 h-8' src='/icons/single-check.svg' />
@@ -138,7 +139,7 @@ export const LaunchLinkSection = () => {
               <p className='text-center'><strong className='text-red-400 whitespace-pre'>Tip - </strong> Ask the user to check their spam folder for the email link, if they can’t see it!</p>
           </div>
         </div>
-      </DialogComponent>
+      </CustomDialog>
 
     </>
   );

@@ -100,12 +100,12 @@ export function Footer() {
                   <p className="text-black">Tomorrow</p>
                   <input type="radio" name="day" />
                 </div>
-                <div className="flex items-center gap-5">
-                  <p className="text-black">or Pick a date</p>
-                  <label htmlFor="day" className={"cursor-pointer"}>
+                <div className="flex items-start gap-2 flex-col">
+                  <p className="text-black">or Pick a date:</p>
+                  {/* <label htmlFor="day" className={"cursor-pointer"}>
                     <Calendar1Icon className="text-gray-400" size={25} />
-                  </label>
-                  <input type="date" hidden id="day" />
+                  </label> */}
+                  <input type="date" id="day"/>
                 </div>
               </div>
               <div className="flex items-start flex-col w-full mt-3">

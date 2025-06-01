@@ -83,13 +83,13 @@ export const FeaturesSection = () => {
           <TypeAnimation
             sequence={[
               'Connect,  engage and support your customers with an instant video link',
-              15000,
+              25000,
               "",
               500
             ]}
             wrapper="span"
             speed={300}
-            style={{ fontSize: '50px', display: 'inline-block' }}
+            style={{ fontSize: '30px', display: 'inline-block' }}
             repeat={Infinity}
           />
         </h2>

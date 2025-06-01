@@ -35,7 +35,7 @@ export default function Page({ params }) {
   const [repairDetails, setRepairDetails] = useState("")
   const videoRef = useRef(null);
   const { handleDisconnect, isConnected, screenshots, recordings, recordingActive, takeScreenshot, takeRecording, startPeerConnection, handleVideoPlay, showVideoPlayError } = useWebRTC(true, id, videoRef);
-  const {setResetOpen,setMessageOpen,setLandlordDialogOpen,setTickerOpen,setInviteOpen, setFeedbackOpen, setFaqOpen} = useDialog();
+  const { setResetOpen, setMessageOpen, setLandlordDialogOpen, setTickerOpen, setInviteOpen, setFeedbackOpen, setFaqOpen } = useDialog();
   const { user, isAuth, setIsAuth, setUser } = useUser();
   const handleSave = async () => {
     try {
@@ -131,7 +131,7 @@ export default function Page({ params }) {
               </div>
             </div>
 
-            <div className="w-full flex flex-col gap-5 mt-5">
+            <div className="w-full flex flex-col gap-2 mt-10">
 
               <button onClick={takeRecording} disabled={!isConnected} className="disabled:opacity-50 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-medium py-4 rounded-md transition-colors w-[270px]">
                 <span className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
@@ -179,15 +179,6 @@ export default function Page({ params }) {
                       <div className="aspect-square bg-gray-200 rounded-md flex flex-col items-center justify-center relative">
                         <div className="absolute top-2 right-2 flex gap-1 z-10"> {/* Set z-10 to bring it on top */}
                           <button className="p-1 hover:bg-gray-300 rounded text-white">
-                            <Minimize2 className="w-4 h-4" />
-                          </button>
-                          <button className="p-1 hover:bg-gray-50 rounded text-white">
-                            <Expand className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <video src={recording} controls className="w-full h-full object-cover absolute top-0 left-0" />
-                        <div className="absolute bottom-2 right-2 flex gap-1">
-                          <button className="p-1 hover:bg-gray-300 rounded text-white">
                             <Edit className="w-4 h-4" />
                           </button>
                           <button className="p-1 hover:bg-gray-300 rounded text-white">
@@ -196,7 +187,15 @@ export default function Page({ params }) {
                           <button className="p-1 hover:bg-gray-300 rounded text-white">
                             <Trash2 className="w-4 h-4" />
                           </button>
+                          <button className="p-1 hover:bg-gray-300 rounded text-white">
+                            <Minimize2 className="w-4 h-4" />
+                          </button>
+                          <button className="p-1 hover:bg-gray-50 rounded text-white">
+                            <Expand className="w-4 h-4" />
+                          </button>
+
                         </div>
+                        <video src={recording} controls className="w-full h-full object-cover absolute top-0 left-0" />
                       </div>
                     </div>
                   ))
@@ -221,7 +220,15 @@ export default function Page({ params }) {
                       <img src="/icons/ci_label.svg" />
                       <div className="aspect-square bg-gray-200 rounded-md flex items-center justify-center relative">
                         <div className="absolute top-2 right-2 flex gap-1 z-10"> {/* Set z-10 to bring it on top */}
-
+                          <button className="p-1 hover:bg-gray-300 rounded text-white">
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button className="p-1 hover:bg-gray-300 rounded text-white">
+                            <Save className="w-4 h-4" />
+                          </button>
+                          <button className="p-1 hover:bg-gray-50 rounded text-white">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                           <button className="p-1 hover:bg-gray-300 rounded text-white">
                             <Minimize2 className="w-4 h-4" />
                           </button>
@@ -234,17 +241,6 @@ export default function Page({ params }) {
                           alt="screenshot"
                           className="w-full h-full object-cover absolute top-0 left-0 z-0" // Set z-0 to make it behind
                         />
-                        <div className="absolute bottom-2 right-2 flex gap-1 z-10"> {/* Set z-10 to bring it on top */}
-                          <button className="p-1 hover:bg-gray-300 rounded text-white">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button className="p-1 hover:bg-gray-300 rounded text-white">
-                            <Save className="w-4 h-4" />
-                          </button>
-                          <button className="p-1 hover:bg-gray-50 rounded text-white">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
                       </div>
                     </div>
                   ))
@@ -304,13 +300,24 @@ export default function Page({ params }) {
             </div>
             <div className="mb-6">
               <label htmlFor="postCode" className="block text-lg font-medium mb-2">
-                Post code :
+                Post code:
               </label>
               <input
                 id="postCode"
                 type="text"
                 value={postCode}
                 onChange={(e) => setPostCode(e.target.value)}
+                placeholder="Enter post code"
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+            </div>
+            <div className="mb-6">
+              <label htmlFor="ref" className="block text-lg font-medium mb-2">
+                Ref:
+              </label>
+              <input
+                id="ref"
+                type="text"
                 placeholder="Enter post code"
                 className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-300"
               />
@@ -337,7 +344,7 @@ export default function Page({ params }) {
             <label htmlFor="targetTime" className="block text-lg font-medium mb-2">
               Target time :
             </label>
-            <div className="flex items-center gap-2">
+            <div className="flex items-start gap-2">
               <div className="relative flex-1">
                 <button
                   type="button"
@@ -355,6 +362,8 @@ export default function Page({ params }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
+
+
                 {showDropdown && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
                     <ul>
@@ -389,9 +398,18 @@ export default function Page({ params }) {
                   </div>
                 )}
               </div>
-              <button className="p-2 bg-gray-100 rounded-md hover:bg-gray-200">
-                <Plus className="w-6 h-6" />
-              </button>
+              <div className="flex flex-col gap-2 items-end">
+                
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between p-3 bg-green-500 text-white rounded-md text-left"
+                >
+                  Save repair
+                </button>
+                <button className="p-2 bg-gray-100 rounded-md hover:bg-gray-200">
+                  <Plus className="w-6 h-6" />
+                </button>
+              </div>
             </div>
           </div>
 
