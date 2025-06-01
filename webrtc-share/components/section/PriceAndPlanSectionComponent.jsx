@@ -298,7 +298,7 @@ export default function PriceAndPlan() {
                     {plan.name == "Free" && <TypeAnimation
                       sequence={[
                         'Free',
-                        6000,
+                        15000,
                         '',
                         500
                       ]}

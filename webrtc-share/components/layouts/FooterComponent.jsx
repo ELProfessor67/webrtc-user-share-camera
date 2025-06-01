@@ -62,8 +62,8 @@ export function Footer() {
       </footer>
 
       <CustomDialog open={isCallbackOpen} setOpen={setIsCallbackOpen} heading={"Request a Callback"}>
-        <div className="mt-10">
-          <form className="space-y-3">
+        <div className="mt-8 max-h-[80vh] overflow-y-auto pr-0 rounded-lg">
+          <form className="space-y-4 pr-4">
             <div className="flex items-start flex-col gap-2">
               <label className="text-black font-semibold">Your Name</label>
               <input
@@ -187,8 +187,8 @@ export function Footer() {
       </CustomDialog>
 
       <CustomDialog open={isMeetingOpen} setOpen={setISMeetingOpen} heading={"Book a Demo Meeting"}>
-        <div className="mt-10">
-          <form className="space-y-3">
+        <div className="mt-8 max-h-[70vh] overflow-y-auto pr-0 rounded-lg">
+          <form className="space-y-4 pr-4">
             <div className="flex items-start flex-col gap-2">
               <label className="text-black font-semibold">Your Name</label>
               <input

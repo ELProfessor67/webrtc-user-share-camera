@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { FileText, Archive, Trash2, Monitor, Smartphone, Save, History, ArchiveRestore, ExternalLink, FileSearch, MailIcon, Loader2 } from "lucide-react"
+import { FileText, Archive, Trash2, Monitor, Smartphone, Save, History, ArchiveRestore, ExternalLink, FileSearch, MailIcon, Loader2, Maximize2 } from "lucide-react"
 import Image from "next/image"
 import {
   DropdownMenu,
@@ -72,6 +72,7 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [lastTypingTime, setLastTypingTime] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
+  const [isManualSelection, setIsManualSelection] = useState(false);
   const phoneInputRef = useRef(null);
   const emailInputRef = useRef(null);
   const typingTimerRef = useRef(null);
@@ -85,7 +86,7 @@ export default function Page() {
   useEffect(() => {
     let focusTimer;
 
-    if (showForm) {
+    if (showForm && !isManualSelection) {
       focusTimer = setInterval(() => {
         const currentTime = Date.now();
         if (!isTyping && currentTime - lastTypingTime > 3000) {
@@ -106,7 +107,7 @@ export default function Page() {
         clearTimeout(typingTimerRef.current);
       }
     };
-  }, [showForm, isTyping, lastTypingTime, contactMethod]);
+  }, [showForm, isTyping, lastTypingTime, contactMethod, isManualSelection]);
 
   const handleInputChange = (value, type) => {
     setIsTyping(true);
@@ -173,11 +174,19 @@ export default function Page() {
     }
 
     setIsLoading(true);
-    const res = await axios.get(`https://webrtc-user-share-camera.onrender.com/send-token?number=${phone}&email=${email}`);
-    setToken(res.data.token);
-    setShowForm(false);
-    setOpen(true);
-    setIsLoading(false);
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+      const res = await axios.get(`${backendUrl}/send-token?number=${phone}&email=${email}`);
+      setToken(res.data.token);
+      setShowForm(false);
+      setOpen(true);
+    } catch (error) {
+      console.error('Error sending token:', error);
+      toast("Failed to send video link. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setIsManualSelection(false); // Reset manual selection when form closes
+    }
   };
   const handleSend = () => {
     // Add your logic here (e.g., API call)
@@ -201,8 +210,8 @@ export default function Page() {
               <span className="text-gray-600">Your logo here</span>
             </div>
             <div className="flex items-center gap-2 flex-col">
-              <h1 className="text-2xl font-bold">Dashboard</h1>
-              <img src="/device-icons.png" alt="Videodesk" className="mt-2 w-30" />
+              <h1 className="text-4xl font-bold">Dashboard</h1>
+              <img src="/device-icons.png" alt="Videodesk" className="mt-2 w-35" />
             </div>
             <div className="flex items-center gap-4">
               <DropdownMenu>
@@ -249,23 +258,26 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="space-y-0 w-full">
-                <div className="flex items-center gap-6 justify-start">
-                  <p className="text-left mr-10">Logged In</p>
+              <div className="space-y-2 w-full">
+                <div className="flex items-center gap-4">
+                  <p className="text-left w-24">Logged in</p>
                   <span>:</span>
                   <p className="text-left">24 April 2025, 10.00am</p>
                 </div>
-                <div className="flex items-center gap-6 justify-start">
-                  <p className="text-left mr-10">Last Log in</p>
+                <div className="flex items-center gap-4">
+                  <p className="text-left w-24">Last Log in</p>
                   <span>:</span>
-                  <p className="text-left">23 April 2025, 9.00am</p>
+                  <p className="text-left">23 April 2025, 09.00am</p>
                 </div>
               </div>
 
             </div>
           </div>
 
-          <Button className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-lg font-medium cursor-pointer" onClick={() => setShowForm(true)}>
+          <Button className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-lg font-medium cursor-pointer" onClick={() => {
+            setShowForm(true);
+            setIsManualSelection(false); // Reset manual selection when opening form
+          }}>
             Launch new video link
           </Button>
 
@@ -299,11 +311,11 @@ export default function Page() {
                         <button title="Discard">
                           <img src="/icons/trash-red.svg" className="w-4 h-4" />
                         </button>
-                        <button title="Export">
+                        <button title="Archive">
                           <img src="/icons/download.svg" className="w-4 h-4" />
 
                         </button>
-                        <button title="Archive">
+                        <button title="Export">
                           <img src="/icons/icon-park_share.svg" className="w-5 h-5" />
 
                         </button>
@@ -329,7 +341,10 @@ export default function Page() {
 
 
             <button
-              onClick={() => setShowForm(false)}
+              onClick={() => {
+                setShowForm(false);
+                setIsManualSelection(false); // Reset manual selection when closing form
+              }}
               aria-label="Close"
               className="text-gray-500 hover:text-gray-800 absolute top-3 right-3 cursor-pointer"
             >
@@ -345,7 +360,10 @@ export default function Page() {
                   className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${contactMethod === 'phone' ? 'bg-white' : 'bg-gray-100'}`}
                   value={phone}
                   onChange={(e) => handleInputChange(e.target.value, 'phone')}
-                  onClick={() => setContactMethod('phone')}
+                  onClick={() => {
+                    setContactMethod('phone');
+                    setIsManualSelection(true);
+                  }}
                 />
               </div>
 
@@ -361,7 +379,10 @@ export default function Page() {
                   className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${contactMethod === 'email' ? 'bg-white' : 'bg-gray-100'}`}
                   value={email}
                   onChange={(e) => handleInputChange(e.target.value, 'email')}
-                  onClick={() => setContactMethod('email')}
+                  onClick={() => {
+                    setContactMethod('email');
+                    setIsManualSelection(true);
+                  }}
                 />
               </div>
 

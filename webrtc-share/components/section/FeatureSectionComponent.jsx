@@ -58,7 +58,7 @@ export const FeaturesSection = () => {
     {
       icon: <img src="/icons/diagnose-icon.png" />,
       title: "Capture and share crucial | information visually",
-      description: "Collaborate and solve | problem faster"
+      description: "Collaborate and solve | problems faster"
     },
     {
       icon: <img src="/icons/lang-icon.png" />,

@@ -299,26 +299,19 @@ export default function Page({ params }) {
               </div>
             </div>
             <div className="mb-6">
-              <label htmlFor="postCode" className="block text-lg font-medium mb-2">
-                Post code:
-              </label>
+              <input
+                type="text"
+                placeholder="Post code:"
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+            </div>
+            <div className="mb-6">
               <input
                 id="postCode"
                 type="text"
                 value={postCode}
                 onChange={(e) => setPostCode(e.target.value)}
-                placeholder="Enter post code"
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-300"
-              />
-            </div>
-            <div className="mb-6">
-              <label htmlFor="ref" className="block text-lg font-medium mb-2">
-                Ref:
-              </label>
-              <input
-                id="ref"
-                type="text"
-                placeholder="Enter post code"
+                placeholder="Ref:"
                 className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-300"
               />
             </div>
@@ -393,6 +386,24 @@ export default function Page({ params }) {
                         }}
                       >
                         Routine (28 Days)
+                      </li>
+                      <li
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={() => {
+                          setTargetTime("Follow Up Work")
+                          setShowDropdown(false)
+                        }}
+                      >
+                        Follow Up Work
+                      </li>
+                      <li
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={() => {
+                          setTargetTime("Other")
+                          setShowDropdown(false)
+                        }}
+                      >
+                        Other
                       </li>
                     </ul>
                   </div>

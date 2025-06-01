@@ -208,7 +208,7 @@ export const Header = () => {
                       <DropdownMenuLabel>My Account</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem>
-                        <Link href={"/dashboard"}>Dashbaord</Link>
+                        <Link href={"/dashboard"}>Dashboard</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem>Billing</DropdownMenuItem>
                       <DropdownMenuItem>Team</DropdownMenuItem>
