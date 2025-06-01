@@ -200,7 +200,7 @@ export const DialogProvider = ({ children }) => {
 
             <div className="flex items-start flex-col gap-2">
               <label className="text-black font-semibold flex items-center gap-2"><input type="checkbox" /> Upload Landlord logo to use on dashboard:</label>
-              <div className="flex relative items-center justify-center gap-2 w-[97%] p-4 h-[8rem] border border-gray-300 rounded-md ml-4">
+              <div className="flex relative items-center justify-center gap-2 w-[97%] p-4 h-[4rem] border border-gray-300 rounded-md ml-4">
                 <button className="absolute bottom-4 right-4 cursor-pointer"><img src="/icons/trash-red.svg" className="w-6 h-6" /></button>
                 <img src="/icons/material-symbols_upload-rounded.svg" />
               </div>
@@ -208,7 +208,7 @@ export const DialogProvider = ({ children }) => {
             </div>
             <div className="flex items-start flex-col gap-2">
               <label className="text-black font-semibold flex items-center gap-2"><input type="checkbox" /> Upload Officer image to use as profile photo:</label>
-              <div className="flex relative items-center justify-center gap-2 w-[97%] p-4 h-[8rem] border border-gray-300 rounded-md ml-4">
+              <div className="flex relative items-center justify-center gap-2 w-[97%] p-4 h-[6.5rem] border border-gray-300 rounded-md ml-4">
                 <div className="absolute bottom-1 left-4 right-4 flex justify-between">
                   <div className="flex items-center gap-3">
                     <label className="text-black font-semibold flex items-center gap-2">Select Profile Shape:</label>

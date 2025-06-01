@@ -131,7 +131,7 @@ export default function Page({ params }) {
               </div>
             </div>
 
-            <div className="w-full flex flex-col gap-2 mt-10">
+            <div className="w-full flex flex-col gap-1 mt-2">
 
               <button onClick={takeRecording} disabled={!isConnected} className="disabled:opacity-50 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-medium py-4 rounded-md transition-colors w-[270px]">
                 <span className="w-6 h-6 bg-white rounded-full flex items-center justify-center">

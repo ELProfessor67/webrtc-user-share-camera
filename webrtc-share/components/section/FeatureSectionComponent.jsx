@@ -82,7 +82,7 @@ export const FeaturesSection = () => {
 
           <TypeAnimation
             sequence={[
-              'Connect,  engage and support your customers with an instant video link',
+              'Connect, engage and support your customers with instant video links',
               25000,
               "",
               500
