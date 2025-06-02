@@ -9,7 +9,7 @@ export const HeroSection = () => {
       id: 1,
       backgroundImage: "url('/hero-section-bg.png')",
       content: (
-        <div className="mx-auto relative z-10 h-[85vh] px-10 flex flex-col justify-center">
+        <div className="mx-auto relative z-10 min-h-[85vh] px-10 flex flex-col justify-center">
           <div className="max-w-2xl">
             <div className='mb-10 ml-14 translate-y-[50px]'>
               <h1 className="text-4xl md:text-5xl font-bold mb-6">Videodesk.co.uk</h1>
@@ -43,7 +43,7 @@ export const HeroSection = () => {
       id: 2,
       backgroundImage: "url('/slide-2-bg.png')",
       content: (
-        <div className="mx-auto relative z-10 h-[85vh] px-10 flex flex-col justify-center">
+        <div className="mx-auto relative z-10 min-h-[85vh] px-10 flex flex-col justify-center">
           <div className="max-w-2xl">
             <div className='mb-10 translate-y-[50px]'>
               <h1 className="text-6xl font-bold mb-6">Videodesk.co.uk</h1>
@@ -86,7 +86,7 @@ export const HeroSection = () => {
 
   return (
     <>
-      <section className="relative bg-gray-800 text-white h-[85vh] overflow-hidden">
+      <section className="relative bg-gray-800 text-white min-h-[85vh] overflow-hidden">
         {slides.map((slide, index) => (
           <div
             key={slide.id}
@@ -99,10 +99,8 @@ export const HeroSection = () => {
               style={{
                 backgroundImage: slide.backgroundImage.startsWith('url') ? slide.backgroundImage : '',
                 opacity: slide.backgroundImage.startsWith('url') ? 0.5 : 1,
-                backgroundSize: slide.backgroundImage === "url('/slide-2-bg.png')" ? "100% 110vh" : 
-                              slide.backgroundImage === "url('/hero-section-bg.png')" ? "100% 90vh" : "cover",
-                backgroundRepeat: slide.backgroundImage === "url('/slide-2-bg.png')" ? "no-repeat" : 
-                                slide.backgroundImage === "url('/hero-section-bg.png')" ? "no-repeat" : "repeat"
+                backgroundSize: "cover",
+                backgroundRepeat: "no-repeat"
               }}
             />
             {slide.content}

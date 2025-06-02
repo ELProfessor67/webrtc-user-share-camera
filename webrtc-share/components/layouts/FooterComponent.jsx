@@ -62,7 +62,7 @@ export function Footer() {
       </footer>
 
       <CustomDialog open={isCallbackOpen} setOpen={setIsCallbackOpen} heading={"Request a Callback"}>
-        <div className="p-6 max-h-[80vh] overflow-y-auto">
+        <div className="max-h-[80vh] overflow-y-auto">
           <form className="space-y-6 max-w-lg mx-auto">
             <div className="flex items-start flex-col gap-3">
               <label className="text-gray-800 font-semibold text-sm">Your Name</label>
@@ -106,55 +106,76 @@ export function Footer() {
                     <input type="date" id="day" className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-purple-500 text-sm"/>
                   </div>
                 </div>
-                <div className="flex items-start flex-col w-full">
-                  <span className="text-blue-600 font-medium text-sm mb-3">(Select a time)</span>
-                  <div className="flex items-start flex-1 w-full gap-6">
-                    <div className="flex items-center gap-6 bg-gray-50 p-3 rounded-lg">
-                      <div className="space-y-2">
-                        <p className="text-gray-700 text-sm font-medium">Morning</p>
-                        <p className="text-gray-700 text-sm font-medium">Lunch time</p>
-                        <p className="text-gray-700 text-sm font-medium">Afternoon</p>
-                        <p className="text-gray-700 text-sm font-medium">Early Evening</p>
+                <div className="flex items-start flex-1 w-full gap-6">
+                  <div className="flex items-start gap-4 bg-gray-50 p-3 rounded-lg">
+                    <div className="space-y-2">
+                      <p className="text-gray-700 text-sm font-medium h-6 flex items-center w-20">Morning</p>
+                      <p className="text-gray-700 text-sm font-medium h-6 flex items-center w-20">Lunch time</p>
+                      <p className="text-gray-700 text-sm font-medium h-6 flex items-center w-20">Afternoon</p>
+                      <p className="text-gray-700 text-sm font-medium h-6 flex items-center w-20">Early Evening</p>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-gray-600 text-sm h-6 flex items-center">
+                        <span className="w-16 text-left">9.00AM</span>
+                        <span className="w-4">-</span>
+                        <span className="w-16">12 Noon</span>
                       </div>
-                      <div className="space-y-2">
-                        <p className="text-gray-600 text-sm flex items-center justify-between w-32"><span>9.00AM</span> <span>-</span> <span>12 Noon</span></p>
-                        <p className="text-gray-600 text-sm flex items-center justify-between w-32"><span>12 Noon</span> <span>-</span> <span>2.00PM</span></p>
-                        <p className="text-gray-600 text-sm flex items-center justify-between w-32"><span>2.00PM</span> <span>-</span> <span>5.00PM</span></p>
-                        <p className="text-gray-600 text-sm flex items-center justify-between w-32"><span>5.00PM</span> <span>-</span> <span>6.00PM</span></p>
+                      <div className="text-gray-600 text-sm h-6 flex items-center">
+                        <span className="w-16 text-left">12 Noon</span>
+                        <span className="w-4">-</span>
+                        <span className="w-16">2.00PM</span>
                       </div>
-                      <div className="space-y-3 flex flex-col">
+                      <div className="text-gray-600 text-sm h-6 flex items-center">
+                        <span className="w-16 text-left">2.00PM</span>
+                        <span className="w-4">-</span>
+                        <span className="w-16">5.00PM</span>
+                      </div>
+                      <div className="text-gray-600 text-sm h-6 flex items-center">
+                        <span className="w-16 text-left">5.00PM</span>
+                        <span className="w-4">-</span>
+                        <span className="w-16">6.00PM</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2 flex flex-col">
+                      <div className="h-6 flex items-center">
                         <input type="radio" name="time" className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div className="h-6 flex items-center">
                         <input type="radio" name="time" className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div className="h-6 flex items-center">
                         <input type="radio" name="time" className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div className="h-6 flex items-center">
                         <input type="radio" name="time" className="w-4 h-4 text-purple-600" />
                       </div>
                     </div>
-                    <div className="flex-1 flex flex-col bg-gray-50 p-3 rounded-lg">
-                      <p className="text-gray-700 text-sm font-medium mb-2">or Pick a time</p>
-                      <div className="flex items-center gap-2">
-                        <select className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-purple-500 text-sm bg-white">
-                          {Array.from({ length: 12 }, (_, i) => {
-                            const hour = i + 8;
-                            const display = hour.toString().padStart(2, '0');
-                            return (
-                              <option key={hour} value={display}>
-                                {display}
-                              </option>
-                            );
-                          })}
-                        </select>
-                        <select className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-purple-500 text-sm bg-white">
-                          {Array.from({ length: 60 }, (_, i) => {
-                            const minute = i;
-                            const display = minute.toString().padStart(2, '0');
-                            return (
-                              <option key={minute} value={display}>
-                                {display}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
+                  </div>
+                  <div className="flex-1 flex flex-col bg-gray-50 p-3 rounded-lg">
+                    <p className="text-gray-700 text-sm font-medium mb-2">or Pick a time</p>
+                    <div className="flex items-center gap-2">
+                      <select className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-purple-500 text-sm bg-white">
+                        {Array.from({ length: 12 }, (_, i) => {
+                          const hour = i + 8;
+                          const display = hour.toString().padStart(2, '0');
+                          return (
+                            <option key={hour} value={display}>
+                              {display}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <select className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-purple-500 text-sm bg-white">
+                        {Array.from({ length: 60 }, (_, i) => {
+                          const minute = i;
+                          const display = minute.toString().padStart(2, '0');
+                          return (
+                            <option key={minute} value={display}>
+                              {display}
+                            </option>
+                          );
+                        })}
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -180,14 +201,14 @@ export function Footer() {
       </CustomDialog>
 
       <CustomDialog open={isMeetingOpen} setOpen={setISMeetingOpen} heading={"Book a Demo Meeting"}>
-        <div className="p-6 max-h-[80vh] overflow-y-auto">
+        <div className="max-h-[80vh] overflow-y-auto">
           <form className="space-y-6 max-w-lg mx-auto">
             <div className="flex items-start flex-col gap-3">
               <label className="text-gray-800 font-semibold text-sm">Your Name</label>
               <input
                 type="text"
                 placeholder="Enter your name"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 bg-white shadow-sm"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200 bg-white shadow-sm"
               />
             </div>
             <div className="flex items-start flex-col gap-3">
@@ -195,7 +216,7 @@ export function Footer() {
               <input
                 type="email"
                 placeholder="Enter your email address"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 bg-white shadow-sm"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200 bg-white shadow-sm"
               />
             </div>
             <div className="flex items-start flex-col gap-3">
@@ -204,20 +225,20 @@ export function Footer() {
                 <div className="grid grid-cols-3 gap-3 w-full">
                   <input
                     type="date"
-                    className="w-full px-3 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 bg-white text-sm"
+                    className="w-full px-3 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200 bg-white text-sm"
                   />
-                  <select className="w-full px-3 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 bg-white text-sm">
+                  <select className="w-full px-3 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200 bg-white text-sm">
                     {Array.from({ length: 12 }, (_, i) => {
                       const hour = i + 8;
                       const display = hour.toString().padStart(2, '0');
                       return (
                         <option key={hour} value={display}>
-                          {display}
+                          {display}:00
                         </option>
                       );
                     })}
                   </select>
-                  <select className="w-full px-3 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 bg-white text-sm">
+                  <select className="w-full px-3 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200 bg-white text-sm">
                     {Array.from({ length: 60 }, (_, i) => {
                       const minute = i;
                       const display = minute.toString().padStart(2, '0');
@@ -235,13 +256,13 @@ export function Footer() {
               <label className="text-gray-800 font-semibold text-sm">Message</label>
               <textarea
                 placeholder="Enter your message"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 bg-white shadow-sm h-24 resize-none"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200 bg-white shadow-sm h-24 resize-none"
               />
             </div>
 
             <button
               type="submit"
-              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 w-full shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 w-full shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
               Book Meeting
             </button>
