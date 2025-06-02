@@ -9,7 +9,7 @@ export const HeroSection = () => {
       id: 1,
       backgroundImage: "url('/hero-section-bg.png')",
       content: (
-        <div className="mx-auto relative z-10 h-[31rem] px-10 flex flex-col justify-center">
+        <div className="mx-auto relative z-10 h-[85vh] px-10 flex flex-col justify-center">
           <div className="max-w-2xl">
             <div className='mb-10 ml-14 translate-y-[50px]'>
               <h1 className="text-4xl md:text-5xl font-bold mb-6">Videodesk.co.uk</h1>
@@ -43,7 +43,7 @@ export const HeroSection = () => {
       id: 2,
       backgroundImage: "url('/slide-2-bg.png')",
       content: (
-        <div className="mx-auto relative z-10 h-[31rem] px-10 flex flex-col justify-center">
+        <div className="mx-auto relative z-10 h-[85vh] px-10 flex flex-col justify-center">
           <div className="max-w-2xl">
             <div className='mb-10 translate-y-[50px]'>
               <h1 className="text-6xl font-bold mb-6">Videodesk.co.uk</h1>
@@ -60,8 +60,8 @@ export const HeroSection = () => {
       id: 3,
       backgroundImage: "bg-[#f9f9f9]",
       content: (
-        <div className="mx-auto relative z-10 h-[31rem] flex flex-row bg-[#f9f9f9]">
-          <div className='flex-[60%] flex flex-col p-10'>
+        <div className="mx-auto relative z-10 h-[85vh] flex flex-row bg-[#f9f9f9]">
+          <div className='flex-[70%] flex flex-col p-10 pl-20'>
             <h1 className='text-black text-4xl font-semibold mt-0'>Built for Social Landlords</h1>
             <h1 className='text-5xl font-bold w-fit p-2 bg-amber-400 text-white mt-10 pr-8'>Embrace the power <br /> of instant video.</h1>
             <p className='text-black text-2xl font-normal whitespace-pre mt-6'>Reduce service calls and <br /><strong>improve first-time resolution</strong> for <br />repairs reporting.</p>
@@ -70,7 +70,7 @@ export const HeroSection = () => {
               <h2 className="text-xl font-bold mb-12 text-center text-black">Connect. Engage. Support.</h2>
             </div>
           </div>
-          <img src='/slide-3.png' className='flex-[40%] translate-x-8' />
+          <img src='/slide-3.png' className='flex-[30%]' style={{ transform: 'translateX(-50px) translateY(10px)' }} />
         </div>
       )
     }
@@ -79,14 +79,14 @@ export const HeroSection = () => {
   useEffect(() => {
     const autoPlay = setInterval(() => {
       setActiveSlide((prev) => (prev + 1) % slides.length);
-    }, 3000);
+    }, 7000);
 
     return () => clearInterval(autoPlay);
   }, [slides.length]);
 
   return (
     <>
-      <section className="relative bg-gray-800 text-white h-[31rem] overflow-hidden">
+      <section className="relative bg-gray-800 text-white h-[85vh] overflow-hidden">
         {slides.map((slide, index) => (
           <div
             key={slide.id}
@@ -99,7 +99,8 @@ export const HeroSection = () => {
               style={{
                 backgroundImage: slide.backgroundImage.startsWith('url') ? slide.backgroundImage : '',
                 opacity: slide.backgroundImage.startsWith('url') ? 0.5 : 1,
-                backgroundSize: "cover"
+                backgroundSize: slide.backgroundImage === "url('/slide-2-bg.png')" ? "100% 85vh" : "cover",
+                backgroundRepeat: slide.backgroundImage === "url('/slide-2-bg.png')" ? "no-repeat" : "repeat"
               }}
             />
             {slide.content}

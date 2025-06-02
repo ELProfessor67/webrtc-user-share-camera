@@ -211,7 +211,7 @@ export default function Page() {
             </div>
             <div className="flex items-center gap-2 flex-col">
               <h1 className="text-4xl font-bold">Dashboard</h1>
-              <img src="/device-icons.png" alt="Videodesk" className="mt-2 w-35" />
+              <img src="/devices.svg" alt="Videodesk" className="mt-2 w-60" />
             </div>
             <div className="flex items-center gap-4">
               <DropdownMenu>
@@ -259,15 +259,15 @@ export default function Page() {
               </div>
 
               <div className="space-y-2 w-full">
-                <div className="flex items-center gap-4">
-                  <p className="text-left w-24">Logged in</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-left whitespace-nowrap w-20">Logged in</p>
                   <span>:</span>
-                  <p className="text-left">24 April 2025, 10.00am</p>
+                  <p className="text-left whitespace-nowrap">24 April 2025, 10.00am</p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <p className="text-left w-24">Last Log in</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-left whitespace-nowrap w-20">Last Log in</p>
                   <span>:</span>
-                  <p className="text-left">23 April 2025, 09.00am</p>
+                  <p className="text-left whitespace-nowrap">23 April 2025, 09.00am</p>
                 </div>
               </div>
 

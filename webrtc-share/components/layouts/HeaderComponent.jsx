@@ -156,9 +156,8 @@ export const Header = () => {
 
   return (
     <>
-
-      <header className="sticky top-0 z-50 bg-white shadow-sm">
-        <div className=" mx-auto px-10 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-50 bg-white shadow-sm h-[15vh]">
+        <div className=" mx-auto px-10 py-4 flex items-center justify-between h-full">
           <div className="flex items-center flex-col">
             <a href="/" className="text-2xl font-bold text-gray-900 flex items-center">
               <VideoIcon className="mr-2" />

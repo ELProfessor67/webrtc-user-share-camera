@@ -62,201 +62,188 @@ export function Footer() {
       </footer>
 
       <CustomDialog open={isCallbackOpen} setOpen={setIsCallbackOpen} heading={"Request a Callback"}>
-        <div className="mt-8 max-h-[80vh] overflow-y-auto pr-0 rounded-lg">
-          <form className="space-y-4 pr-4">
-            <div className="flex items-start flex-col gap-2">
-              <label className="text-black font-semibold">Your Name</label>
+        <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 min-h-[400px]">
+          <form className="space-y-6 max-w-lg mx-auto">
+            <div className="flex items-start flex-col gap-3">
+              <label className="text-gray-800 font-semibold text-sm">Your Name</label>
               <input
                 type="text"
                 placeholder="Enter your name"
-                className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none`}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200 bg-white shadow-sm"
               />
             </div>
-            <div className="flex items-start flex-col gap-2">
-              <label className="text-black font-semibold">Your email address</label>
+            <div className="flex items-start flex-col gap-3">
+              <label className="text-gray-800 font-semibold text-sm">Your email address</label>
               <input
                 type="text"
                 placeholder="Enter your email address"
-                className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none`}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200 bg-white shadow-sm"
               />
             </div>
-            <div className="flex items-start flex-col gap-2">
-              <label className="text-black font-semibold">Your phone</label>
+            <div className="flex items-start flex-col gap-3">
+              <label className="text-gray-800 font-semibold text-sm">Your phone</label>
               <input
                 type="tel"
                 placeholder="Enter your phone number"
-                className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none`}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200 bg-white shadow-sm"
               />
             </div>
-            <div className="flex items-start flex-col gap-2">
-              <label className="text-black font-semibold">Best time to call</label>
-              <div className="flex items-center justify-between w-full">
-                <span className="text-blue-400 font-light">(Select a day)</span>
-                <div className="flex items-center gap-5">
-                  <p className="text-black">Today</p>
-                  <input type="radio" name="day" />
-                </div>
-                <div className="flex items-center gap-5">
-                  <p className="text-black">Tomorrow</p>
-                  <input type="radio" name="day" />
-                </div>
-                <div className="flex items-start gap-2 flex-col">
-                  <p className="text-black">or Pick a date:</p>
-                  {/* <label htmlFor="day" className={"cursor-pointer"}>
-                    <Calendar1Icon className="text-gray-400" size={25} />
-                  </label> */}
-                  <input type="date" id="day"/>
-                </div>
-              </div>
-              <div className="flex items-start flex-col w-full mt-3">
-                <span className="text-blue-400 font-light">(Select a time)</span>
-                <div className="flex items-start flex-1 w-full gap-7 justify-center">
-                  <div className="flex items-center gap-8">
-                    <div className="space-y-1">
-                      <p className="text-black">Morning</p>
-                      <p className="text-black">Lunch time</p>
-                      <p className="text-black">Afternoon</p>
-                      <p className="text-black">Early Evening</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-black flex items-center justify-between"><span>9.00AM</span> <span>-</span> <span>12 Noon</span></p>
-                      <p className="text-black flex items-center justify-between"><span>12 Noon</span> <span>-</span> <span>2.00PM</span></p>
-                      <p className="text-black flex items-center justify-between"><span>2.00PM</span> <span>-</span> <span>5.00PM</span></p>
-                      <p className="text-black flex items-center justify-between"><span>5.00PM</span> <span>-</span> <span>6.00PM</span></p>
-                    </div>
-                    <div className="space-y-1 flex flex-col gap-3">
-                      <input type="radio" name="time" />
-                      <input type="radio" name="time" />
-                      <input type="radio" name="time" />
-                      <input type="radio" name="time" />
-                    </div>
+            <div className="flex items-start flex-col gap-4">
+              <label className="text-gray-800 font-semibold text-sm">Best time to call</label>
+              <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                <div className="flex items-center justify-between w-full mb-4">
+                  <span className="text-blue-600 font-medium text-sm">(Select a day)</span>
+                  <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-md">
+                    <p className="text-gray-700 text-sm">Today</p>
+                    <input type="radio" name="day" className="w-4 h-4 text-purple-600" />
                   </div>
-                  <div className="flex-1 flex flex-col">
-                    <p className="text-black">or Pick a time</p>
-                    <div className="flex items-center gap-2">
-                      {/* <input type="time" className={`w-[200px] px-4 py-2 border border-gray-300 rounded-md focus:outline-none`} /> */}
-                      <select
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none"
-                      >
-                        {Array.from({ length: 12 }, (_, i) => {
-                          const hour = i + 8; // 8 to 19
-                          const display = hour.toString().padStart(2, '0');
-                          return (
-                            <option key={hour} value={display}>
-                              {display}
-                            </option>
-                          );
-                        })}
-                      </select>
-
-                      <select
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none"
-                      >
-                        {Array.from({ length: 60 }, (_, i) => {
-                          const hour = i; // 8 to 19
-                          const display = hour.toString().padStart(2, '0');
-                          return (
-                            <option key={hour} value={display}>
-                              {display}
-                            </option>
-                          );
-                        })}
-                      </select>
+                  <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-md">
+                    <p className="text-gray-700 text-sm">Tomorrow</p>
+                    <input type="radio" name="day" className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <div className="flex items-start gap-2 flex-col">
+                    <p className="text-gray-700 text-sm">or Pick a date:</p>
+                    <input type="date" id="day" className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-purple-500 text-sm"/>
+                  </div>
+                </div>
+                <div className="flex items-start flex-col w-full">
+                  <span className="text-blue-600 font-medium text-sm mb-3">(Select a time)</span>
+                  <div className="flex items-start flex-1 w-full gap-6">
+                    <div className="flex items-center gap-6 bg-gray-50 p-3 rounded-lg">
+                      <div className="space-y-2">
+                        <p className="text-gray-700 text-sm font-medium">Morning</p>
+                        <p className="text-gray-700 text-sm font-medium">Lunch time</p>
+                        <p className="text-gray-700 text-sm font-medium">Afternoon</p>
+                        <p className="text-gray-700 text-sm font-medium">Early Evening</p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-gray-600 text-sm flex items-center justify-between w-32"><span>9.00AM</span> <span>-</span> <span>12 Noon</span></p>
+                        <p className="text-gray-600 text-sm flex items-center justify-between w-32"><span>12 Noon</span> <span>-</span> <span>2.00PM</span></p>
+                        <p className="text-gray-600 text-sm flex items-center justify-between w-32"><span>2.00PM</span> <span>-</span> <span>5.00PM</span></p>
+                        <p className="text-gray-600 text-sm flex items-center justify-between w-32"><span>5.00PM</span> <span>-</span> <span>6.00PM</span></p>
+                      </div>
+                      <div className="space-y-3 flex flex-col">
+                        <input type="radio" name="time" className="w-4 h-4 text-purple-600" />
+                        <input type="radio" name="time" className="w-4 h-4 text-purple-600" />
+                        <input type="radio" name="time" className="w-4 h-4 text-purple-600" />
+                        <input type="radio" name="time" className="w-4 h-4 text-purple-600" />
+                      </div>
+                    </div>
+                    <div className="flex-1 flex flex-col bg-gray-50 p-3 rounded-lg">
+                      <p className="text-gray-700 text-sm font-medium mb-2">or Pick a time</p>
+                      <div className="flex items-center gap-2">
+                        <select className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-purple-500 text-sm bg-white">
+                          {Array.from({ length: 12 }, (_, i) => {
+                            const hour = i + 8;
+                            const display = hour.toString().padStart(2, '0');
+                            return (
+                              <option key={hour} value={display}>
+                                {display}
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <select className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-purple-500 text-sm bg-white">
+                          {Array.from({ length: 60 }, (_, i) => {
+                            const minute = i;
+                            const display = minute.toString().padStart(2, '0');
+                            return (
+                              <option key={minute} value={display}>
+                                {display}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-start flex-col gap-2">
-              <label className="text-black font-semibold">Message</label>
+            <div className="flex items-start flex-col gap-3">
+              <label className="text-gray-800 font-semibold text-sm">Message</label>
               <textarea
                 placeholder="Enter your message"
-                className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none h-[4rem]`}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200 bg-white shadow-sm h-24 resize-none"
               />
             </div>
 
             <button
               type="submit"
-              className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition-colors w-full"
+              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 w-full shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
-              Send
+              Send Request
             </button>
           </form>
         </div>
       </CustomDialog>
 
       <CustomDialog open={isMeetingOpen} setOpen={setISMeetingOpen} heading={"Book a Demo Meeting"}>
-        <div className="mt-8 max-h-[70vh] overflow-y-auto pr-0 rounded-lg">
-          <form className="space-y-4 pr-4">
-            <div className="flex items-start flex-col gap-2">
-              <label className="text-black font-semibold">Your Name</label>
+        <div className="p-6 bg-gradient-to-br from-indigo-50 to-blue-50 min-h-[300px]">
+          <form className="space-y-6 max-w-lg mx-auto">
+            <div className="flex items-start flex-col gap-3">
+              <label className="text-gray-800 font-semibold text-sm">Your Name</label>
               <input
                 type="text"
                 placeholder="Enter your name"
-                className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none`}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 bg-white shadow-sm"
               />
             </div>
-            <div className="flex items-start flex-col gap-2">
-              <label className="text-black font-semibold">Your email address</label>
+            <div className="flex items-start flex-col gap-3">
+              <label className="text-gray-800 font-semibold text-sm">Your email address</label>
               <input
                 type="email"
                 placeholder="Enter your email address"
-                className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none`}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 bg-white shadow-sm"
               />
             </div>
-            <div className="flex items-start flex-col gap-2">
-              <label className="text-black font-semibold">Pick a date & time</label>
-
-              <div className="grid grid-cols-3 gap-2 w-full">
-                <input
-                  type="date"
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none`}
-                />
-                <select
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none"
-                >
-                  {Array.from({ length: 12 }, (_, i) => {
-                    const hour = i + 8; // 8 to 19
-                    const display = hour.toString().padStart(2, '0');
-                    return (
-                      <option key={hour} value={display}>
-                        {display}
-                      </option>
-                    );
-                  })}
-                </select>
-
-
-                <select
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none"
-                >
-                  {Array.from({ length: 60 }, (_, i) => {
-                    const hour = i; // 8 to 19
-                    const display = hour.toString().padStart(2, '0');
-                    return (
-                      <option key={hour} value={display}>
-                        {display}
-                      </option>
-                    );
-                  })}
-                </select>
+            <div className="flex items-start flex-col gap-3">
+              <label className="text-gray-800 font-semibold text-sm">Pick a date & time</label>
+              <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                <div className="grid grid-cols-3 gap-3 w-full">
+                  <input
+                    type="date"
+                    className="w-full px-3 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 bg-white text-sm"
+                  />
+                  <select className="w-full px-3 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 bg-white text-sm">
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const hour = i + 8;
+                      const display = hour.toString().padStart(2, '0');
+                      return (
+                        <option key={hour} value={display}>
+                          {display}:00
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <select className="w-full px-3 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 bg-white text-sm">
+                    {Array.from({ length: 60 }, (_, i) => {
+                      const minute = i;
+                      const display = minute.toString().padStart(2, '0');
+                      return (
+                        <option key={minute} value={display}>
+                          :{display}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
               </div>
-
             </div>
-            <div className="flex items-start flex-col gap-2">
-              <label className="text-black font-semibold">Message</label>
+            <div className="flex items-start flex-col gap-3">
+              <label className="text-gray-800 font-semibold text-sm">Message</label>
               <textarea
                 placeholder="Enter your message"
-                className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none h-[4rem]`}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 bg-white shadow-sm h-24 resize-none"
               />
             </div>
 
             <button
               type="submit"
-              className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition-colors w-full"
+              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 w-full shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
-              Send
+              Book Meeting
             </button>
           </form>
         </div>
