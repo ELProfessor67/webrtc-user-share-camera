@@ -258,7 +258,7 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="space-y-2 w-full">
+              <div className="space-y-0 w-full">
                 <div className="flex items-center gap-2">
                   <p className="text-left whitespace-nowrap w-20">Logged in</p>
                   <span>:</span>
@@ -271,16 +271,15 @@ export default function Page() {
                 </div>
               </div>
 
+              <Button className="bg-amber-500 hover:bg-amber-600 text-white px-8 py-4 rounded-lg font-medium cursor-pointer mt-4 text-lg" onClick={() => {
+                setShowForm(true);
+                setIsManualSelection(false); // Reset manual selection when opening form
+              }}>
+                Launch new video link
+              </Button>
+
             </div>
           </div>
-
-          <Button className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-lg font-medium cursor-pointer" onClick={() => {
-            setShowForm(true);
-            setIsManualSelection(false); // Reset manual selection when opening form
-          }}>
-            Launch new video link
-          </Button>
-
 
           <div className="bg-white p-5 rounded-xl shadow-md overflow-x-auto">
             <table className="min-w-full text-left text-sm">

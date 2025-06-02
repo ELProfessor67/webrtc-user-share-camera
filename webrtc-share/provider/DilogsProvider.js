@@ -65,6 +65,13 @@ export const DialogProvider = ({ children }) => {
         setInviteEmails(newEmails);
     };
 
+    const removeEmailField = (index) => {
+        if (inviteEmails.length > 1) {
+            const newEmails = inviteEmails.filter((_, i) => i !== index);
+            setInviteEmails(newEmails);
+        }
+    };
+
     const value = {setResetOpen,setMessageOpen,setLandlordDialogOpen,setTickerOpen,setInviteOpen, setFeedbackOpen, setFaqOpen} 
   return (
     <DialogContext.Provider value={value}>
@@ -421,22 +428,30 @@ export const DialogProvider = ({ children }) => {
             <div className="space-y-3">
               {inviteEmails.map((email, index) => (
                 <div key={index}>
-                  <div className="flex items-center gap-2">
+                  <div className="relative">
                     <input
                       type="email"
                       placeholder={`${index + 1}. Enter email address for Co-worker`}
                       value={email}
                       onChange={(e) => updateEmail(index, e.target.value)}
-                      className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg"
+                      className={`w-full px-4 py-2 text-sm border border-gray-300 rounded-lg ${index > 0 ? 'pr-12' : ''}`}
                     />
+                    {index > 0 && (
+                      <button
+                        onClick={() => removeEmailField(index)}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-full cursor-pointer transition-colors shadow-lg flex items-center justify-center"
+                      >
+                        -
+                      </button>
+                    )}
                   </div>
                   {index === inviteEmails.length - 1 && (
                     <div className="flex justify-end items-center mt-3">
                       <button
                         onClick={addEmailField}
-                        className="w-10 h-10 bg-green-500 hover:bg-green-600 text-white text-xl font-bold rounded-full cursor-pointer transition-colors shadow-lg relative"
+                        className="w-6 h-6 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded-full cursor-pointer transition-colors shadow-lg relative"
                       >
-                        <span className="absolute inset-0 flex items-center justify-center" style={{ top: '-2px' }}>
+                        <span className="absolute inset-0 flex items-center justify-center" style={{ top: '-1px' }}>
                           +
                         </span>
                       </button>

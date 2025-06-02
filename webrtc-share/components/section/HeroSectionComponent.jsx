@@ -99,8 +99,10 @@ export const HeroSection = () => {
               style={{
                 backgroundImage: slide.backgroundImage.startsWith('url') ? slide.backgroundImage : '',
                 opacity: slide.backgroundImage.startsWith('url') ? 0.5 : 1,
-                backgroundSize: slide.backgroundImage === "url('/slide-2-bg.png')" ? "100% 85vh" : "cover",
-                backgroundRepeat: slide.backgroundImage === "url('/slide-2-bg.png')" ? "no-repeat" : "repeat"
+                backgroundSize: slide.backgroundImage === "url('/slide-2-bg.png')" ? "100% 110vh" : 
+                              slide.backgroundImage === "url('/hero-section-bg.png')" ? "100% 90vh" : "cover",
+                backgroundRepeat: slide.backgroundImage === "url('/slide-2-bg.png')" ? "no-repeat" : 
+                                slide.backgroundImage === "url('/hero-section-bg.png')" ? "no-repeat" : "repeat"
               }}
             />
             {slide.content}

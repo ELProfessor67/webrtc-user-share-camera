@@ -62,7 +62,7 @@ export function Footer() {
       </footer>
 
       <CustomDialog open={isCallbackOpen} setOpen={setIsCallbackOpen} heading={"Request a Callback"}>
-        <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 min-h-[400px]">
+        <div className="p-6 max-h-[80vh] overflow-y-auto">
           <form className="space-y-6 max-w-lg mx-auto">
             <div className="flex items-start flex-col gap-3">
               <label className="text-gray-800 font-semibold text-sm">Your Name</label>
@@ -180,7 +180,7 @@ export function Footer() {
       </CustomDialog>
 
       <CustomDialog open={isMeetingOpen} setOpen={setISMeetingOpen} heading={"Book a Demo Meeting"}>
-        <div className="p-6 bg-gradient-to-br from-indigo-50 to-blue-50 min-h-[300px]">
+        <div className="p-6 max-h-[80vh] overflow-y-auto">
           <form className="space-y-6 max-w-lg mx-auto">
             <div className="flex items-start flex-col gap-3">
               <label className="text-gray-800 font-semibold text-sm">Your Name</label>
@@ -212,7 +212,7 @@ export function Footer() {
                       const display = hour.toString().padStart(2, '0');
                       return (
                         <option key={hour} value={display}>
-                          {display}:00
+                          {display}
                         </option>
                       );
                     })}
@@ -223,7 +223,7 @@ export function Footer() {
                       const display = minute.toString().padStart(2, '0');
                       return (
                         <option key={minute} value={display}>
-                          :{display}
+                          {display}
                         </option>
                       );
                     })}
