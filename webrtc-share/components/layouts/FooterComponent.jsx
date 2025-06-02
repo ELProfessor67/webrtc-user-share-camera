@@ -119,10 +119,10 @@ export function Footer() {
                       <p className="text-black">Early Evening</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-black flex items-center justify-between"><span>9.00AM</span> <span>-</span> <span>12 Noon</span></p>
-                      <p className="text-black flex items-center justify-between"><span>12 Noon</span> <span>-</span> <span>2.00PM</span></p>
-                      <p className="text-black flex items-center justify-between"><span>2.00PM</span> <span>-</span> <span>5.00PM</span></p>
-                      <p className="text-black flex items-center justify-between"><span>5.00PM</span> <span>-</span> <span>6.00PM</span></p>
+                      <p className="text-black flex items-center justify-between gap-4"><span>9.00  AM</span> <span>-</span>   <span> 12 Noon</span></p>
+                      <p className="text-black flex items-center justify-between gap-4"><span>12 Noon</span> <span>-</span> <span>2.00 PM</span></p>
+                      <p className="text-black flex items-center justify-between gap-4"><span>2.00  PM</span> <span>-</span> <span>5.00 PM</span></p>
+                      <p className="text-black flex items-center justify-between gap-4"><span>5.00  PM</span> <span>-</span> <span>6.00 PM</span></p>
                     </div>
                     <div className="space-y-1 flex flex-col gap-3">
                       <input type="radio" name="time" />
