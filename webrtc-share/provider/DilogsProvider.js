@@ -38,6 +38,10 @@ export const DialogProvider = ({ children }) => {
     const [checked, setIsCheked] = useState(false)
     const [resetEmail, setResetEmail] = useState('');
     const [resetLoading, setResetLoading] = useState(false); 
+    // Add new state for message option
+    const [messageOption, setMessageOption] = useState(''); // '' for no default selection
+    const [defaultTextSize, setDefaultTextSize] = useState('14px'); // font size for default message
+    const [tailoredTextSize, setTailoredTextSize] = useState('14px'); // font size for tailored message
     const [landlordName, setLandlordName] = useState("");
     const [useLogoAsProfile, setUseLogoAsProfile] = useState(false);
     const [redirectUrlDefault, setRedirectUrlDefault] = useState("");
@@ -61,6 +65,13 @@ export const DialogProvider = ({ children }) => {
         setInviteEmails(newEmails);
     };
 
+    const removeEmailField = (index) => {
+        if (inviteEmails.length > 1) {
+            const newEmails = inviteEmails.filter((_, i) => i !== index);
+            setInviteEmails(newEmails);
+        }
+    };
+
     const value = {setResetOpen,setMessageOpen,setLandlordDialogOpen,setTickerOpen,setInviteOpen, setFeedbackOpen, setFaqOpen} 
   return (
     <DialogContext.Provider value={value}>
@@ -70,7 +81,7 @@ export const DialogProvider = ({ children }) => {
       <DialogComponent open={resetOpen} setOpen={setResetOpen} isCloseable={true}>
         <div className="w-[340px] max-h-[90vh] rounded-2xl bg-purple-500 shadow-md overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between bg-purple-500 text-white p-4 m-0">
+          <div className="flex items-center justify-center bg-purple-500 text-white p-4 m-0 relative">
             <div className="flex items-center gap-2">
               <LockIcon className="w-5 h-5 text-white" />
               <h2 className="text-base font-semibold">Reset Password</h2>
@@ -78,7 +89,7 @@ export const DialogProvider = ({ children }) => {
             <button
               onClick={() => setResetOpen(false)}
               aria-label="Close"
-              className="text-white hover:text-gray-200"
+              className="absolute right-4 text-white hover:text-gray-200"
             >
               <XIcon className="w-4 h-4" />
             </button>
@@ -129,11 +140,11 @@ export const DialogProvider = ({ children }) => {
       <DialogComponent open={messageOpen} setOpen={setMessageOpen} isCloseable={true}>
         <div className="w-[500px] max-h-[90vh] bg-purple-500 rounded-2xl shadow-md overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between bg-purple-500 text-white p-4 m-0">
+          <div className="flex items-center justify-center bg-purple-500 text-white p-4 m-0 relative">
             <h2 className="text-lg font-semibold">Amend Message:</h2>
             <button
               onClick={() => setMessageOpen(false)}
-              className="text-white hover:text-gray-200 transition"
+              className="absolute right-4 text-white hover:text-gray-200 transition"
               aria-label="Close dialog"
             >
               <XIcon className="w-5 h-5" />
@@ -143,12 +154,32 @@ export const DialogProvider = ({ children }) => {
           <div className="p-6 bg-white rounded-b-2xl max-h-[calc(90vh-4rem)] overflow-y-auto">
             {/* Default Message */}
             <div className="mb-4">
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2 mb-1">
                 <label className="font-medium text-sm text-black">Default message:</label>
+                <select 
+                  value={defaultTextSize} 
+                  onChange={(e) => setDefaultTextSize(e.target.value)}
+                  className="text-white bg-black border border-gray-300 rounded px-2 py-1 text-xs"
+                >
+                  <option value="10px">10px</option>
+                  <option value="12px">12px</option>
+                  <option value="13px">13px</option>
+                  <option value="14px">14px</option>
+                  <option value="16px">16px</option>
+                  <option value="18px">18px</option>
+                  <option value="20px">20px</option>
+                  <option value="22px">22px</option>
+                  <option value="24px">24px</option>
+                </select>
               </div>
               <div className="flex items-start gap-2">
-                <input type="checkbox" defaultChecked className="mt-1" />
-                <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white">
+                <input 
+                  type="checkbox" 
+                  checked={messageOption === 'default'}
+                  onChange={() => setMessageOption('default')}
+                  className="mt-1" 
+                />
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white" style={{ fontSize: defaultTextSize }}>
                   <p>Please click on the link below to connect with your landlord</p>
                   <a
                     href="https://www.videodesk.co.uk/xyz91dasd"
@@ -164,14 +195,35 @@ export const DialogProvider = ({ children }) => {
 
             {/* Tailored Message */}
             <div className="mb-6">
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2 mb-1">
                 <label className="font-medium text-sm text-black">Or type tailored message:</label>
+                <select 
+                  value={tailoredTextSize} 
+                  onChange={(e) => setTailoredTextSize(e.target.value)}
+                  className="text-white bg-black border border-gray-300 rounded px-2 py-1 text-xs"
+                >
+                  <option value="10px">10px</option>
+                  <option value="12px">12px</option>
+                  <option value="13px">13px</option>
+                  <option value="14px">14px</option>
+                  <option value="16px">16px</option>
+                  <option value="18px">18px</option>
+                  <option value="20px">20px</option>
+                  <option value="22px">22px</option>
+                  <option value="24px">24px</option>
+                </select>
               </div>
               <div className="flex gap-2">
-                <input type="checkbox" className="mt-1" onChange={() => setIsCheked(prev => !prev)} />
+                <input 
+                  type="checkbox" 
+                  checked={messageOption === 'tailored'}
+                  onChange={() => setMessageOption('tailored')}
+                  className="mt-1" 
+                />
                 <textarea
                   placeholder="Enter your message"
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none ${checked ? 'h-[6rem]' : 'h-[4rem]'}`}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none ${messageOption === 'tailored' ? 'h-[6rem]' : 'h-[4rem]'}`}
+                  style={{ fontSize: tailoredTextSize }}
                 />
               </div>
             </div>
@@ -190,14 +242,12 @@ export const DialogProvider = ({ children }) => {
       <DialogComponent open={landlordDialogOpen} setOpen={setLandlordDialogOpen} isCloseable>
         <div className="w-[550px] max-h-[90vh] rounded-2xl bg-purple-500 shadow-md overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between bg-purple-500 text-white p-4 m-0">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold">Add Landlord Name/Logo/Profile Image:</h2>
-            </div>
+          <div className="flex items-center justify-center bg-purple-500 text-white p-4 m-0 relative">
+            <h2 className="text-base font-semibold">Add Landlord Name/Logo/Profile Image:</h2>
             <button
               onClick={() => setLandlordDialogOpen(false)}
               aria-label="Close"
-              className="text-white hover:text-gray-200"
+              className="absolute right-4 text-white hover:text-gray-200"
             >
               <XIcon className="w-4 h-4" />
             </button>
@@ -322,7 +372,7 @@ export const DialogProvider = ({ children }) => {
       <DialogComponent open={ticketOpen} setOpen={setTickerOpen} isCloseable={true}>
         <div className="w-[400px] max-h-[90vh] rounded-2xl bg-purple-500 shadow-md relative overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between bg-purple-500 text-white p-4 m-0">
+          <div className="flex items-center justify-center bg-purple-500 text-white p-4 m-0 relative">
             <div className="flex items-center gap-2">
               <MailIcon className="w-5 h-5 text-white" />
               <h2 className="text-lg font-bold">Raise Support Ticket</h2>
@@ -330,7 +380,7 @@ export const DialogProvider = ({ children }) => {
             <button
               onClick={() => setTickerOpen(false)}
               aria-label="Close"
-              className="text-white hover:text-gray-200"
+              className="absolute right-4 text-white hover:text-gray-200"
             >
               <XIcon className="w-4 h-4" />
             </button>
@@ -378,22 +428,30 @@ export const DialogProvider = ({ children }) => {
             <div className="space-y-3">
               {inviteEmails.map((email, index) => (
                 <div key={index}>
-                  <div className="flex items-center gap-2">
+                  <div className="relative">
                     <input
                       type="email"
                       placeholder={`${index + 1}. Enter email address for Co-worker`}
                       value={email}
                       onChange={(e) => updateEmail(index, e.target.value)}
-                      className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg"
+                      className={`w-full px-4 py-2 text-sm border border-gray-300 rounded-lg ${index > 0 ? 'pr-12' : ''}`}
                     />
+                    {index > 0 && (
+                      <button
+                        onClick={() => removeEmailField(index)}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-full cursor-pointer transition-colors shadow-lg flex items-center justify-center"
+                      >
+                        -
+                      </button>
+                    )}
                   </div>
                   {index === inviteEmails.length - 1 && (
                     <div className="flex justify-end items-center mt-3">
                       <button
                         onClick={addEmailField}
-                        className="w-10 h-10 bg-green-500 hover:bg-green-600 text-white text-xl font-bold rounded-full cursor-pointer transition-colors shadow-lg relative"
+                        className="w-6 h-6 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded-full cursor-pointer transition-colors shadow-lg relative"
                       >
-                        <span className="absolute inset-0 flex items-center justify-center" style={{ top: '-2px' }}>
+                        <span className="absolute inset-0 flex items-center justify-center" style={{ top: '-1px' }}>
                           +
                         </span>
                       </button>
@@ -422,15 +480,15 @@ export const DialogProvider = ({ children }) => {
       <DialogComponent open={feedbackOpen} setOpen={setFeedbackOpen} isCloseable={true}>
         <div className="w-[340px] max-h-[90vh] rounded-2xl bg-purple-500 shadow-md overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between bg-purple-500 text-white p-4 m-0">
+          <div className="flex items-center justify-center bg-purple-500 text-white p-4 m-0 relative">
             <div className="flex items-center gap-2">
               <img src="/icons/ic_sharp-outlined-flag.svg" className="filter brightness-0 invert" />
-              <h2 className="text-base font-semibold">Give Feedback/Make Suggestions</h2>
+              <h2 className="text-sm font-semibold">Give Feedback/Make Suggestions</h2>
             </div>
             <button
               onClick={() => setFeedbackOpen(false)}
               aria-label="Close"
-              className="text-white hover:text-gray-200"
+              className="absolute right-4 text-white hover:text-gray-200"
             >
               <XIcon className="w-4 h-4" />
             </button>

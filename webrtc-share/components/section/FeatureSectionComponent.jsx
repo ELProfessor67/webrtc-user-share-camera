@@ -73,27 +73,27 @@ export const FeaturesSection = () => {
   ];
 
   return (
-    <section className="py-16 bg-white relative overflow-hidden" id="benefit" >
+    <section className="py-16 bg-white relative overflow-hidden min-h-screen" id="benefit" >
       <div className='w-[12rem] h-[12rem] bg-purple text-white flex items-end justify-center p-2 rotate-[-40deg] absolute -top-[7rem] -left-[6rem] -z-0'>
         <h1 className='text-xl'>Benefits</h1>
       </div>
       <div className="container mx-auto px-4">
-        <h2 className="text-3xl font-bold mb-12 text-center max-w-6xl mx-auto">
-
-          <TypeAnimation
-            sequence={[
-              'Connect, engage and support your customers with instant video links',
-              25000,
-              "",
-              500
-            ]}
-            wrapper="span"
-            speed={300}
-            style={{ fontSize: '30px', display: 'inline-block' }}
-            repeat={Infinity}
-          />
-        </h2>
-
+        <div className="min-h-[6rem] flex items-center justify-center mb-12">
+          <h2 className="text-3xl font-bold text-center max-w-6xl mx-auto">
+            <TypeAnimation
+              sequence={[
+                'Connect, engage and support your customers \nwith instant video links',
+                25000,
+                "",
+                500
+              ]}
+              wrapper="span"
+              speed={300}
+              style={{ fontSize: '30px', display: 'inline-block', whiteSpace: 'pre-line' }}
+              repeat={Infinity}
+            />
+          </h2>
+        </div>
 
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
