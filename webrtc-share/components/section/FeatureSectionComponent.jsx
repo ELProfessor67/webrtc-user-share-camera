@@ -10,19 +10,19 @@ const FeatureCard = ({ icon, title, description }) => {
       <div className="w-16 h-16 rounded-full bg-purple flex items-center justify-center mb-4">
         {icon}
       </div>
-      <h3 className="font-bold mb-2 text-lg whitespace-pre">{title.split("").map(cha => (
-        <>
+      <h3 className="font-bold mb-2 text-lg whitespace-pre">{title.split("").map((cha, index) => (
+        <React.Fragment key={index}>
           {
             cha == "|" ? <br /> : `${cha}`
           }
-        </>
+        </React.Fragment>
       ))}</h3>
-      <p className="text-gray-600 whitespace-pre">{description.split("").map(cha => (
-        <>
+      <p className="text-gray-600 whitespace-pre">{description.split("").map((cha, index) => (
+        <React.Fragment key={index}>
           {
             cha == "|" ? <br /> : `${cha}`
           }
-        </>
+        </React.Fragment>
       ))}</p>
     </div>
   );

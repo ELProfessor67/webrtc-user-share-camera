@@ -4,8 +4,8 @@ import { io } from "socket.io-client";
 
 
 const peerConfig = {
-	iceTransportPolicy: "relay",
-	iceServers: [
+    iceTransportPolicy: "relay",
+    iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun.l.google.com:5349" },
         { urls: "stun:stun1.l.google.com:3478" },
@@ -46,7 +46,10 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
     const router = useRouter();
 
     useEffect(() => {
-        socketConnection.current = io("https://webrtc-user-share-camera.onrender.com",{
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+        const socketUrl = backendUrl.replace('/api/v1', '');
+        
+        socketConnection.current = io(socketUrl, {
             reconnectionAttempts: 5,
             timeout: 10000,
             transports: ['websocket'],
@@ -157,7 +160,16 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         }
 
         peerConnection.onicecandidateerror = (error) => {
-            console.error('ICE candidate error:', error);
+            // Only log if there's meaningful error information
+            if (error && (error.errorCode || error.errorText || error.url)) {
+                console.error('ICE candidate error:', {
+                    errorCode: error.errorCode,
+                    errorText: error.errorText,
+                    url: error.url
+                });
+            }
+            // ICE candidate errors are often normal during connection establishment
+            // so we don't need to take any action here
         }
 
         peerConnection.oniceconnectionstatechange = () => {

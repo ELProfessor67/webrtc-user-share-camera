@@ -19,22 +19,23 @@ export const UserProvider = ({ children }) => {
 
   const loadMe = async () => {
     try {
-      setLoading(true);
-      const response = await loadMeRequest()
-      
-      if (response.data) {
+        console.log('👤 Loading user data...');
+        const response = await loadMeRequest();
+        console.log('✅ User data loaded successfully');
         setUser(response.data.user);
         setIsAuth(true);
-      } else {
-        setUser(null);
-        setIsAuth(false);
-      }
     } catch (error) {
-      console.error('Error loading user:', error);
-      setUser(null);
-      setIsAuth(false);
-    } finally {
-      setLoading(false);
+        // Handle network errors gracefully
+        if (error.code === 'ERR_NETWORK') {
+            console.log('ℹ️ Cannot connect to server - user will remain logged out');
+        } else if (error.response?.status === 401) {
+            console.log('ℹ️ User not authenticated');
+        } else {
+            console.log('ℹ️ Error loading user data:', error.message);
+        }
+        // Don't throw error, just set user as not authenticated
+        setIsAuth(false);
+        setUser(null);
     }
   };
 

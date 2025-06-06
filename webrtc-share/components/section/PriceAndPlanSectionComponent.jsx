@@ -1,4 +1,5 @@
 "use client"
+import React from "react"
 import { Check, Expand, Minimize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -312,8 +313,8 @@ export default function PriceAndPlan() {
                   }
                 </div>
                 <p className="text-md font-semibold text-black mb-2">{plan.description}</p>
-                {plan.subtitle && <p className="text-sm text-gray-600 font-normal">{plan.subtitle?.split(" ").map(word => (
-                  <Fragment key={word}>
+                {plan.subtitle && <p className="text-sm text-gray-600 font-normal">{plan.subtitle?.split(" ").map((word, wordIndex) => (
+                  <Fragment key={wordIndex}>
                     {
                       plan.highlight.includes(word) ? <strong className="text-black font-bold"> {word}</strong> : <> {word}</>
                     }
@@ -328,24 +329,23 @@ export default function PriceAndPlan() {
 
                 <div className="space-y-3 flex-1">
                   {plan.features.map((feature, featureIndex) => (
-                    <>
+                    <React.Fragment key={featureIndex}>
                       {
                         feature == "-" ?
                           (
-                            <div key={featureIndex} className="flex items-center gap-3 justify-center">
+                            <div className="flex items-center gap-3 justify-center">
                               <span className="text-lg font-medium text-amber-500 leading-relaxed ">{feature}</span>
                             </div>
                           )
                           :
                           (
-                            <div key={featureIndex} className="flex items-start gap-3">
+                            <div className="flex items-start gap-3">
                               <Check className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
                               <span className="text-sm text-gray-700 leading-relaxed">{feature}</span>
                             </div>
                           )
                       }
-                    </>
-
+                    </React.Fragment>
                   ))}
                 </div>
               </CardContent>

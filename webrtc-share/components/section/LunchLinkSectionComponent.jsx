@@ -1,36 +1,192 @@
 'use client'
-import React, { useState } from 'react';
-import { DialogComponent } from '../dialogs/DialogCompnent';
-import Image from 'next/image';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../ui/button';
-import axios from 'axios';
-import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
 import { useUser } from '@/provider/UserProvider';
-import { toast } from 'sonner';
-import CustomDialog from '../dialogs/CustomDialog';
+import { toast } from "sonner";
+import { Loader2 } from 'lucide-react';
+import axios from 'axios';
+import { io } from "socket.io-client";
+import CustomDialog from "@/components/dialogs/CustomDialog";
+import Image from "next/image";
+import Link from "next/link";
+
 export const LaunchLinkSection = () => {
-  const [contactMethod, setContactMethod] = useState('email');
+  const { user, isAuth } = useUser();
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [open, setOpen] = useState(false);
-  const [token, setToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { user, isAuth } = useUser();
+  const [token, setToken] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [linkAccepted, setLinkAccepted] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e?.preventDefault();
+  const socketRef = useRef(null);
 
-    if (isAuth == false) {
-      toast("Please Login First");
-      return
+  // Socket connection for real-time updates
+  useEffect(() => {
+    if (dialogOpen && token) {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+      const socketUrl = backendUrl.replace('/api/v1', '');
+      
+      socketRef.current = io(socketUrl, {
+        reconnectionAttempts: 5,
+        timeout: 10000,
+        transports: ['websocket'],
+      });
+
+      socketRef.current.on('connect', () => {
+        console.log('📡 LunchLinkSection connected to socket');
+        setSocketConnected(true);
+        socketRef.current.emit('admin-waiting', token);
+      });
+
+      socketRef.current.on('user-joined-room', (roomToken) => {
+        console.log('✅ User opened the link:', roomToken);
+        if (roomToken === token) {
+          setLinkAccepted(true);
+          toast.success("User has opened the video link!");
+        }
+      });
+
+      socketRef.current.on('disconnect', () => {
+        console.log('📡 LunchLinkSection disconnected from socket');
+        setSocketConnected(false);
+      });
+
+      return () => {
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+        }
+      };
+    }
+  }, [dialogOpen, token]);
+
+  // Cleanup socket on component unmount
+  useEffect(() => {
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, []);
+
+  const launchVideoLink = async () => {
+    if (!isAuth) {
+      toast("Please Login First", {
+        description: "You need to be logged in to create video links"
+      });
+      return;
+    }
+
+    if (!phone && !email) {
+      toast("Please enter phone or email", {
+        description: "Enter either a phone number or email address"
+      });
+      return;
     }
 
     setIsLoading(true);
-    const res = await axios.get(`https://webrtc-user-share-camera.onrender.com/send-token?number=${phone}&email=${email}`);
-    setToken(res.data?.token);
-    setOpen(true);
-    setIsLoading(false);
+    
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      
+      const profileData = {
+        number: phone,
+        email: email
+      };
+      
+      if (user?.landlordInfo?.landlordName) {
+        profileData.landlordName = user.landlordInfo.landlordName;
+      }
+      
+      // Helper functions for profile data
+      const isValidImageUrl = (url) => {
+        if (!url) return false;
+        return url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://');
+      };
+
+      const getProfileImage = () => {
+        if (user?.landlordInfo?.useLandlordLogoAsProfile && user?.landlordInfo?.landlordLogo) {
+          if (isValidImageUrl(user.landlordInfo.landlordLogo)) {
+            return user.landlordInfo.landlordLogo;
+          }
+        }
+        if (user?.landlordInfo?.officerImage) {
+          if (isValidImageUrl(user.landlordInfo.officerImage)) {
+            return user.landlordInfo.officerImage;
+          }
+        }
+        return null;
+      };
+
+      const getLandlordLogo = () => {
+        if (user?.landlordInfo?.landlordLogo && isValidImageUrl(user.landlordInfo.landlordLogo)) {
+          return user.landlordInfo.landlordLogo;
+        }
+        return null;
+      };
+
+      const landlordLogoUrl = getLandlordLogo();
+      if (landlordLogoUrl) {
+        profileData.landlordLogo = landlordLogoUrl;
+      }
+      
+      const profileImageUrl = getProfileImage();
+      if (profileImageUrl) {
+        profileData.profileImage = profileImageUrl;
+      }
+      
+      profileData.tokenLandlordInfo = {
+        landlordName: user?.landlordInfo?.landlordName || null,
+        landlordLogo: landlordLogoUrl,
+        profileImage: profileImageUrl,
+        useLandlordLogoAsProfile: user?.landlordInfo?.useLandlordLogoAsProfile || false,
+        profileShape: user?.landlordInfo?.profileShape || 'circle'
+      };
+      
+      const queryParams = new URLSearchParams();
+      if (profileData.number) queryParams.append('number', profileData.number);
+      if (profileData.email) queryParams.append('email', profileData.email);
+      if (profileData.landlordName) queryParams.append('landlordName', profileData.landlordName);
+      if (profileData.landlordLogo) queryParams.append('landlordLogo', profileData.landlordLogo);
+      if (profileData.profileImage) queryParams.append('profileImage', profileData.profileImage);
+      if (profileData.tokenLandlordInfo) {
+        queryParams.append('tokenLandlordInfo', JSON.stringify(profileData.tokenLandlordInfo));
+      }
+      
+      const res = await axios.get(`${backendUrl}/send-token?${queryParams.toString()}`);
+      
+      setToken(res.data.token);
+      setDialogOpen(true);
+      setLinkAccepted(false);
+      
+      toast.success("Video link sent successfully!");
+      
+      // Clear form
+      setPhone('');
+      setEmail('');
+      
+    } catch (error) {
+      console.error('Error sending token:', error);
+      toast.error("Failed to send video link. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      launchVideoLink();
+    }
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setToken('');
+    setLinkAccepted(false);
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+    }
   };
 
   return (
@@ -56,19 +212,15 @@ export const LaunchLinkSection = () => {
           <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md border border-gray-100 p-8 relative overflow-hidden">
             <h3 className="text-xl font-semibold mb-6 text-center">Enter your customer's mobile number or email address below to send an instant video link</h3>
 
-            <form onSubmit={handleSubmit} className="flex flex-col md:flex-row items-center gap-4">
+            <div className="flex flex-col md:flex-row items-center gap-4">
               <div className="flex-1 w-full">
                 <input
                   type="text"
                   placeholder="Enter customer mobile number"
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${contactMethod === 'phone' ? 'bg-white' : 'bg-gray-100'
-                    }`}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
                   value={phone}
-                  onChange={(e) => {
-                    setPhone(e.target.value);
-                    setContactMethod('phone');
-                  }}
-                  onClick={() => setContactMethod('phone')}
+                  onChange={(e) => setPhone(e.target.value)}
+                  onKeyPress={handleKeyPress}
                 />
               </div>
 
@@ -80,37 +232,37 @@ export const LaunchLinkSection = () => {
                 <input
                   type="email"
                   placeholder="Enter customer email address"
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${contactMethod === 'email' ? 'bg-white' : 'bg-gray-100'
-                    }`}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setContactMethod('email');
-                  }}
-                  onClick={() => setContactMethod('email')}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyPress={handleKeyPress}
                 />
               </div>
 
               <button
-                type="submit"
-                className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                onClick={launchVideoLink}
+                disabled={isLoading}
+                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-md transition-colors"
               >
-                {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : <>Send<br />video link</>}
-
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>Launch<br />video link</>
+                )}
               </button>
-            </form>
+            </div>
           </div>
         </div>
 
         <div className='flex items-center justify-center mt-10'>
           <img src="/devices.svg" alt="Videodesk" className="w-60 mb-2" />
-
         </div>
       </section>
 
-      <CustomDialog open={open} setOpen={() => {}} heading={"Link sent successfully"}>
+      {/* Success Dialog - Same as Dashboard */}
+      <CustomDialog open={dialogOpen} setOpen={handleDialogClose} heading={"Link sent successfully"}>
         <div className="h-[33rem] p-16 flex flex-col items-center justify-center">
-          <img src="/paper-plane.png" alt="video-link-dialog-bg" className='object-contain' width={200} height={200} />
+          <Image src="/paper-plane.png" alt="video-link-dialog-bg" className='object-contain' width={200} height={200} />
           <div className='mt-5'>
             <div className='flex items-start gap-2'>
               <img className='w-8 h-8' src='/icons/single-check.svg' />
@@ -121,26 +273,35 @@ export const LaunchLinkSection = () => {
                 <p>Please wait a second for the user to accept...</p>
               </div>
             </div>
-            <div className='flex items-start gap-2 mt-5'>
-              <img className='w-8 h-8' src='/icons/double-check.svg' />
+            
+            <div className={`flex items-start gap-2 mt-5 transition-opacity duration-500 ${linkAccepted ? 'opacity-100' : 'opacity-30'}`}>
+              <img 
+                className={`w-8 h-8 transition-all duration-500 ${linkAccepted ? 'filter-none' : 'grayscale'}`} 
+                src='/icons/double-check.svg' 
+              />
               <div className='flex flex-col gap-0 mb-1'>
-                <h2 className="text-2xl font-bold text-left">
-                  Link accepted by user
+                <h2 className={`text-2xl font-bold text-left transition-colors duration-500 ${linkAccepted ? 'text-green-600' : 'text-gray-400'}`}>
+                  {linkAccepted ? 'Link accepted by user' : 'Waiting for user to open link...'}
                 </h2>
               </div>
             </div>
-          </div>
 
-          <Link href={`/room/admin/${token}`} className='bg-green-600 text-white font-medium py-2 cursor-pointer h-12 rounded-3xl mt-10 text-2xl block w-full text-center'>
-            Join video session
-          </Link>
-          
-          <div className='flex items-start mt-4 justify-center'>  
-              <p className='text-center'><strong className='text-red-400 whitespace-pre'>Tip - </strong> Ask the user to check their spam folder for the email link, if they can’t see it!</p>
+            <Link 
+              href={`/room/admin/${token}`} 
+              className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 cursor-pointer h-12 rounded-3xl mt-10 text-2xl block w-full text-center transition-all duration-300"
+            >
+              Join video session
+            </Link>
+
+            <div className='flex items-start mt-4 justify-center'>
+              <p className='text-center'>
+                <strong className='text-red-400 whitespace-pre'>TIP - </strong> 
+                Ask the user to check their spam folder for the email link, if they can't see it!
+              </p>
+            </div>
           </div>
         </div>
       </CustomDialog>
-
     </>
   );
 };

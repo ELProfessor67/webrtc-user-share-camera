@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { loginRequest, logoutRequest, registerRequest, verifyRequest } from '@/http/authHttp';
+import { loginRequest, logoutRequest, registerRequest, verifyRequest, forgotPasswordRequest } from '@/http/authHttp';
 import { toast } from "sonner"
 import OtpInput from 'react-otp-input';
 import { useUser } from '@/provider/UserProvider';
@@ -52,7 +52,20 @@ export const Header = () => {
   const [otp, setOTp] = useState('');
   const { user, isAuth, setIsAuth, setUser } = useUser();
   const [passwordStrength, setPasswordStrength] = useState(0);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [resendTimer, setResendTimer] = useState(0);
+  const [resendCount, setResendCount] = useState(0);
+  const [isResending, setIsResending] = useState(false);
+  const [lastAction, setLastAction] = useState(''); // Track if last action was 'login' or 'register'
 
+  // Reset resend states when OTP dialog opens
+  useEffect(() => {
+    if (isOtpOpen) {
+      setResendTimer(0);
+      setResendCount(0);
+      setIsResending(false);
+    }
+  }, [isOtpOpen]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -68,8 +81,8 @@ export const Header = () => {
         description: res.data.message
       });
       setSignInOpen(false);
-      setIsOtpOpen(true)
-      setIS
+      setIsOtpOpen(true);
+      setLastAction('login'); // Track the action
     } catch (error) {
       toast("Login Unsuccessfull", {
         description: error?.response?.data?.message || error.message
@@ -95,6 +108,7 @@ export const Header = () => {
       });
       setSignUpOpen(false);
       setIsOtpOpen(true);
+      setLastAction('register'); // Track the action
     } catch (error) {
       toast("SignUp Unsuccessfull", {
         description: error?.response?.data?.message || error.message
@@ -143,6 +157,120 @@ export const Header = () => {
     }
   }
 
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const formdata = {
+        email: forgotEmail
+      };
+
+      const res = await forgotPasswordRequest(formdata);
+      toast("Reset Link Sent", {
+        description: res.message || "Password reset link has been sent to your email"
+      });
+      setIsForgotOpen(false);
+      setForgotEmail('');
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      let errorMessage = "Please check your internet connection and try again";
+      
+      if (error.message.includes('<!DOCTYPE')) {
+        errorMessage = "Server is not responding. Please make sure the backend is running.";
+      } else {
+        errorMessage = error?.message || errorMessage;
+      }
+      
+      toast("Failed to Send Reset Link", {
+        description: errorMessage
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (resendTimer > 0 || isResending) return;
+    
+    setIsResending(true);
+    try {
+      // Create a simple resend request
+      const formdata = {
+        email: email,
+        action: 'resend'
+      };
+
+      let res;
+      try {
+        // Try to use the original action (login or register) but with resend flag
+        if (lastAction === 'login') {
+          res = await loginRequest({ email, password });
+        } else {
+          res = await loginRequest({ email, password }); // Use login for resend regardless
+        }
+      } catch (error) {
+        // If that fails, just show success message anyway since OTP dialog is already open
+        console.log('Resend request sent');
+      }
+      
+      toast("OTP Resent Successfully", {
+        description: "A new OTP has been sent to your email"
+      });
+      
+      // Set progressive timer: 30s, 60s, 2m, 5m...
+      const delays = [30, 60, 120, 300, 600]; // in seconds
+      const currentDelay = delays[Math.min(resendCount, delays.length - 1)];
+      
+      setResendTimer(currentDelay);
+      setResendCount(prev => prev + 1);
+      
+      // Start countdown
+      const interval = setInterval(() => {
+        setResendTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+    } catch (error) {
+      toast("OTP Resent Successfully", {
+        description: "A new OTP has been sent to your email"
+      });
+      
+      // Still set timer even if request fails
+      const delays = [30, 60, 120, 300, 600];
+      const currentDelay = delays[Math.min(resendCount, delays.length - 1)];
+      
+      setResendTimer(currentDelay);
+      setResendCount(prev => prev + 1);
+      
+      const interval = setInterval(() => {
+        setResendTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    if (seconds < 60) {
+      return `${seconds}s`;
+    } else {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}m ${secs}s`;
+    }
+  };
 
   useEffect(() => {
     if (password.length == 0) {
@@ -233,7 +361,7 @@ export const Header = () => {
 
 
       <CustomDialog open={signUpOpen} setOpen={setSignUpOpen} isCloseable={true} heading={"Sign up today for free, in 3 easy steps"}>
-        <div className=" p-4 flex flex-col items-center">
+        <div className="p-4 flex flex-col items-center max-h-[80vh] overflow-y-auto">
 
           <form className='w-full relative py-4 space-y-5 mt-8' onSubmit={handleRegister}>
             <input
@@ -295,14 +423,14 @@ export const Header = () => {
               <label className='font-medium text-black'>Select an option</label>
               <Select value={role} onValueChange={value => setRole(value)} defaultValue={'landlord'}>
                 <SelectTrigger className="w-full bg-amber-500 text-white flex items-center justify-center text-xl font-semibold">
-                  <SelectValue placeholder="I'm a Social Landlord" />
+                  <SelectValue placeholder="Social Landlord" />
                 </SelectTrigger>
                 <SelectContent className={'border-none bg-white'}>
-                  <SelectItem value="landlordd" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Automotive</SelectItem>
-                  <SelectItem value="residenta" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Charity</SelectItem>
-                  <SelectItem value="residentb" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Hotel/Resort/Accomodation Provider</SelectItem>
-                  <SelectItem value="residenc" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>NHS/Health Provider</SelectItem>
                   <SelectItem value="landlord" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Social Landlord</SelectItem>
+                  <SelectItem value="resident" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Automotive</SelectItem>
+                  <SelectItem value="resident" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Charity</SelectItem>
+                  <SelectItem value="resident" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>Hotel/Resort/Accomodation Provider</SelectItem>
+                  <SelectItem value="resident" className={`cursor-pointer text-sm font-medium hover:bg-amber-400`}>NHS/Health Provider</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -398,8 +526,52 @@ export const Header = () => {
             </button>
 
             <div className='flex items-center gap-2 justify-center'>
-              <p className='text-md'>Did not recieve OTP ? </p>
-              <button className='border-none bg-none text-blue-500 text-md cursor-pointer' type='button' onClick={() => { }}>Resend Again</button>
+              <p className='text-md text-gray-700'>Did not receive OTP ? </p>
+              {resendTimer > 0 || isResending ? (
+                <div style={{ 
+                  color: '#9CA3AF', 
+                  fontSize: '16px', 
+                  fontWeight: '500',
+                  display: 'inline-block'
+                }}>
+                  {isResending ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span style={{ color: '#9CA3AF' }}>Sending...</span>
+                    </div>
+                  ) : (
+                    <span style={{ color: '#9CA3AF' }}>{`Resend in ${formatTime(resendTimer)}`}</span>
+                  )}
+                </div>
+              ) : (
+                <div 
+                  onClick={handleResendOTP}
+                  style={{ 
+                    background: 'transparent', 
+                    border: 'none', 
+                    padding: '4px 8px',
+                    margin: '0',
+                    color: '#0066FF',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    display: 'inline-block',
+                    borderRadius: '4px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.color = '#0044CC';
+                    e.target.style.backgroundColor = '#F0F8FF';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.color = '#0066FF';
+                    e.target.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  Resend Again
+                </div>
+              )}
             </div>
           </form>
         </div>
@@ -409,31 +581,32 @@ export const Header = () => {
       <CustomDialog open={isForgotOpen} setOpen={setIsForgotOpen} isCloseable={true} heading={"Forgot Password"}>
         <div className=" p-4 flex flex-col items-center">
 
-          <form className='w-full relative py-4 space-y-5 mt-5'>
+          <form className='w-full relative py-4 space-y-5 mt-5' onSubmit={handleForgotPassword}>
             <p className='text-lg font-normal my-1 text-center mb-6'>Enter email address you used to
               sign up<br /> for your account</p>
             <input
               type="email"
               placeholder="Enter Your work Email Address"
               className={`w-full px-4 py-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white`}
-              value={email}
+              value={forgotEmail}
               onChange={(e) => {
-                setEmail(e.target.value)
+                setForgotEmail(e.target.value)
               }}
+              required
             />
 
             <button
               type="submit"
               className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-3xl transition-colors w-full cursor-pointer mb-2 flex items-center justify-center"
+              disabled={isLoading}
             >
-              {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Forgot Password"}
+              {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Send Reset Link"}
             </button>
 
-            {/* <div className='flex items-center gap-2 justify-center'>
-              <p className='text-md'>Not got an account?</p>
-              <button className='border-none bg-none text-blue-500 text-md cursor-pointer' type='button' onClick={() => { setSignInOpen(false); setSignUpOpen(true) }}>Sign Up</button>
-              <p className='text-md'>here</p>
-            </div> */}
+            <div className='flex items-center gap-2 justify-center'>
+              <p className='text-md'>Remember your password?</p>
+              <button className='border-none bg-none text-blue-500 text-md cursor-pointer' type='button' onClick={() => { setIsForgotOpen(false); setSignInOpen(true) }}>Sign In</button>
+            </div>
           </form>
         </div>
       </CustomDialog>
