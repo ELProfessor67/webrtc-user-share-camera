@@ -26,6 +26,11 @@ import { Button } from "@/components/ui/button"
 import { logoutRequest } from "@/http/authHttp"
 import { useUser } from "@/provider/UserProvider"
 
+
+
+
+
+
 export default function Page({ params }) {
   const { id } = use(params);
   const router = useRouter();
@@ -1404,6 +1409,8 @@ export default function Page({ params }) {
                           video.pause();
                         }
                       }}>
+
+
                       <video
                         src={recording.url}
                         controls={true}
@@ -1416,6 +1423,8 @@ export default function Page({ params }) {
                           return newSet;
                         })}
                       />
+
+                  
 
                       {/* Action icons moved to top left corner, vertical alignment */}
                       <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">

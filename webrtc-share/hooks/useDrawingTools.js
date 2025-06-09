@@ -26,7 +26,7 @@ const useDrawingTools = () => {
 
   const tools = [
     { name: 'brush', icon: '🖌️', title: 'Brush' },
-    { name: 'eraser', icon: '🗑️', title: 'Eraser' },
+    // { name: 'eraser', icon: '🗑️', title: 'Eraser' },
     { name: 'line', icon: '📏', title: 'Line' },
     { name: 'rectangle', icon: '⬜', title: 'Rectangle' },
     { name: 'circle', icon: '⭕', title: 'Circle' },
