@@ -53,6 +53,12 @@ export const setupSocketListeners = () => {
       console.log(`Meeting data available for room: ${roomId}`);
     });
 
+    // Add new event for message settings update
+    socket.on('message-settings-updated', (roomId, messageSettings) => {
+      socket.to(`admin-${roomId}`).emit('message-settings-updated', messageSettings);
+      console.log(`Message settings updated for room: ${roomId}`);
+    });
+
     // WebRTC signaling
     socket.on('offer', (offer, roomId) => {
       socket.to(roomId).emit('offer', offer);

@@ -1136,3 +1136,47 @@ Please contact ${name} at ${phone} at their preferred time.`;
         return next(new ErrorHandler("Failed to send callback request", 500));
     }
 });
+
+// Update message settings
+export const updateMessageSettings = catchAsyncError(async (req, res, next) => {
+    const { messageOption, tailoredMessage, defaultTextSize, tailoredTextSize, selectedButtonColor } = req.body;
+    
+    const user = await UserModel.findById(req.user._id);
+    
+    // Update message settings
+    user.messageSettings = {
+        messageOption: messageOption || '',
+        tailoredMessage: tailoredMessage || '',
+        defaultTextSize: defaultTextSize || '14px',
+        tailoredTextSize: tailoredTextSize || '14px',
+        selectedButtonColor: selectedButtonColor || 'bg-green-800'
+    };
+    
+    await user.save();
+    
+    console.log('✅ Message settings updated for user:', user.email);
+    console.log('📝 Message settings:', user.messageSettings);
+    
+    res.status(200).json({
+        success: true,
+        message: "Message settings saved successfully",
+        messageSettings: user.messageSettings,
+        user: user
+    });
+});
+
+// Get message settings
+export const getMessageSettings = catchAsyncError(async (req, res, next) => {
+    const user = await UserModel.findById(req.user._id);
+    
+    res.status(200).json({
+        success: true,
+        messageSettings: user.messageSettings || {
+            messageOption: '',
+            tailoredMessage: '',
+            defaultTextSize: '14px',
+            tailoredTextSize: '14px',
+            selectedButtonColor: 'bg-green-800'
+        }
+    });
+});

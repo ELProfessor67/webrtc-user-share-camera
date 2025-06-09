@@ -213,7 +213,8 @@ export const create = catchAsyncError(async (req, res, next) => {
                 new_screenshots_uploaded: savedScreenshots.length,
                 new_screenshots_attempted: screenshots?.length || 0,
                 created_by: user_id
-            }
+            },
+            user_message_settings: req.user?.messageSettings // Include user message settings
         });
 
     } catch (error) {
@@ -359,7 +360,8 @@ const updateMeetingWithNewMediaOnly = async (meeting, data, res, next, user_id) 
                 new_screenshots_added: newScreenshotsCount,
                 updated_by: user_id,
                 meeting_userId: meeting.userId
-            }
+            },
+            user_message_settings: req.user?.messageSettings // Include user message settings
         });
 
     } catch (error) {

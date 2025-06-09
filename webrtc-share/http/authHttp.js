@@ -16,6 +16,8 @@ export const updateUserLogoRequest = async (formData) => await api.put("/user/up
 export const raiseSupportTicketRequest = async (formData) => await api.post("/raise-support-ticket", formData);
 export const requestCallbackRequest = async (formData) => await api.post("/request-callback", formData);
 export const updateLandlordInfoRequest = async (data) => await api.put("/user/update-landlord-info", data);
+export const updateMessageSettingsRequest = async (data) => await api.put("/user/message-settings", data);
+export const getMessageSettingsRequest = async () => await api.get("/user/message-settings");
 export const getLandlordInfoRequest = async () => await api.get("/user/landlord-info");
 // The existing bookDemoMeetingRequest function will handle the new videoToken parameter
 export const bookDemoMeetingRequest = async (formData) => await api.post("/book-demo-meeting", formData);

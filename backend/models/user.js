@@ -46,6 +46,13 @@ const userSchema = new mongoose.Schema({
         redirectUrlDefault: { type: String, default: '' }, // Empty string means use current frontend URL
         redirectUrlTailored: { type: String, default: 'www.' }
     },
+    messageSettings: {
+        messageOption: { type: String, enum: ['', 'default', 'tailored'], default: '' },
+        tailoredMessage: { type: String, default: '' },
+        defaultTextSize: { type: String, default: '14px' },
+        tailoredTextSize: { type: String, default: '14px' },
+        selectedButtonColor: { type: String, default: 'bg-green-800' }
+    },
     resetPasswordToken: String,
     resetPasswordExpire: Date
 }, {

@@ -1,6 +1,6 @@
 import express from 'express';
 const router = express.Router();
-import {changePassword, loadme, login, logout, register, updateUser,forgotPassword,resetPassword, verify, sendFriendLink, resetPasswordFromDashboard, sendFeedback, raiseSupportTicket, updateUserLogo, updateLandlordInfo, bookDemoMeeting, requestCallback} from './controllers/authController.js';
+import {changePassword, loadme, login, logout, register, updateUser,forgotPassword,resetPassword, verify, sendFriendLink, resetPasswordFromDashboard, sendFeedback, raiseSupportTicket, updateUserLogo, updateLandlordInfo, bookDemoMeeting, requestCallback, updateMessageSettings, getMessageSettings} from './controllers/authController.js';
 import {isAuthenticate} from "./middlewares/auth.js"
 import { create, getAllMeetings, getMeetingById, updateMeeting, deleteMeeting, getMeetingForShare, getMeetingByMeetingId, deleteRecording, deleteScreenshot, archiveMeeting, unarchiveMeeting, getArchivedCount, recordVisitorAccess } from './controllers/meetingController.js';
 
@@ -21,6 +21,8 @@ router.route('/raise-support-ticket').post(isAuthenticate, raiseSupportTicket);
 router.route('/request-callback').post(requestCallback);
 router.route('/user/update-logo').put(isAuthenticate, updateUserLogo);
 router.route('/user/update-landlord-info').put(isAuthenticate, updateLandlordInfo);
+router.route('/user/message-settings').put(isAuthenticate, updateMessageSettings);
+router.route('/user/message-settings').get(isAuthenticate, getMessageSettings);
 router.route('/book-demo-meeting').post(bookDemoMeeting);
 
 // meeting routes

@@ -1,10 +1,10 @@
 "use client"
 import { DialogComponent } from '@/components/dialogs/DialogCompnent';
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useRef, useEffect } from 'react';
 import { FileText, Archive, Trash2, Monitor, Smartphone, Save, History, ArchiveRestore, ExternalLink, FileSearch, MailIcon, Loader2, LockIcon, XIcon, Link, Copy } from "lucide-react"
 import { Disclosure } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
-import { sendFriendLinkRequest, resetPasswordFromDashboardRequest, sendFeedbackRequest, raiseSupportTicketRequest, forgotPasswordRequest, updateLandlordInfoRequest } from '@/http/authHttp';
+import { sendFriendLinkRequest, resetPasswordFromDashboardRequest, sendFeedbackRequest, raiseSupportTicketRequest, forgotPasswordRequest, updateLandlordInfoRequest, updateMessageSettingsRequest, getMessageSettingsRequest } from '@/http/authHttp';
 import { useUser } from './UserProvider';
 import { toast } from 'sonner';
 
@@ -74,6 +74,9 @@ export const DialogProvider = ({ children }) => {
   const { user, isAuth, setUser } = useUser();
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteMessage, setInviteMessage] = useState(`Hey, I'm using Videodesk , check it out here www.videodesk.co.uk`);
+  
+  // Add ref for textarea
+  const inviteTextareaRef = useRef(null);
 
   // New state for checkbox groups
   const [profileImageOption, setProfileImageOption] = useState(''); // 'landlord' or 'officer'
@@ -675,6 +678,27 @@ export const DialogProvider = ({ children }) => {
     setPendingActions({ deleteLandlordLogo: false, deleteOfficerImage: false });
     console.log('🔄 Landlord form reset');
   };
+
+  // Handle textarea focus and cursor positioning
+  const handleTextareaFocus = () => {
+    if (inviteTextareaRef.current && inviteMessage === `Hey, I'm using Videodesk , check it out here www.videodesk.co.uk`) {
+      // Set cursor to end of text
+      const textarea = inviteTextareaRef.current;
+      textarea.focus();
+      textarea.setSelectionRange(inviteMessage.length, inviteMessage.length);
+    }
+  };
+
+  // Auto focus when modal opens
+  useEffect(() => {
+    if (inviteOpen) {
+      // Delay to ensure modal is fully rendered
+      const timer = setTimeout(() => {
+        handleTextareaFocus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [inviteOpen]);
 
   // Helper function to get initials
   const getInitials = (name) => {
@@ -1528,9 +1552,87 @@ ${senderName}`;
     return uniqueVisitors;
   };
 
+  // Add tailored message text state
+  const [tailoredMessageText, setTailoredMessageText] = useState('');
+  const [messageSettingsLoaded, setMessageSettingsLoaded] = useState(false);
+  const [messageSaving, setMessageSaving] = useState(false);
+
+  // Load message settings when modal opens
+  const loadMessageSettings = async () => {
+    if (!isAuth || messageSettingsLoaded) return;
+    
+    try {
+      console.log('📥 Loading message settings...');
+      const response = await getMessageSettingsRequest();
+      
+      if (response.data.success && response.data.messageSettings) {
+        const settings = response.data.messageSettings;
+        
+        setMessageOption(settings.messageOption || '');
+        setDefaultTextSize(settings.defaultTextSize || '14px');
+        setTailoredTextSize(settings.tailoredTextSize || '14px');
+        setSelectedButtonColor(settings.selectedButtonColor || 'bg-green-800');
+        
+        // For tailored message, we need a state for it
+        if (settings.tailoredMessage) {
+          setTailoredMessageText(settings.tailoredMessage);
+        }
+        
+        setMessageSettingsLoaded(true);
+        console.log('✅ Message settings loaded:', settings);
+      }
+    } catch (error) {
+      console.error('❌ Error loading message settings:', error);
+    }
+  };
+
+  // Save message settings
+  const handleSaveMessageSettings = async () => {
+    if (!isAuth) {
+      toast("Please Login First");
+      return;
+    }
+
+    setMessageSaving(true);
+
+    try {
+      const messageData = {
+        messageOption,
+        tailoredMessage: tailoredMessageText || '',
+        defaultTextSize,
+        tailoredTextSize,
+        selectedButtonColor
+      };
+
+      console.log('💾 Saving message settings:', messageData);
+
+      const response = await updateMessageSettingsRequest(messageData);
+
+      if (response.data.success) {
+        // Update user context
+        setUser(response.data.user);
+        
+        toast("Message settings saved successfully");
+        setMessageOpen(false);
+        
+        console.log('✅ Message settings saved successfully');
+      }
+    } catch (error) {
+      console.error('❌ Error saving message settings:', error);
+      toast(error?.response?.data?.message || "Failed to save message settings");
+    } finally {
+      setMessageSaving(false);
+    }
+  };
+
   const value = {
     setResetOpen,
-    setMessageOpen,
+    setMessageOpen: (open) => {
+      setMessageOpen(open);
+      if (open && isAuth) {
+        loadMessageSettings();
+      }
+    },
     setLandlordDialogOpen: (open) => {
       setLandlordDialogOpen(open);
       if (open) {
@@ -1580,12 +1682,40 @@ ${senderName}`;
       }
     },
     shareLinkOpen,
-    selectedMeetingForShare
+    selectedMeetingForShare,
+    handleSaveMessageSettings,
+    messageSaving,
+    tailoredMessageText,
+    setTailoredMessageText,
   };
+
+  // Remove the duplicate function definitions that were at the bottom
+  // ...existing code...
 
   return (
     <DialogContext.Provider value={value}>
       {children}
+
+      {/* Add styles to document head */}
+      <style jsx>{`
+        @keyframes blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
+        }
+        
+        .textarea-with-cursor {
+          caret-color: #333;
+        }
+        
+        .textarea-with-cursor:focus {
+          caret-color: #333;
+        }
+        
+        .textarea-with-cursor::after {
+          content: '';
+          animation: blink 1s infinite;
+        }
+      `}</style>
 
       <DialogComponent open={resetOpen} setOpen={setResetOpen} isCloseable={true}>
         <div className="w-[360px] max-h-[90vh] rounded-2xl bg-purple-500 shadow-md overflow-hidden">
@@ -1718,7 +1848,7 @@ ${senderName}`;
                 <input
                   type="checkbox"
                   checked={messageOption === 'default'}
-                  onChange={() => setMessageOption('default')}
+                  onChange={() => setMessageOption(messageOption === 'default' ? '' : 'default')}
                   className="mt-1"
                 />
                 <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white" style={{ fontSize: defaultTextSize }}>
@@ -1761,11 +1891,13 @@ ${senderName}`;
                 <input
                   type="checkbox"
                   checked={messageOption === 'tailored'}
-                  onChange={() => setMessageOption('tailored')}
+                  onChange={() => setMessageOption(messageOption === 'tailored' ? '' : 'tailored')}
                   className="mt-1"
                 />
                 <textarea
                   placeholder="Enter your message"
+                  value={tailoredMessageText}
+                  onChange={(e) => setTailoredMessageText(e.target.value)}
                   className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none ${messageOption === 'tailored' ? 'h-[6rem]' : 'h-[4rem]'}`}
                   style={{ fontSize: tailoredTextSize }}
                 />
@@ -1826,10 +1958,18 @@ ${senderName}`;
 
             {/* Save Button */}
             <button
-              onClick={() => { }}
-              className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-full text-sm transition"
+              onClick={handleSaveMessageSettings}
+              disabled={messageSaving}
+              className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-bold py-2 rounded-full text-sm transition flex items-center justify-center gap-2"
             >
-              Save
+              {messageSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save'
+              )}
             </button>
           </div>
         </div>
@@ -1955,6 +2095,7 @@ ${senderName}`;
                     type="checkbox"
                     checked={profileImageOption === 'officer'}
                     onChange={(e) => {
+
                       if (e.target.checked) {
                         setProfileImageOption('officer');
                       } else {
@@ -1969,6 +2110,7 @@ ${senderName}`;
                   <div
                     className={`flex items-center justify-center w-full h-full ${profileImageOption === 'officer' ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                     onClick={() => {
+                     
                       if (profileImageOption === 'officer') {
                         document.getElementById('officerImageInput').click();
                       }
@@ -2271,12 +2413,28 @@ ${senderName}`;
                   )}
                 </div>
               ))}
+            </div>
 
+            {/* Message Textarea with Auto Focus */}
+            <div>
               <textarea
+                ref={inviteTextareaRef}
                 rows={3}
                 value={inviteMessage}
                 onChange={(e) => setInviteMessage(e.target.value)}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg resize-y"
+                onFocus={handleTextareaFocus}
+                onClick={() => {
+                  if (inviteMessage === `Hey, I'm using Videodesk , check it out here www.videodesk.co.uk`) {
+                    handleTextareaFocus();
+                  }
+                }}
+                placeholder="Hey, I'm using Videodesk , check it out here www.videodesk.co.uk"
+                className="textarea-with-cursor w-full px-4 py-2 text-sm border border-gray-300 rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{
+                  fontFamily: 'inherit',
+                  lineHeight: '1.5',
+                  caretColor: inviteMessage === `Hey, I'm using Videodesk , check it out here www.videodesk.co.uk` ? '#333' : 'auto'
+                }}
               />
             </div>
 
