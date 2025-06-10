@@ -222,13 +222,6 @@ const page = ({params}) => {
 
           {/* Videodesk Heading - moved down */}
           <h3 className="text-2xl font-bold text-black pt-6 pb-6">Videodesk</h3>
-          
-          {/* Show redirect info if available and tailored */}
-          {!isDefaultRedirectUrl && redirectUrl && (
-            <p className="text-xs text-gray-500 text-center mt-2">
-              After the call, you'll be redirected to {redirectUrl.replace('https://', '').replace('http://', '')}
-            </p>
-          )}
         </div>
       </DialogComponent>
     </>
