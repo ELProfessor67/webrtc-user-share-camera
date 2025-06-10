@@ -1,6 +1,6 @@
 "use client"
 import { useState, useRef, use, useEffect, useCallback } from "react"
-import { Camera, Trash2, ImageIcon, Plus, Maximize2, VideoIcon, PlayIcon, Save, Edit, Minimize2, Expand, ZoomIn, ZoomOut, Pencil, X } from "lucide-react"
+import { Camera, Trash2, ImageIcon, Plus, Maximize2, VideoIcon, PlayIcon, Save, Edit, Minimize2, Expand, ZoomIn, ZoomOut, Pencil, X, Play } from "lucide-react"
 import useWebRTC from "@/hooks/useWebRTC"
 import useDrawingTools from "@/hooks/useDrawingTools"
 import { createRequest, getMeetingByMeetingId, deleteRecordingRequest, deleteScreenshotRequest } from "@/http/meetingHttp"
@@ -109,8 +109,8 @@ export default function Page({ params }) {
   const [videoPanX, setVideoPanX] = useState(0);
   const [videoPanY, setVideoPanY] = useState(0);
 
-  const { handleDisconnect, isConnected, screenshots, takeScreenshot, startPeerConnection, deleteScreenshot } = useWebRTC(true, id, videoRef);
-  const { setResetOpen, setMessageOpen, setLandlordDialogOpen, setTickerOpen, setInviteOpen, setFeedbackOpen, setFaqOpen } = useDialog();
+  const { handleDisconnect, isConnected, screenshots, takeScreenshot, startPeerConnection, deleteScreenshot, handleVideoPlay, showVideoPlayError } = useWebRTC(true, id, videoRef);
+  const { setResetOpen, setMessageOpen, setLandlordDialogOpen, setTickerOpen, setFeedbackOpen, setFaqOpen } = useDialog();
   const { user, isAuth, setIsAuth, setUser } = useUser();
   // Helper function to convert blob to base64
   const blobToBase64 = (blob) => {
@@ -1350,7 +1350,7 @@ export default function Page({ params }) {
         </div>
       )}
 
-      <button onClick={startPeerConnection}>Start Peer Connection</button>
+      {/* <button onClick={startPeerConnection}>Start Peer Connection</button> */}
       <div className="gap-6" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr' }}>
         {/* Left Column */}
         <div className="space-y-6 flex gap-5">
@@ -1448,6 +1448,18 @@ export default function Page({ params }) {
               >
                 {isConnected ? "Live" : "Disconnected"}
               </div>
+
+              {
+                showVideoPlayError &&
+                <button
+                  className="w-[3rem] h-[3rem] bg-amber-500 text-white rounded-full absolute top-[50%] left-[50%] -translate-x-[50%] -translate-y-[50%] flex items-center justify-center cursor-pointer"
+                  title={`Play Video`}
+                  onClick={handleVideoPlay}
+                >
+                  <Play />
+                </button>
+              }
+
               <div
                 className="absolute bottom-2 left-[50%] -translate-x-[50%] text-white px-3 py-1 text-sm font-medium flex items-center gap-3"
                 style={{ display: isRecording ? 'none' : 'flex' }}
@@ -1455,6 +1467,8 @@ export default function Page({ params }) {
                 <span className="w-4 h-4 rounded-full bg-red-600 block"></span>
                 <span className="text-white text-lg">{isConnected ? formatTime(callDuration) : "0:00"}</span>
               </div>
+
+
 
               <div
                 className="absolute bottom-2 right-0 text-white px-3 py-1 text-sm font-medium flex items-center gap-3 flex-col"
@@ -1486,6 +1500,9 @@ export default function Page({ params }) {
                 >
                   <ZoomOut className={`w-4 h-4 ${zoomLevel <= 0.5 ? 'opacity-50' : ''}`} />
                 </button>
+
+
+
               </div>
             </div>
 
@@ -1565,7 +1582,7 @@ export default function Page({ params }) {
                         })}
                       />
 
-                  
+
 
                       {/* Action icons moved to top left corner, vertical alignment */}
                       <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
