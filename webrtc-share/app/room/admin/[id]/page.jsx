@@ -54,6 +54,12 @@ export default function Page({ params }) {
   // Add missing maximized item state
   const [maximizedItem, setMaximizedItem] = useState(null);
 
+  // Add loading states for save operations
+  const [isSaving, setIsSaving] = useState(false);
+  const [isEndingSave, setIsEndingSave] = useState(false);
+  const [savingRecordingId, setSavingRecordingId] = useState(null);
+  const [savingScreenshotIndex, setSavingScreenshotIndex] = useState(null);
+
   // Screen recording states
   const [isRecording, setIsRecording] = useState(false);
   const [recordings, setRecordings] = useState([]);
@@ -211,6 +217,7 @@ export default function Page({ params }) {
     }
 
     try {
+      setIsEndingSave(true);
       console.log('🎬 Starting End Video and Save process...');
 
       // First disconnect the video call
@@ -226,8 +233,131 @@ export default function Page({ params }) {
       // Wait a moment for any final recording to process
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Now save everything
-      await handleSave(e);
+      // Now save everything - DUPLICATE SAVE LOGIC WITHOUT CALLING handleSave
+      console.log('💾 Starting save process within end video...');
+
+      // Separate new recordings from existing ones
+      const newRecordings = recordings.filter(recording => !recording.isExisting && recording.blob);
+      const existingRecordings = recordings.filter(recording => recording.isExisting);
+
+      // Prepare NEW recordings data for upload
+      const recordingsData = [];
+      for (let i = 0; i < newRecordings.length; i++) {
+        const recording = newRecordings[i];
+        console.log(`🎥 Processing NEW recording ${i + 1}/${newRecordings.length}...`);
+
+        try {
+          const base64Data = await blobToBase64(recording.blob);
+          recordingsData.push({
+            data: base64Data,
+            timestamp: recording.timestamp,
+            duration: recording.duration || Math.floor((recording.blob.size / 1000) / 16),
+            size: recording.blob.size
+          });
+          console.log(`✅ NEW recording ${i + 1} processed successfully`);
+        } catch (error) {
+          console.error(`❌ Error processing NEW recording ${i + 1}:`, error);
+        }
+      }
+
+      // Prepare NEW screenshots data for upload WITH high-quality drawing merge
+      const screenshotsData = [];
+      for (let i = 0; i < screenshots.length; i++) {
+        const screenshot = screenshots[i];
+        console.log(`📸 Processing NEW screenshot ${i + 1}/${screenshots.length}...`);
+
+        try {
+          let finalScreenshotData = screenshot;
+          const canvasId = `new-${i}`;
+
+          // If this screenshot has drawings, merge them at full resolution
+          if (drawingData[canvasId]) {
+            console.log(`🎨 Merging drawings for screenshot ${i + 1}...`);
+            finalScreenshotData = await mergeWithBackground(screenshot, canvasId);
+            console.log(`✅ Drawing merge completed for screenshot ${i + 1}`);
+          }
+
+          screenshotsData.push({
+            data: finalScreenshotData,
+            timestamp: new Date().toISOString(),
+            size: finalScreenshotData.length
+          });
+          console.log(`✅ NEW screenshot ${i + 1} processed successfully`);
+        } catch (error) {
+          console.error(`❌ Error processing NEW screenshot ${i + 1}:`, error);
+          // Fallback to original screenshot if merge fails
+          screenshotsData.push({
+            data: screenshot,
+            timestamp: new Date().toISOString(),
+            size: screenshot.length
+          });
+        }
+      }
+
+      const formData = {
+        meeting_id: id,
+        name: residentName,
+        address: residentAddress,
+        post_code: postCode,
+        repair_detail: repairDetails,
+        target_time: targetTime,
+        recordings: recordingsData,
+        screenshots: screenshotsData,
+        update_mode: existingMeetingData ? 'update' : 'create'
+      };
+
+      console.log('📤 Sending data to server...');
+      console.log('📋 Form data summary:', {
+        meeting_id: id,
+        update_mode: formData.update_mode,
+        new_recordings_count: recordingsData.length,
+        new_screenshots_count: screenshotsData.length,
+        existing_recordings_count: existingRecordings.length,
+        total_recordings_after_save: existingRecordings.length + recordingsData.length
+      });
+
+      const response = await createRequest(formData);
+      console.log('✅ Save successful!');
+
+      // Reset pencil mode and clear all drawing data
+      setActivePencilScreenshot(null);
+
+      // Update recordings state to mark all recordings as existing/saved
+      setRecordings(prev => prev.map(rec => ({
+        ...rec,
+        isExisting: true
+      })));
+
+      // Move all new screenshots to existing screenshots and mark them as saved
+      if (screenshotsData.length > 0) {
+        const newSavedScreenshots = screenshotsData.map((screenshot, index) => ({
+          id: `saved-${Date.now()}-${index}`,
+          url: screenshot.data,
+          timestamp: new Date(screenshot.timestamp).toLocaleString(),
+          isExisting: true
+        }));
+
+        setExistingScreenshots(prev => [...prev, ...newSavedScreenshots]);
+
+        // Clear all screenshots from useWebRTC after saving
+        const screenshotCount = screenshots.length;
+        for (let i = screenshotCount - 1; i >= 0; i--) {
+          deleteScreenshot(i);
+        }
+        console.log(`🧹 Cleared ${screenshotCount} screenshots from new screenshots array`);
+      }
+
+      // Update existing meeting data reference
+      if (!existingMeetingData) {
+        setExistingMeetingData({
+          meeting_id: id,
+          name: residentName,
+          address: residentAddress,
+          post_code: postCode,
+          repair_detail: repairDetails,
+          target_time: targetTime
+        });
+      }
 
       toast.success("Video ended and all content saved successfully!");
 
@@ -236,6 +366,8 @@ export default function Page({ params }) {
       toast.error("Failed to end video and save content", {
         description: error?.response?.data?.message || error.message
       });
+    } finally {
+      setIsEndingSave(false);
     }
   };
 
@@ -247,6 +379,7 @@ export default function Page({ params }) {
     }
 
     try {
+      setIsSaving(true);
       console.log('💾 Starting save process...');
 
       // Separate new recordings from existing ones
@@ -383,6 +516,8 @@ export default function Page({ params }) {
       toast.error("Failed to save repair", {
         description: error?.response?.data?.message || error.message
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -903,6 +1038,7 @@ export default function Page({ params }) {
     }
 
     try {
+      setSavingRecordingId(recording.id);
       console.log('💾 Saving individual recording...');
 
       const base64Data = await blobToBase64(recording.blob);
@@ -939,11 +1075,14 @@ export default function Page({ params }) {
     } catch (error) {
       console.error('❌ Save recording failed:', error);
       toast.error("Failed to save recording");
+    } finally {
+      setSavingRecordingId(null);
     }
   }, [id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData]);
 
   const saveIndividualScreenshot = useCallback(async (screenshotData, index) => {
     try {
+      setSavingScreenshotIndex(index);
       console.log('💾 Saving individual screenshot...');
 
       let finalScreenshotData = screenshotData;
@@ -999,6 +1138,8 @@ export default function Page({ params }) {
     } catch (error) {
       console.error('❌ Save screenshot failed:', error);
       toast.error("Failed to save screenshot");
+    } finally {
+      setSavingScreenshotIndex(null);
     }
   }, [id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData, drawingData, mergeWithBackground, deleteScreenshot]);
 
@@ -1433,11 +1574,15 @@ export default function Page({ params }) {
                             e.stopPropagation();
                             saveIndividualRecording(recording);
                           }}
-                          className={`p-1 hover:bg-black/20 rounded text-white ${recording.isExisting ? 'opacity-50' : ''}`}
+                          className={`p-1 hover:bg-black/20 rounded text-white ${recording.isExisting || savingRecordingId === recording.id ? 'opacity-50' : ''}`}
                           title={recording.isExisting ? "Already saved" : "Save recording"}
-                          disabled={recording.isExisting}
+                          disabled={recording.isExisting || savingRecordingId === recording.id}
                         >
-                          <Save className="w-4 h-4" />
+                          {savingRecordingId === recording.id ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4" />
+                          )}
                         </button>
                         <button
                           onClick={(e) => {
@@ -1572,10 +1717,15 @@ export default function Page({ params }) {
 
                           <button
                             onClick={() => saveIndividualScreenshot(screenshot, index)}
-                            className="p-1 hover:bg-black/20 rounded text-white"
+                            className={`p-1 hover:bg-black/20 rounded text-white ${savingScreenshotIndex === index ? 'opacity-80' : ''}`}
                             title="Save screenshot"
+                            disabled={savingScreenshotIndex === index}
                           >
-                            <Save className="w-4 h-4" />
+                            {savingScreenshotIndex === index ? (
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Save className="w-4 h-4" />
+                            )}
                           </button>
                           <button
                             onClick={() => deleteNewScreenshot(index)}
@@ -1797,13 +1947,11 @@ export default function Page({ params }) {
           </div>
         </div>
 
-
-        {/* Right Column */}
+        {/* Right Column - MOVED OUTSIDE LEFT COLUMN */}
         <div className="space-y-6">
           {/* Resident Information */}
           <div>
             <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-6">
-
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-3">
 
@@ -1963,10 +2111,21 @@ export default function Page({ params }) {
                 <button
                   type="button"
                   onClick={(e) => handleSave(e)}
-                  disabled={!isConnected && recordings.length === 0 && screenshots.length === 0}
+                  disabled={
+                    (!isConnected && recordings.length === 0 && screenshots.length === 0) ||
+                    isSaving ||
+                    isEndingSave  // Add this to prevent clicking during end video process
+                  }
                   className="w-full flex items-center justify-center p-3 bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md transition-colors"
                 >
-                  Save repair
+                  {isSaving ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Saving...</span>
+                    </div>
+                  ) : (
+                    'Save repair'
+                  )}
                 </button>
                 <button className="p-2 bg-gray-100 rounded-md hover:bg-gray-200">
                   <Plus className="w-6 h-6" />
@@ -1991,11 +2150,24 @@ export default function Page({ params }) {
             </button>
             <button
               onClick={(e) => handleEndVideoAndSave(e)}
-              disabled={!isConnected && recordings.length === 0 && screenshots.length === 0}
+              disabled={
+                (!isConnected && recordings.length === 0 && screenshots.length === 0) ||
+                isEndingSave ||
+                isSaving  // Add this to prevent clicking during save process
+              }
               className="bg-green-500 disabled:opacity-50 hover:bg-green-600 text-white font-medium py-4 rounded-md transition-colors flex-1 whitespace-pre"
             >
-              End Video and <br />
-              Save Images
+              {isEndingSave ? (
+                <div className="flex flex-col items-center gap-1">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs">Ending & Saving...</span>
+                </div>
+              ) : (
+                <>
+                  End Video and <br />
+                  Save Images
+                </>
+              )}
             </button>
           </div>
         </div>

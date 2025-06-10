@@ -84,7 +84,7 @@ export const create = catchAsyncError(async (req, res, next) => {
             existingMeeting.userId = user_id;
         }
         
-        return await updateMeetingWithNewMediaOnly(existingMeeting, req.body, res, next, user_id);
+        return await updateMeetingWithNewMediaOnly(existingMeeting, req.body, res, next, user_id, req);
     }
 
     // If no existing meeting, proceed with normal creation
@@ -233,7 +233,7 @@ export const create = catchAsyncError(async (req, res, next) => {
 });
 
 // Helper function to update existing meeting with NEW media only
-const updateMeetingWithNewMediaOnly = async (meeting, data, res, next, user_id) => {
+const updateMeetingWithNewMediaOnly = async (meeting, data, res, next, user_id, req) => {
     const { name, address, post_code, repair_detail, target_time, recordings, screenshots } = data;
     
     console.log(`🔄 Updating existing meeting with NEW media only for user ${user_id}...`);
