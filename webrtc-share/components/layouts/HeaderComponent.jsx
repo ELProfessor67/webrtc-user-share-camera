@@ -161,7 +161,6 @@ const handleLogout = async () => {
     
     setIsAuth(false);
     setUser(null);
-    router.push('../');
   } catch (error) {
     // Even if logout API fails, clear local state
     setIsAuth(false);
@@ -171,8 +170,6 @@ const handleLogout = async () => {
     toast("Logout Unsuccessful", {
       description: error?.response?.data?.message || error.message
     });
-    
-    router.push('../');
   }
 }
 
