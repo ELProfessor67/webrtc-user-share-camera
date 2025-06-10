@@ -163,6 +163,8 @@ export const verify = catchAsyncError(async (req, res, next) => {
     if (user.currentLoginTime) {
         user.previousLoginTime = user.currentLoginTime;
         console.log('📅 Previous login time updated:', user.previousLoginTime);
+    }else{
+        user.previousLoginTime = currentTime;
     }
     
     // Set new current login time

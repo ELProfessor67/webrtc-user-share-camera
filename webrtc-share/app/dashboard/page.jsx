@@ -37,6 +37,7 @@ import { useDialog } from "@/provider/DilogsProvider"
 import CustomDialog from "@/components/dialogs/CustomDialog"
 import { updateUserLogoRequest } from "@/http/authHttp"
 import VideoLinkSender from "@/components/VideoLinkSender"
+import moment from "moment/moment"
 
 export default function Page() {
   const { user, isAuth, setIsAuth, setUser } = useUser();
@@ -262,7 +263,7 @@ export default function Page() {
     const ampm = hours >= 12 ? 'pm' : 'am';
     const displayHours = String(hours % 12 || 12).padStart(2, '0');
     
-    return `${day} ${month} ${year}, ${displayHours}.${minutes}${ampm}`;
+    return `${day} ${month} ${year}, ${displayHours}:${minutes}${ampm}`;
   };
 
   // Helper function to get last login time with fallback logic
@@ -545,12 +546,12 @@ export default function Page() {
                     <div className="flex items-center gap-2">
                       <p className="text-left whitespace-nowrap w-20">Logged in</p>
                       <span>:</span>
-                      <p className="text-left whitespace-nowrap">{formatLoginTime(user?.currentLoginTime)}</p>
+                      <p className="text-left whitespace-nowrap">{moment(user?.currentLoginTime).format("DD MMMM YYYY, hh:mm A")}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <p className="text-left whitespace-nowrap w-20">Last Log in</p>
                       <span>:</span>
-                      <p className="text-left whitespace-nowrap">{getLastLoginTime()}</p>
+                      <p className="text-left whitespace-nowrap">{moment(user?.previousLoginTime || user?.currentLoginTime).format("DD MMMM YYYY, hh:mm A")}</p>
                     </div>
                   </>
                 )}
