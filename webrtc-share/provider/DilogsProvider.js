@@ -74,7 +74,7 @@ export const DialogProvider = ({ children }) => {
   const { user, isAuth, setUser } = useUser();
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteMessage, setInviteMessage] = useState(`Hey, I'm using Videodesk , check it out here www.videodesk.co.uk`);
-  
+
   // Add ref for textarea
   const inviteTextareaRef = useRef(null);
 
@@ -1131,63 +1131,71 @@ ${senderName}`;
         new Paragraph({ text: "" }),
       ];
 
-      // Add screenshots section with ultra-high quality (matching WebRTC approach)
+      // Add screenshots section with embedded images (NO OVERLAP)
       if (selectedMeeting.screenshots && selectedMeeting.screenshots.length > 0) {
         children.push(
           new Paragraph({
             text: "Screenshots (Ultra High Quality - 4K Resolution)",
             heading: HeadingLevel.HEADING_1,
-          })
+          }),
+          // Add extra spacing after main heading
+          new Paragraph({ text: "" }),
+          new Paragraph({ text: "" })
         );
 
         for (let i = 0; i < selectedMeeting.screenshots.length; i++) {
           const screenshot = selectedMeeting.screenshots[i];
 
+          // Add screenshot heading with proper spacing
           children.push(
             new Paragraph({
               children: [
-                new TextRun({ text: `Screenshot ${i + 1} (Ultra High Quality):`, bold: true }),
+                new TextRun({
+                  text: `Screenshot ${i + 1} (Ultra High Quality):`,
+                  bold: true,
+                  size: 28 // Larger font size
+                }),
               ],
+              spacing: {
+                before: 400, // Space before heading (20pt)
+                after: 200,  // Space after heading (10pt)
+              },
             })
           );
 
           try {
-            // Create ultra-high quality image URL (matching WebRTC parameters)
+            // Create ultra-high quality image URL
             const imageUrl = new URL(screenshot.url);
             imageUrl.searchParams.set('quality', 'ultra');
-            imageUrl.searchParams.set('format', 'png'); // PNG for lossless quality
-            imageUrl.searchParams.set('resolution', '4k'); // 4K resolution
-            imageUrl.searchParams.set('enhance', 'true'); // Enable enhancement
-            imageUrl.searchParams.set('bitrate', 'maximum'); // Maximum bitrate
+            imageUrl.searchParams.set('format', 'png');
+            imageUrl.searchParams.set('resolution', '4k');
+            imageUrl.searchParams.set('enhance', 'true');
+            imageUrl.searchParams.set('bitrate', 'maximum');
+            imageUrl.searchParams.set('timestamp', Date.now().toString());
 
-            // Try to fetch and embed the image with ultra-high quality settings
+            // Fetch and embed the image with ultra-high quality
             const response = await fetch(imageUrl.toString());
             if (response.ok) {
               const arrayBuffer = await response.arrayBuffer();
 
+              // Embed high-quality image INLINE (NO FLOATING - prevents overlap)
               children.push(
                 new Paragraph({
                   children: [
                     new ImageRun({
                       data: arrayBuffer,
                       transformation: {
-                        width: 600, // Increased from 500 (ultra-high resolution)
-                        height: 450, // Increased accordingly (maintaining 4:3 ratio)
+                        width: 450, // Smaller width to fit better
+                        height: 338, // Maintaining 4:3 aspect ratio
                       },
-                      // Additional ultra-quality settings for Word (matching WebRTC approach)
-                      floating: {
-                        horizontalPosition: {
-                          offset: 1440000, // Center position
-                        },
-                        verticalPosition: {
-                          offset: 1440000,
-                        },
-                        // Enhanced quality settings
-                        allowOverlap: true,
-                        lockAnchor: true,
-                      },
+                      // NO FLOATING PROPERTIES - this prevents overlap
                     }),
                   ],
+                  alignment: "center", // Center the image
+                  spacing: {
+                    before: 200, // Space before image (10pt)
+                    after: 400,  // Space after image (20pt)
+                  },
                 })
               );
             } else {
@@ -1195,45 +1203,48 @@ ${senderName}`;
             }
           } catch (imageError) {
             console.error('Failed to embed ultra-high quality screenshot:', imageError);
-            // Fallback: add hyperlink to image with ultra-quality parameters
-            const qualityUrl = new URL(screenshot.url);
-            qualityUrl.searchParams.set('quality', 'ultra');
-            qualityUrl.searchParams.set('resolution', '4k');
-            qualityUrl.searchParams.set('format', 'png');
+            // Add placeholder text instead of link
             children.push(
               new Paragraph({
                 children: [
-                  new ExternalHyperlink({
-                    children: [new TextRun({ text: "View Ultra High Quality Screenshot (4K PNG)", style: "Hyperlink" })],
-                    link: qualityUrl.toString(),
-                  }),
-                  new TextRun({ text: ` (${qualityUrl.toString()})` }),
+                  new TextRun({ text: "Screenshot could not be embedded - Image loading failed", style: "Normal" }),
                 ],
+                spacing: {
+                  before: 200,
+                  after: 400,
+                },
               })
             );
           }
 
-          children.push(new Paragraph({ text: "" }));
+          // Add extra spacing between screenshots to ensure separation
+          children.push(
+            new Paragraph({ text: "" }), // Empty paragraph
+            new Paragraph({ text: "" }), // Extra empty paragraph
+            new Paragraph({ text: "---" }), // Visual separator
+            new Paragraph({ text: "" })  // More spacing
+          );
         }
       }
 
-      // Add recordings section with ultra-high quality (matching WebRTC bitrate settings)
+      // Add recordings section with clickable video links
       if (selectedMeeting.recordings && selectedMeeting.recordings.length > 0) {
         children.push(
           new Paragraph({
             text: "Video Recordings (Ultra High Quality - VP9 Codec, 8Mbps)",
             heading: HeadingLevel.HEADING_1,
-          })
+          }),
+          new Paragraph({ text: "" }) // Spacing after heading
         );
 
         selectedMeeting.recordings.forEach((recording, index) => {
-          // Create ultra-high quality video URL (matching WebRTC settings)
+          // Create ultra-high quality video URL
           const videoUrl = new URL(recording.url);
           videoUrl.searchParams.set('quality', 'ultra');
-          videoUrl.searchParams.set('bitrate', '8000000'); // 8 Mbps like WebRTC
-          videoUrl.searchParams.set('codec', 'vp9'); // VP9 codec for best quality
-          videoUrl.searchParams.set('resolution', '4k'); // 4K resolution
-          videoUrl.searchParams.set('audio_bitrate', '192000'); // 192 kbps audio like WebRTC
+          videoUrl.searchParams.set('bitrate', '8000000');
+          videoUrl.searchParams.set('codec', 'vp9');
+          videoUrl.searchParams.set('resolution', '4k');
+          videoUrl.searchParams.set('audio_bitrate', '192000');
 
           children.push(
             new Paragraph({
@@ -1244,6 +1255,10 @@ ${senderName}`;
                   link: videoUrl.toString(),
                 }),
               ],
+              spacing: {
+                before: 200,
+                after: 100,
+              },
             }),
             new Paragraph({
               children: [
@@ -1269,14 +1284,24 @@ ${senderName}`;
                 new TextRun({ text: "VP9 codec with advanced quality settings" }),
               ],
             }),
-            new Paragraph({ text: "" })
+            new Paragraph({ text: "" }), // Spacing between recordings
+            new Paragraph({ text: "" })  // Extra spacing
           );
         });
       }
 
       const doc = new Document({
         sections: [{
-          properties: {},
+          properties: {
+            page: {
+              margin: {
+                top: 1440,    // 1 inch margins
+                bottom: 1440,
+                left: 1440,
+                right: 1440,
+              },
+            },
+          },
           children: children,
         }],
       });
@@ -1296,7 +1321,7 @@ ${senderName}`;
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      toast.success("Ultra high quality Word document downloaded successfully!");
+      toast.success("Ultra high quality Word document with properly spaced images downloaded successfully!");
 
     } catch (error) {
       console.error('Failed to generate ultra-high quality Word document:', error);
@@ -1560,24 +1585,24 @@ ${senderName}`;
   // Load message settings when modal opens
   const loadMessageSettings = async () => {
     if (!isAuth || messageSettingsLoaded) return;
-    
+
     try {
       console.log('📥 Loading message settings...');
       const response = await getMessageSettingsRequest();
-      
+
       if (response.data.success && response.data.messageSettings) {
         const settings = response.data.messageSettings;
-        
+
         setMessageOption(settings.messageOption || '');
         setDefaultTextSize(settings.defaultTextSize || '14px');
         setTailoredTextSize(settings.tailoredTextSize || '14px');
         setSelectedButtonColor(settings.selectedButtonColor || 'bg-green-800');
-        
+
         // For tailored message, we need a state for it
         if (settings.tailoredMessage) {
           setTailoredMessageText(settings.tailoredMessage);
         }
-        
+
         setMessageSettingsLoaded(true);
         console.log('✅ Message settings loaded:', settings);
       }
@@ -1611,10 +1636,10 @@ ${senderName}`;
       if (response.data.success) {
         // Update user context
         setUser(response.data.user);
-        
+
         toast("Message settings saved successfully");
         setMessageOpen(false);
-        
+
         console.log('✅ Message settings saved successfully');
       }
     } catch (error) {
@@ -2110,7 +2135,7 @@ ${senderName}`;
                   <div
                     className={`flex items-center justify-center w-full h-full ${profileImageOption === 'officer' ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                     onClick={() => {
-                     
+
                       if (profileImageOption === 'officer') {
                         document.getElementById('officerImageInput').click();
                       }

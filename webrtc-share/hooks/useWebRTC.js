@@ -102,14 +102,6 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         const stream = canvas.captureStream(30); // 30 FPS
         return stream;
     };
-    
-
-    // useEffect(() => {
-    //     if(!isAdmin) {
-    //         getUserMedia();
-    //     }
-    // },[]);
-
 
     const createRTCPeerConnection = () => {
         if(peerConnectionRef.current) {

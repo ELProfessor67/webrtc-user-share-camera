@@ -205,166 +205,166 @@ export default function Page({ params }) {
 
   // Add new function to handle "End Video and Save Images"
   const handleEndVideoAndSave = async (e) => {
-  // Prevent form submission and page refresh
-  if (e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  try {
-    setIsEndingSave(true);
-    console.log('🎬 Starting End Video and Save process...');
-
-    // First disconnect the video call
-    if (isConnected) {
-      handleDisconnect();
+    // Prevent form submission and page refresh
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
     }
 
-    // Stop any ongoing recording
-    if (isRecording) {
-      stopScreenRecording();
-    }
+    try {
+      setIsEndingSave(true);
+      console.log('🎬 Starting End Video and Save process...');
 
-    // Wait a moment for any final recording to process
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Now save everything - DUPLICATE SAVE LOGIC WITHOUT CALLING handleSave
-    console.log('💾 Starting save process within end video...');
-
-    // Separate new recordings from existing ones
-    const newRecordings = recordings.filter(recording => !recording.isExisting && recording.blob);
-    const existingRecordings = recordings.filter(recording => recording.isExisting);
-
-    // Prepare NEW recordings data for upload
-    const recordingsData = [];
-    for (let i = 0; i < newRecordings.length; i++) {
-      const recording = newRecordings[i];
-      console.log(`🎥 Processing NEW recording ${i + 1}/${newRecordings.length}...`);
-
-      try {
-        const base64Data = await blobToBase64(recording.blob);
-        recordingsData.push({
-          data: base64Data,
-          timestamp: recording.timestamp,
-          duration: recording.duration || Math.floor((recording.blob.size / 1000) / 16),
-          size: recording.blob.size
-        });
-        console.log(`✅ NEW recording ${i + 1} processed successfully`);
-      } catch (error) {
-        console.error(`❌ Error processing NEW recording ${i + 1}:`, error);
+      // First disconnect the video call
+      if (isConnected) {
+        handleDisconnect();
       }
-    }
 
-    // Prepare NEW screenshots data for upload WITH high-quality drawing merge
-    const screenshotsData = [];
-    for (let i = 0; i < screenshots.length; i++) {
-      const screenshot = screenshots[i];
-      console.log(`📸 Processing NEW screenshot ${i + 1}/${screenshots.length}...`);
+      // Stop any ongoing recording
+      if (isRecording) {
+        stopScreenRecording();
+      }
 
-      try {
-        let finalScreenshotData = screenshot;
-        const canvasId = `new-${i}`;
+      // Wait a moment for any final recording to process
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // If this screenshot has drawings, merge them at full resolution
-        if (drawingData[canvasId]) {
-          console.log(`🎨 Merging drawings for screenshot ${i + 1}...`);
-          finalScreenshotData = await mergeWithBackground(screenshot, canvasId);
-          console.log(`✅ Drawing merge completed for screenshot ${i + 1}`);
+      // Now save everything - DUPLICATE SAVE LOGIC WITHOUT CALLING handleSave
+      console.log('💾 Starting save process within end video...');
+
+      // Separate new recordings from existing ones
+      const newRecordings = recordings.filter(recording => !recording.isExisting && recording.blob);
+      const existingRecordings = recordings.filter(recording => recording.isExisting);
+
+      // Prepare NEW recordings data for upload
+      const recordingsData = [];
+      for (let i = 0; i < newRecordings.length; i++) {
+        const recording = newRecordings[i];
+        console.log(`🎥 Processing NEW recording ${i + 1}/${newRecordings.length}...`);
+
+        try {
+          const base64Data = await blobToBase64(recording.blob);
+          recordingsData.push({
+            data: base64Data,
+            timestamp: recording.timestamp,
+            duration: recording.duration || Math.floor((recording.blob.size / 1000) / 16),
+            size: recording.blob.size
+          });
+          console.log(`✅ NEW recording ${i + 1} processed successfully`);
+        } catch (error) {
+          console.error(`❌ Error processing NEW recording ${i + 1}:`, error);
         }
-
-        screenshotsData.push({
-          data: finalScreenshotData,
-          timestamp: new Date().toISOString(),
-          size: finalScreenshotData.length
-        });
-        console.log(`✅ NEW screenshot ${i + 1} processed successfully`);
-      } catch (error) {
-        console.error(`❌ Error processing NEW screenshot ${i + 1}:`, error);
-        // Fallback to original screenshot if merge fails
-        screenshotsData.push({
-          data: screenshot,
-          timestamp: new Date().toISOString(),
-          size: screenshot.length
-        });
       }
-    }
 
-    const formData = {
-      meeting_id: id,
-      name: residentName,
-      address: residentAddress,
-      post_code: postCode,
-      repair_detail: repairDetails,
-      target_time: targetTime,
-      recordings: recordingsData,
-      screenshots: screenshotsData,
-      update_mode: existingMeetingData ? 'update' : 'create'
-    };
+      // Prepare NEW screenshots data for upload WITH high-quality drawing merge
+      const screenshotsData = [];
+      for (let i = 0; i < screenshots.length; i++) {
+        const screenshot = screenshots[i];
+        console.log(`📸 Processing NEW screenshot ${i + 1}/${screenshots.length}...`);
 
-    console.log('📤 Sending data to server...');
-    console.log('📋 Form data summary:', {
-      meeting_id: id,
-      update_mode: formData.update_mode,
-      new_recordings_count: recordingsData.length,
-      new_screenshots_count: screenshotsData.length,
-      existing_recordings_count: existingRecordings.length,
-      total_recordings_after_save: existingRecordings.length + recordingsData.length
-    });
+        try {
+          let finalScreenshotData = screenshot;
+          const canvasId = `new-${i}`;
 
-    const response = await createRequest(formData);
-    console.log('✅ Save successful!');
+          // If this screenshot has drawings, merge them at full resolution
+          if (drawingData[canvasId]) {
+            console.log(`🎨 Merging drawings for screenshot ${i + 1}...`);
+            finalScreenshotData = await mergeWithBackground(screenshot, canvasId);
+            console.log(`✅ Drawing merge completed for screenshot ${i + 1}`);
+          }
 
-    // Reset pencil mode and clear all drawing data
-    setActivePencilScreenshot(null);
-
-    // Update recordings state to mark all recordings as existing/saved
-    setRecordings(prev => prev.map(rec => ({
-      ...rec,
-      isExisting: true
-    })));
-
-    // Move all new screenshots to existing screenshots and mark them as saved
-    if (screenshotsData.length > 0) {
-      const newSavedScreenshots = screenshotsData.map((screenshot, index) => ({
-        id: `saved-${Date.now()}-${index}`,
-        url: screenshot.data,
-        timestamp: new Date(screenshot.timestamp).toLocaleString(),
-        isExisting: true
-      }));
-
-      setExistingScreenshots(prev => [...prev, ...newSavedScreenshots]);
-
-      // Clear all screenshots from useWebRTC after saving
-      const screenshotCount = screenshots.length;
-      for (let i = screenshotCount - 1; i >= 0; i--) {
-        deleteScreenshot(i);
+          screenshotsData.push({
+            data: finalScreenshotData,
+            timestamp: new Date().toISOString(),
+            size: finalScreenshotData.length
+          });
+          console.log(`✅ NEW screenshot ${i + 1} processed successfully`);
+        } catch (error) {
+          console.error(`❌ Error processing NEW screenshot ${i + 1}:`, error);
+          // Fallback to original screenshot if merge fails
+          screenshotsData.push({
+            data: screenshot,
+            timestamp: new Date().toISOString(),
+            size: screenshot.length
+          });
+        }
       }
-      console.log(`🧹 Cleared ${screenshotCount} screenshots from new screenshots array`);
-    }
 
-    // Update existing meeting data reference
-    if (!existingMeetingData) {
-      setExistingMeetingData({
+      const formData = {
         meeting_id: id,
         name: residentName,
         address: residentAddress,
         post_code: postCode,
         repair_detail: repairDetails,
-        target_time: targetTime
+        target_time: targetTime,
+        recordings: recordingsData,
+        screenshots: screenshotsData,
+        update_mode: existingMeetingData ? 'update' : 'create'
+      };
+
+      console.log('📤 Sending data to server...');
+      console.log('📋 Form data summary:', {
+        meeting_id: id,
+        update_mode: formData.update_mode,
+        new_recordings_count: recordingsData.length,
+        new_screenshots_count: screenshotsData.length,
+        existing_recordings_count: existingRecordings.length,
+        total_recordings_after_save: existingRecordings.length + recordingsData.length
       });
+
+      const response = await createRequest(formData);
+      console.log('✅ Save successful!');
+
+      // Reset pencil mode and clear all drawing data
+      setActivePencilScreenshot(null);
+
+      // Update recordings state to mark all recordings as existing/saved
+      setRecordings(prev => prev.map(rec => ({
+        ...rec,
+        isExisting: true
+      })));
+
+      // Move all new screenshots to existing screenshots and mark them as saved
+      if (screenshotsData.length > 0) {
+        const newSavedScreenshots = screenshotsData.map((screenshot, index) => ({
+          id: `saved-${Date.now()}-${index}`,
+          url: screenshot.data,
+          timestamp: new Date(screenshot.timestamp).toLocaleString(),
+          isExisting: true
+        }));
+
+        setExistingScreenshots(prev => [...prev, ...newSavedScreenshots]);
+
+        // Clear all screenshots from useWebRTC after saving
+        const screenshotCount = screenshots.length;
+        for (let i = screenshotCount - 1; i >= 0; i--) {
+          deleteScreenshot(i);
+        }
+        console.log(`🧹 Cleared ${screenshotCount} screenshots from new screenshots array`);
+      }
+
+      // Update existing meeting data reference
+      if (!existingMeetingData) {
+        setExistingMeetingData({
+          meeting_id: id,
+          name: residentName,
+          address: residentAddress,
+          post_code: postCode,
+          repair_detail: repairDetails,
+          target_time: targetTime
+        });
+      }
+
+      toast.success("Video ended and all content saved successfully!");
+
+    } catch (error) {
+      console.error('❌ End Video and Save failed:', error);
+      toast.error("Failed to end video and save content", {
+        description: error?.response?.data?.message || error.message
+      });
+    } finally {
+      setIsEndingSave(false);
     }
-
-    toast.success("Video ended and all content saved successfully!");
-
-  } catch (error) {
-    console.error('❌ End Video and Save failed:', error);
-    toast.error("Failed to end video and save content", {
-      description: error?.response?.data?.message || error.message
-    });
-  } finally {
-    setIsEndingSave(false);
-  }
-};
+  };
 
   const handleSave = async (e) => {
     // Prevent form submission and page refresh
