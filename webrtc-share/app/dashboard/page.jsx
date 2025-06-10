@@ -160,21 +160,38 @@ export default function Page() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      const res = await logoutRequest();
-      toast("Logout Successfull", {
-        description: res.data.message
-      });
-      setIsAuth(false);
-      setUser(null);
-      router.push('../');
-    } catch (error) {
-      toast("Logout Unsuccessfull", {
-        description: error?.response?.data?.message || error.message
-      });
-    }
+const handleLogout = async () => {
+  try {
+    const res = await logoutRequest();
+    
+    // Additional cleanup - clear any localStorage/sessionStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    sessionStorage.clear();
+    
+    // Clear cookies from frontend side as well
+    document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; samesite=none";
+    
+    toast("Logout Successful", {
+      description: res.data.message
+    });
+    
+    setIsAuth(false);
+    setUser(null);
+    router.push('../');
+  } catch (error) {
+    // Even if logout API fails, clear local state
+    setIsAuth(false);
+    setUser(null);
+    localStorage.clear();
+    
+    toast("Logout Unsuccessful", {
+      description: error?.response?.data?.message || error.message
+    });
+    
+    router.push('../');
   }
+}
 
   // Handler for video link success
   const handleVideoLinkSuccess = (token) => {

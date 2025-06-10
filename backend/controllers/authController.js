@@ -195,10 +195,22 @@ export const loadme = catchAsyncError(async (req, res, next) => {
 });
 
 export const logout = catchAsyncError(async (req, res, next) => {
-	res.clearCookie("token");
-	res.status(200).json({
-		message: "Logged Out",
-	});
+    // Same cookie options as sendToken function
+    const options = {
+        expires: new Date(Date.now() - 1), // Set expiry to past date
+        secure: process.env.NODE_ENV === "development" ? false : true,
+        httpOnly: process.env.NODE_ENV === "development" ? false : true,
+        sameSite: process.env.NODE_ENV === "development" ? false : "none",
+        path: '/', // Explicitly set path
+    };
+    
+    // Clear cookie with proper options
+    res.clearCookie("token", options);
+    
+    res.status(200).json({
+        success: true,
+        message: "Logged Out Successfully",
+    });
 });
 
 export const updateUser = catchAsyncError(async (req, res, next) => {
