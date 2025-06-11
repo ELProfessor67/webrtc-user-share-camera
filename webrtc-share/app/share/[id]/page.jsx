@@ -453,28 +453,24 @@ export default function SharePage({ params }) {
           </div>
         </div>
 
-        {/* Enhanced Video & Image Section */}
+        {/* FIXED: Enhanced Video & Image Section */}
         <div className="bg-white rounded-3xl shadow-xl p-8 border-2 border-gray-200">
-          <div className="flex flex-col lg:flex-row gap-8 items-stretch">
-            {/* Enhanced Videos Section */}
-            <div className="flex-1 flex flex-col items-center">
+          {/* Videos Section */}
+          {recordings.length > 0 && (
+            <div className="mb-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
                 <h2 className="text-xl font-bold text-gray-800 uppercase tracking-wide">Videos</h2>
               </div>
               
-              <div className="flex flex-row gap-4 w-full overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                {recordings.length === 0 ? (
-                  <div className="w-full text-center py-12">
-                    <VideoIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 text-lg font-medium">No recordings found</p>
-                  </div>
-                ) : (
-                  recordings.map((recording) => {
+              {/* Fixed: Better container for videos */}
+              <div className="w-full">
+                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                  {recordings.map((recording) => {
                     const isExpanded = expandedVideos.has(recording.id);
                     return (
-                      <div key={recording.id} className={`relative group flex-shrink-0 transition-all duration-300 ${isExpanded ? 'w-[400px]' : 'w-[200px]'}`}>
-                        <div className={`w-full bg-gradient-to-br from-gray-200 to-gray-300 rounded-3xl overflow-hidden relative shadow-lg hover:shadow-xl transition-all duration-300 ${isExpanded ? 'h-[400px]' : 'h-[200px]'}`}>
+                      <div key={recording.id} className={`flex-shrink-0 transition-all duration-300 ${isExpanded ? 'w-[400px]' : 'w-[280px] md:w-[200px]'}`}>
+                        <div className={`w-full bg-gradient-to-br from-gray-200 to-gray-300 rounded-3xl overflow-hidden relative shadow-lg hover:shadow-xl transition-all duration-300 group ${isExpanded ? 'h-[400px]' : 'h-[200px]'}`}>
                           <video
                             src={recording.url}
                             controls={isExpanded}
@@ -532,32 +528,25 @@ export default function SharePage({ params }) {
                         </div>
                       </div>
                     );
-                  })
-                )}
+                  })}
+                </div>
               </div>
             </div>
-            
-            {/* Enhanced Center Divider */}
-            <div className="hidden lg:flex justify-center items-center px-4">
-              <div className="w-px h-full bg-gradient-to-b from-transparent via-gray-300 to-transparent" style={{ minHeight: "200px" }}></div>
-            </div>
-            
-            {/* Enhanced Images Section */}
-            <div className="flex-1 flex flex-col items-center">
+          )}
+          
+          {/* Screenshots Section */}
+          {screenshots.length > 0 && (
+            <div className={recordings.length > 0 ? 'border-t border-gray-200 pt-8' : ''}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                 <h2 className="text-xl font-bold text-gray-800 uppercase tracking-wide">SCREENSHOT(S)</h2>
               </div>
               
-              <div className="flex flex-row gap-4 w-full overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                {screenshots.length === 0 ? (
-                  <div className="w-full text-center py-12">
-                    <ZoomIn className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 text-lg font-medium">No screenshots found</p>
-                  </div>
-                ) : (
-                  screenshots.map((screenshot, index) => (
-                    <div key={screenshot.id} className="w-[200px] flex-shrink-0">
+              {/* Fixed: Better container for screenshots */}
+              <div className="w-full">
+                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                  {screenshots.map((screenshot, index) => (
+                    <div key={screenshot.id} className="w-[280px] md:w-[200px] flex-shrink-0">
                       <div className="w-full h-[200px] bg-gradient-to-br from-gray-200 to-gray-300 rounded-3xl overflow-hidden relative shadow-lg hover:shadow-xl transition-all duration-300 group">
                         <img
                           src={screenshot.url}
@@ -587,11 +576,19 @@ export default function SharePage({ params }) {
                         <p className="text-sm text-gray-600 font-medium">{screenshot.timestamp}</p>
                       </div>
                     </div>
-                  ))
-                )}
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* No content message */}
+          {recordings.length === 0 && screenshots.length === 0 && (
+            <div className="text-center py-12">
+              <VideoIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg font-medium">No recordings or screenshots found</p>
+            </div>
+          )}
         </div>
       </div>
 
