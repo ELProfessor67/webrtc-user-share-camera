@@ -1,4 +1,61 @@
-"use client"
+// Add effect to ensure canvas quality after component mount
+  useEffect(() => {
+    if (!isClient) return;
+
+    // Force canvas quality update after everything is loaded
+    const ensureCanvasQuality = () => {
+      console.log('🎨 Ensuring canvas quality after mount...');
+      
+      const canvases = document.querySelectorAll('canvas[data-canvas-id]');
+      canvases.forEach((canvas, index) => {
+        setTimeout(() => {
+          const container = canvas.parentElement;
+          if (container) {
+            const rect = container.getBoundingClientRect();
+            const devicePixelRatio = window.devicePixelRatio || 1;
+            
+            // Ensure proper high-resolution setup
+            if (canvas.width !== rect.width * devicePixelRatio || 
+                canvas.height !== rect.height * devicePixelRatio) {
+              
+              console.log(`🔧 Fixing canvas ${canvas.dataset.canvasId} resolution`);
+              
+              // Store any existing content
+              const ctx = canvas.getContext('2d');
+              const existingContent = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              
+              // Apply high-resolution setup
+              canvas.width = rect.width * devicePixelRatio;
+              canvas.height = rect.height * devicePixelRatio;
+              canvas.style.width = rect.width + 'px';
+              canvas.style.height = rect.height + 'px';
+              
+              // Reset context with proper scaling
+              ctx.scale(devicePixelRatio, devicePixelRatio);
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              
+              // Store device pixel ratio for future reference
+              canvas._devicePixelRatio = devicePixelRatio;
+              canvas._displayWidth = rect.width;
+              canvas._displayHeight = rect.height;
+              
+              console.log(`✅ Fixed canvas quality: ${canvas.width}x${canvas.height} (display: ${rect.width}x${rect.height}), DPR: ${devicePixelRatio}`);
+            }
+          }
+        }, index * 50); // Stagger updates to avoid overwhelming the browser
+      });
+    };
+
+    // Run quality check after a short delay to ensure all components are mounted
+    const qualityTimeout = setTimeout(ensureCanvasQuality, 500);
+    
+    return () => {
+      clearTimeout(qualityTimeout);
+    };
+  }, [isClient, screenshots.length]); // Re-run when screenshots change"use client"
 import { useState, useRef, use, useEffect, useCallback } from "react"
 import { Camera, Trash2, ImageIcon, Plus, Maximize2, VideoIcon, PlayIcon, Save, Edit, Minimize2, Expand, ZoomIn, ZoomOut, Pencil, X, Play } from "lucide-react"
 import useWebRTC from "@/hooks/useWebRTC"
@@ -1287,16 +1344,108 @@ export default function Page({ params }) {
     setShareLinkOpen(true, meetingData);
   };
 
-  // Add effect to handle client-side hydration right after state declarations
+  // Add effect to handle client-side hydration and canvas quality
   useEffect(() => {
     setIsClient(true);
+    
+    // Add global CSS for crisp canvas rendering
+    const style = document.createElement('style');
+    style.textContent = `
+      canvas {
+        image-rendering: -webkit-optimize-contrast !important;
+        image-rendering: crisp-edges !important;
+        image-rendering: pixelated !important;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      
+      canvas[data-canvas-id] {
+        image-rendering: -webkit-optimize-contrast !important;
+        image-rendering: crisp-edges !important;
+        image-rendering: pixelated !important;
+      }
+      
+      canvas[data-maximized-canvas-id] {
+        image-rendering: -webkit-optimize-contrast !important;
+        image-rendering: crisp-edges !important;
+        image-rendering: pixelated !important;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      if (style.parentNode) {
+        document.head.removeChild(style);
+      }
+    };
   }, []);
+
+  // Add effect to ensure canvas quality after component mount
+  useEffect(() => {
+    if (!isClient) return;
+
+    // Force canvas quality update after everything is loaded
+    const ensureCanvasQuality = () => {
+      console.log('🎨 Ensuring canvas quality after mount...');
+      
+      const canvases = document.querySelectorAll('canvas[data-canvas-id]');
+      canvases.forEach((canvas, index) => {
+        setTimeout(() => {
+          const container = canvas.parentElement;
+          if (container) {
+            const rect = container.getBoundingClientRect();
+            const devicePixelRatio = window.devicePixelRatio || 1;
+            
+            // Ensure proper high-resolution setup
+            if (canvas.width !== rect.width * devicePixelRatio || 
+                canvas.height !== rect.height * devicePixelRatio) {
+              
+              console.log(`🔧 Fixing canvas ${canvas.dataset.canvasId} resolution`);
+              
+              // Store any existing content
+              const ctx = canvas.getContext('2d');
+              const existingContent = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              
+              // Apply high-resolution setup
+              canvas.width = rect.width * devicePixelRatio;
+              canvas.height = rect.height * devicePixelRatio;
+              canvas.style.width = rect.width + 'px';
+              canvas.style.height = rect.height + 'px';
+              
+              // Reset context with proper scaling
+              ctx.scale(devicePixelRatio, devicePixelRatio);
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              
+              // Store device pixel ratio for future reference
+              canvas._devicePixelRatio = devicePixelRatio;
+              canvas._displayWidth = rect.width;
+              canvas._displayHeight = rect.height;
+              
+              console.log(`✅ Fixed canvas quality: ${canvas.width}x${canvas.height} (display: ${rect.width}x${rect.height}), DPR: ${devicePixelRatio}`);
+            }
+          }
+        }, index * 50); // Stagger updates to avoid overwhelming the browser
+      });
+    };
+
+    // Run quality check after a short delay to ensure all components are mounted
+    const qualityTimeout = setTimeout(ensureCanvasQuality, 500);
+    
+    return () => {
+      clearTimeout(qualityTimeout);
+    };
+  }, [isClient, screenshots.length]); // Re-run when screenshots change
 
   // NEW: Add cleanup effect to prevent memory leaks and handle window resize
   useEffect(() => {
     // Handle window resize to maintain canvas quality
     const handleResize = () => {
-      // Trigger re-render of canvases on resize for optimal quality
+      console.log('🔄 Window resized, updating canvas resolutions...');
+      
+      // Update all small canvases
       const canvases = document.querySelectorAll('canvas[data-canvas-id]');
       canvases.forEach(canvas => {
         const container = canvas.parentElement;
@@ -1304,33 +1453,55 @@ export default function Page({ params }) {
           const rect = container.getBoundingClientRect();
           const devicePixelRatio = window.devicePixelRatio || 1;
           
-          // Update canvas resolution if size changed
-          const newWidth = rect.width * devicePixelRatio;
-          const newHeight = rect.height * devicePixelRatio;
+          // Store current drawings if any
+          const currentImageData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
           
-          if (canvas.width !== newWidth || canvas.height !== newHeight) {
-            canvas.width = newWidth;
-            canvas.height = newHeight;
-            canvas.style.width = rect.width + 'px';
-            canvas.style.height = rect.height + 'px';
+          // Update canvas resolution
+          canvas.width = rect.width * devicePixelRatio;
+          canvas.height = rect.height * devicePixelRatio;
+          canvas.style.width = rect.width + 'px';
+          canvas.style.height = rect.height + 'px';
+          
+          const ctx = canvas.getContext('2d');
+          ctx.scale(devicePixelRatio, devicePixelRatio);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          
+          // Store updated values
+          canvas._devicePixelRatio = devicePixelRatio;
+          canvas._displayWidth = rect.width;
+          canvas._displayHeight = rect.height;
+          
+          // Restore drawings if any (scaled appropriately)
+          if (currentImageData && currentImageData.width > 0 && currentImageData.height > 0) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = currentImageData.width;
+            tempCanvas.height = currentImageData.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.putImageData(currentImageData, 0, 0);
             
-            const ctx = canvas.getContext('2d');
-            ctx.scale(devicePixelRatio, devicePixelRatio);
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            
-            console.log('🔄 Updated canvas resolution on resize');
+            ctx.drawImage(tempCanvas, 0, 0, rect.width, rect.height);
           }
+          
+          console.log(`🎨 Updated canvas ${canvas.dataset.canvasId}: ${canvas.width}x${canvas.height} (display: ${rect.width}x${rect.height})`);
         }
       });
     };
 
-    window.addEventListener('resize', handleResize);
+    // Debounced resize handler to avoid too many updates
+    let resizeTimeout;
+    const debouncedResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(handleResize, 100);
+    };
+
+    window.addEventListener('resize', debouncedResize);
     
     return () => {
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', debouncedResize);
+      clearTimeout(resizeTimeout);
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
@@ -1597,7 +1768,9 @@ export default function Page({ params }) {
                       style={{
                         top: '50%',
                         left: '50%',
-                        transform: 'translate(-50%, -50%)'
+                        transform: 'translate(-50%, -50%)',
+                        imageRendering: '-webkit-optimize-contrast',
+                        imageRendering: 'crisp-edges'
                       }}
                     />
                   )}
@@ -2017,7 +2190,7 @@ export default function Page({ params }) {
                             if (canvas) {
                               canvas.setAttribute('data-background', screenshot);
                               
-                              // HIGH-RESOLUTION CANVAS SETUP
+                              // HIGH-RESOLUTION CANVAS SETUP - BEFORE initializeCanvas
                               const container = canvas.parentElement;
                               if (container) {
                                 const rect = container.getBoundingClientRect();
@@ -2041,14 +2214,27 @@ export default function Page({ params }) {
                                 ctx.lineCap = 'round';
                                 ctx.lineJoin = 'round';
                                 
-                                console.log(`🎨 High-res canvas setup: ${canvas.width}x${canvas.height} (display: ${rect.width}x${rect.height})`);
+                                // Store device pixel ratio on canvas for drawing tools
+                                canvas._devicePixelRatio = devicePixelRatio;
+                                canvas._displayWidth = rect.width;
+                                canvas._displayHeight = rect.height;
+                                
+                                console.log(`🎨 High-res canvas setup: ${canvas.width}x${canvas.height} (display: ${rect.width}x${rect.height}), DPR: ${devicePixelRatio}`);
                               }
                               
-                              initializeCanvas(canvas, screenshot, canvasId);
+                              // Initialize drawing tools AFTER high-res setup
+                              setTimeout(() => {
+                                initializeCanvas(canvas, screenshot, canvasId);
+                              }, 10);
                             }
                           }}
                           className={`absolute top-0 left-0 w-full h-full z-10 rounded-md ${isActive ? 'cursor-crosshair' : 'pointer-events-none'
                             }`}
+                          style={{
+                            // Force crisp rendering
+                            imageRendering: '-webkit-optimize-contrast',
+                            imageRendering: 'crisp-edges'
+                          }}
                           onMouseDown={(e) => {
                             if (isActive) {
                               e.preventDefault();
