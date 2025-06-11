@@ -26,11 +26,6 @@ import { Button } from "@/components/ui/button"
 import { logoutRequest } from "@/http/authHttp"
 import { useUser } from "@/provider/UserProvider"
 
-
-
-
-
-
 export default function Page({ params }) {
   const { id } = use(params);
   const router = useRouter();
@@ -60,6 +55,11 @@ export default function Page({ params }) {
   const [savingRecordingId, setSavingRecordingId] = useState(null);
   const [savingScreenshotIndex, setSavingScreenshotIndex] = useState(null);
 
+  // NEW: Add save protection state and refs
+  const [saveInProgress, setSaveInProgress] = useState(false);
+  const saveTimeoutRef = useRef(null);
+  const processedItemsRef = useRef(new Set());
+
   // Screen recording states
   const [isRecording, setIsRecording] = useState(false);
   const [recordings, setRecordings] = useState([]);
@@ -71,7 +71,6 @@ export default function Page({ params }) {
 
   // Add state for tracking video progress - MOVED HERE FROM BOTTOM
   const [videoProgress, setVideoProgress] = useState({});
-
 
   // Pencil tool states - updated to use drawing hook
   const [activePencilScreenshot, setActivePencilScreenshot] = useState(null);
@@ -112,6 +111,7 @@ export default function Page({ params }) {
   const { handleDisconnect, isConnected, screenshots, takeScreenshot, startPeerConnection, deleteScreenshot, handleVideoPlay, showVideoPlayError } = useWebRTC(true, id, videoRef);
   const { setResetOpen, setMessageOpen, setLandlordDialogOpen, setTickerOpen, setFeedbackOpen, setFaqOpen } = useDialog();
   const { user, isAuth, setIsAuth, setUser } = useUser();
+
   // Helper function to convert blob to base64
   const blobToBase64 = (blob) => {
     return new Promise((resolve, reject) => {
@@ -121,6 +121,190 @@ export default function Page({ params }) {
       reader.readAsDataURL(blob);
     });
   };
+
+  // NEW: Debounced save function
+  const debouncedSave = useCallback((saveFunction) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      if (!saveInProgress) {
+        saveFunction();
+      }
+    }, 300); // 300ms debounce
+  }, [saveInProgress]);
+
+  // NEW: Check if save should be disabled
+  const isSaveDisabled = useCallback(() => {
+    return (
+      (!isConnected && recordings.length === 0 && screenshots.length === 0) ||
+      isSaving ||
+      isEndingSave ||
+      saveInProgress
+    );
+  }, [isConnected, recordings.length, screenshots.length, isSaving, isEndingSave, saveInProgress]);
+
+  // NEW: Extract common save logic
+  const performSave = useCallback(async (options = {}) => {
+    const { disconnectVideo = false } = options;
+    
+    console.log('💾 Starting save process...');
+    
+    // Separate new recordings from existing ones
+    const newRecordings = recordings.filter(recording => !recording.isExisting && recording.blob);
+    const existingRecordings = recordings.filter(recording => recording.isExisting);
+
+    // Process recordings with duplicate prevention
+    const recordingsData = [];
+    const processedRecordings = new Set();
+    
+    for (let i = 0; i < newRecordings.length; i++) {
+      const recording = newRecordings[i];
+      const recordingKey = `${recording.id}-${recording.timestamp}`;
+      
+      if (processedRecordings.has(recordingKey)) {
+        console.log('⚠️ Skipping duplicate recording:', recordingKey);
+        continue;
+      }
+      
+      processedRecordings.add(recordingKey);
+      
+      try {
+        const base64Data = await blobToBase64(recording.blob);
+        recordingsData.push({
+          data: base64Data,
+          timestamp: recording.timestamp,
+          duration: recording.duration || Math.floor((recording.blob.size / 1000) / 16),
+          size: recording.blob.size
+        });
+        console.log(`✅ NEW recording ${i + 1} processed successfully`);
+      } catch (error) {
+        console.error(`❌ Error processing NEW recording ${i + 1}:`, error);
+      }
+    }
+
+    // Process screenshots with duplicate prevention
+    const screenshotsData = [];
+    const processedScreenshots = new Set();
+    
+    for (let i = 0; i < screenshots.length; i++) {
+      const screenshot = screenshots[i];
+      const screenshotKey = `screenshot-${i}-${screenshot.substring(0, 50)}`;
+      
+      if (processedScreenshots.has(screenshotKey)) {
+        console.log('⚠️ Skipping duplicate screenshot:', screenshotKey);
+        continue;
+      }
+      
+      processedScreenshots.add(screenshotKey);
+      
+      try {
+        let finalScreenshotData = screenshot;
+        const canvasId = `new-${i}`;
+
+        if (drawingData[canvasId]) {
+          console.log(`🎨 Merging drawings for screenshot ${i + 1}...`);
+          finalScreenshotData = await mergeWithBackground(screenshot, canvasId);
+          console.log(`✅ Drawing merge completed for screenshot ${i + 1}`);
+        }
+
+        screenshotsData.push({
+          data: finalScreenshotData,
+          timestamp: new Date().toISOString(),
+          size: finalScreenshotData.length
+        });
+        console.log(`✅ NEW screenshot ${i + 1} processed successfully`);
+      } catch (error) {
+        console.error(`❌ Error processing screenshot ${i + 1}:`, error);
+        screenshotsData.push({
+          data: screenshot,
+          timestamp: new Date().toISOString(),
+          size: screenshot.length
+        });
+      }
+    }
+
+    const formData = {
+      meeting_id: id,
+      name: residentName,
+      address: residentAddress,
+      post_code: postCode,
+      repair_detail: repairDetails,
+      target_time: targetTime,
+      recordings: recordingsData,
+      screenshots: screenshotsData,
+      update_mode: existingMeetingData ? 'update' : 'create'
+    };
+
+    console.log('📤 Sending data to server...');
+    console.log('📋 Form data summary:', {
+      meeting_id: id,
+      update_mode: formData.update_mode,
+      new_recordings_count: recordingsData.length,
+      new_screenshots_count: screenshotsData.length,
+      existing_recordings_count: existingRecordings.length,
+      total_recordings_after_save: existingRecordings.length + recordingsData.length
+    });
+
+    const response = await createRequest(formData);
+    console.log('✅ Save successful!');
+
+    // Reset pencil mode and clear all drawing data
+    setActivePencilScreenshot(null);
+
+    // Update recordings state to mark all recordings as existing/saved - ATOMIC UPDATE
+    setRecordings(prev => prev.map(rec => ({
+      ...rec,
+      isExisting: true
+    })));
+
+    // Move all new screenshots to existing screenshots and mark them as saved - ATOMIC UPDATE
+    if (screenshotsData.length > 0) {
+      const newSavedScreenshots = screenshotsData.map((screenshot, index) => ({
+        id: `saved-${Date.now()}-${index}-${Math.random()}`, // Add random to ensure uniqueness
+        url: screenshot.data,
+        timestamp: new Date(screenshot.timestamp).toLocaleString(),
+        isExisting: true
+      }));
+
+      setExistingScreenshots(prev => {
+        // Filter out any potential duplicates based on URL
+        const existingUrls = new Set(prev.map(s => s.url));
+        const uniqueNewScreenshots = newSavedScreenshots.filter(s => !existingUrls.has(s.url));
+        
+        if (uniqueNewScreenshots.length !== newSavedScreenshots.length) {
+          console.log('⚠️ Filtered out duplicate screenshots');
+        }
+        
+        return [...prev, ...uniqueNewScreenshots];
+      });
+
+      // Clear all screenshots from useWebRTC after saving
+      const screenshotCount = screenshots.length;
+      for (let i = screenshotCount - 1; i >= 0; i--) {
+        deleteScreenshot(i);
+      }
+      console.log(`🧹 Cleared ${screenshotCount} screenshots from new screenshots array`);
+    }
+
+    // Update existing meeting data reference
+    if (!existingMeetingData) {
+      setExistingMeetingData({
+        meeting_id: id,
+        name: residentName,
+        address: residentAddress,
+        post_code: postCode,
+        repair_detail: repairDetails,
+        target_time: targetTime
+      });
+    }
+
+    return { recordingsData, screenshotsData };
+  }, [
+    recordings, screenshots, drawingData, mergeWithBackground, deleteScreenshot,
+    id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData
+  ]);
 
   const handleZoomIn = () => {
     setZoomLevel(prev => {
@@ -208,15 +392,26 @@ export default function Page({ params }) {
     }
   }, [isConnected]);
 
-  // Add new function to handle "End Video and Save Images"
+  // UPDATED: Add new function to handle "End Video and Save Images" with better protection
   const handleEndVideoAndSave = async (e) => {
     // Prevent form submission and page refresh
     if (e) {
       e.preventDefault();
       e.stopPropagation();
+      // Check if stopImmediatePropagation exists before calling it
+      if (typeof e.stopImmediatePropagation === 'function') {
+        e.stopImmediatePropagation();
+      }
+    }
+
+    // Check if already in progress
+    if (isEndingSave || isSaving || saveInProgress) {
+      console.log('⚠️ End video save already in progress');
+      return;
     }
 
     try {
+      setSaveInProgress(true);
       setIsEndingSave(true);
       console.log('🎬 Starting End Video and Save process...');
 
@@ -233,131 +428,8 @@ export default function Page({ params }) {
       // Wait a moment for any final recording to process
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Now save everything - DUPLICATE SAVE LOGIC WITHOUT CALLING handleSave
-      console.log('💾 Starting save process within end video...');
-
-      // Separate new recordings from existing ones
-      const newRecordings = recordings.filter(recording => !recording.isExisting && recording.blob);
-      const existingRecordings = recordings.filter(recording => recording.isExisting);
-
-      // Prepare NEW recordings data for upload
-      const recordingsData = [];
-      for (let i = 0; i < newRecordings.length; i++) {
-        const recording = newRecordings[i];
-        console.log(`🎥 Processing NEW recording ${i + 1}/${newRecordings.length}...`);
-
-        try {
-          const base64Data = await blobToBase64(recording.blob);
-          recordingsData.push({
-            data: base64Data,
-            timestamp: recording.timestamp,
-            duration: recording.duration || Math.floor((recording.blob.size / 1000) / 16),
-            size: recording.blob.size
-          });
-          console.log(`✅ NEW recording ${i + 1} processed successfully`);
-        } catch (error) {
-          console.error(`❌ Error processing NEW recording ${i + 1}:`, error);
-        }
-      }
-
-      // Prepare NEW screenshots data for upload WITH high-quality drawing merge
-      const screenshotsData = [];
-      for (let i = 0; i < screenshots.length; i++) {
-        const screenshot = screenshots[i];
-        console.log(`📸 Processing NEW screenshot ${i + 1}/${screenshots.length}...`);
-
-        try {
-          let finalScreenshotData = screenshot;
-          const canvasId = `new-${i}`;
-
-          // If this screenshot has drawings, merge them at full resolution
-          if (drawingData[canvasId]) {
-            console.log(`🎨 Merging drawings for screenshot ${i + 1}...`);
-            finalScreenshotData = await mergeWithBackground(screenshot, canvasId);
-            console.log(`✅ Drawing merge completed for screenshot ${i + 1}`);
-          }
-
-          screenshotsData.push({
-            data: finalScreenshotData,
-            timestamp: new Date().toISOString(),
-            size: finalScreenshotData.length
-          });
-          console.log(`✅ NEW screenshot ${i + 1} processed successfully`);
-        } catch (error) {
-          console.error(`❌ Error processing NEW screenshot ${i + 1}:`, error);
-          // Fallback to original screenshot if merge fails
-          screenshotsData.push({
-            data: screenshot,
-            timestamp: new Date().toISOString(),
-            size: screenshot.length
-          });
-        }
-      }
-
-      const formData = {
-        meeting_id: id,
-        name: residentName,
-        address: residentAddress,
-        post_code: postCode,
-        repair_detail: repairDetails,
-        target_time: targetTime,
-        recordings: recordingsData,
-        screenshots: screenshotsData,
-        update_mode: existingMeetingData ? 'update' : 'create'
-      };
-
-      console.log('📤 Sending data to server...');
-      console.log('📋 Form data summary:', {
-        meeting_id: id,
-        update_mode: formData.update_mode,
-        new_recordings_count: recordingsData.length,
-        new_screenshots_count: screenshotsData.length,
-        existing_recordings_count: existingRecordings.length,
-        total_recordings_after_save: existingRecordings.length + recordingsData.length
-      });
-
-      const response = await createRequest(formData);
-      console.log('✅ Save successful!');
-
-      // Reset pencil mode and clear all drawing data
-      setActivePencilScreenshot(null);
-
-      // Update recordings state to mark all recordings as existing/saved
-      setRecordings(prev => prev.map(rec => ({
-        ...rec,
-        isExisting: true
-      })));
-
-      // Move all new screenshots to existing screenshots and mark them as saved
-      if (screenshotsData.length > 0) {
-        const newSavedScreenshots = screenshotsData.map((screenshot, index) => ({
-          id: `saved-${Date.now()}-${index}`,
-          url: screenshot.data,
-          timestamp: new Date(screenshot.timestamp).toLocaleString(),
-          isExisting: true
-        }));
-
-        setExistingScreenshots(prev => [...prev, ...newSavedScreenshots]);
-
-        // Clear all screenshots from useWebRTC after saving
-        const screenshotCount = screenshots.length;
-        for (let i = screenshotCount - 1; i >= 0; i--) {
-          deleteScreenshot(i);
-        }
-        console.log(`🧹 Cleared ${screenshotCount} screenshots from new screenshots array`);
-      }
-
-      // Update existing meeting data reference
-      if (!existingMeetingData) {
-        setExistingMeetingData({
-          meeting_id: id,
-          name: residentName,
-          address: residentAddress,
-          post_code: postCode,
-          repair_detail: repairDetails,
-          target_time: targetTime
-        });
-      }
+      // Use shared save logic
+      const result = await performSave({ disconnectVideo: true });
 
       toast.success("Video ended and all content saved successfully!");
 
@@ -368,148 +440,38 @@ export default function Page({ params }) {
       });
     } finally {
       setIsEndingSave(false);
+      setSaveInProgress(false);
     }
   };
 
+  // UPDATED: handleSave with better protection and shared logic
   const handleSave = async (e) => {
     // Prevent form submission and page refresh
     if (e) {
       e.preventDefault();
       e.stopPropagation();
+      // Check if stopImmediatePropagation exists before calling it
+      if (typeof e.stopImmediatePropagation === 'function') {
+        e.stopImmediatePropagation();
+      }
+    }
+
+    // Check if already in progress
+    if (isSaving || isEndingSave || saveInProgress) {
+      console.log('⚠️ Save already in progress');
+      return;
     }
 
     try {
+      setSaveInProgress(true);
       setIsSaving(true);
-      console.log('💾 Starting save process...');
-
-      // Separate new recordings from existing ones
-      const newRecordings = recordings.filter(recording => !recording.isExisting && recording.blob);
-      const existingRecordings = recordings.filter(recording => recording.isExisting);
-
-      // Prepare NEW recordings data for upload
-      const recordingsData = [];
-      for (let i = 0; i < newRecordings.length; i++) {
-        const recording = newRecordings[i];
-        console.log(`🎥 Processing NEW recording ${i + 1}/${newRecordings.length}...`);
-
-        try {
-          const base64Data = await blobToBase64(recording.blob);
-          recordingsData.push({
-            data: base64Data,
-            timestamp: recording.timestamp,
-            duration: recording.duration || Math.floor((recording.blob.size / 1000) / 16),
-            size: recording.blob.size
-          });
-          console.log(`✅ NEW recording ${i + 1} processed successfully`);
-        } catch (error) {
-          console.error(`❌ Error processing NEW recording ${i + 1}:`, error);
-        }
-      }
-
-      // Prepare NEW screenshots data for upload WITH high-quality drawing merge
-      const screenshotsData = [];
-      for (let i = 0; i < screenshots.length; i++) {
-        const screenshot = screenshots[i];
-
-        console.log(`📸 Processing NEW screenshot ${i + 1}/${screenshots.length}...`);
-
-        try {
-          let finalScreenshotData = screenshot;
-          const canvasId = `new-${i}`;
-
-          // If this screenshot has drawings, merge them at full resolution
-          if (drawingData[canvasId]) {
-            console.log(`🎨 Merging drawings for screenshot ${i + 1}...`);
-            finalScreenshotData = await mergeWithBackground(screenshot, canvasId);
-            console.log(`✅ Drawing merge completed for screenshot ${i + 1}`);
-          }
-
-          screenshotsData.push({
-            data: finalScreenshotData,
-            timestamp: new Date().toISOString(),
-            size: finalScreenshotData.length
-          });
-          console.log(`✅ NEW screenshot ${i + 1} processed successfully`);
-        } catch (error) {
-          console.error(`❌ Error processing NEW screenshot ${i + 1}:`, error);
-          // Fallback to original screenshot if merge fails
-          screenshotsData.push({
-            data: screenshot,
-            timestamp: new Date().toISOString(),
-            size: screenshot.length
-          });
-        }
-      }
-
-      const formData = {
-        meeting_id: id,
-        name: residentName,
-        address: residentAddress,
-        post_code: postCode,
-        repair_detail: repairDetails,
-        target_time: targetTime,
-        recordings: recordingsData,
-        screenshots: screenshotsData,
-        update_mode: existingMeetingData ? 'update' : 'create'
-      };
-
-      console.log('📤 Sending data to server...');
-      console.log('📋 Form data summary:', {
-        meeting_id: id,
-        update_mode: formData.update_mode,
-        new_recordings_count: recordingsData.length,
-        new_screenshots_count: screenshotsData.length,
-        existing_recordings_count: existingRecordings.length,
-        total_recordings_after_save: existingRecordings.length + recordingsData.length
-      });
-
-      const response = await createRequest(formData);
-
-      console.log('✅ Save successful!');
+      
+      // Use shared save logic
+      const result = await performSave();
 
       toast.success("Repair saved successfully!", {
-        description: `Added ${recordingsData.length} new recordings and ${screenshotsData.length} new screenshots.`
+        description: `Added ${result.recordingsData.length} new recordings and ${result.screenshotsData.length} new screenshots.`
       });
-
-      // Reset pencil mode and clear all drawing data
-      setActivePencilScreenshot(null);
-
-      // Update recordings state to mark all recordings as existing/saved
-      setRecordings(prev => prev.map(rec => ({
-        ...rec,
-        isExisting: true
-      })));
-
-      // Move all new screenshots to existing screenshots and mark them as saved
-      if (screenshotsData.length > 0) {
-        const newSavedScreenshots = screenshotsData.map((screenshot, index) => ({
-          id: `saved-${Date.now()}-${index}`,
-          url: screenshot.data,
-          timestamp: new Date(screenshot.timestamp).toLocaleString(),
-          isExisting: true
-        }));
-
-        setExistingScreenshots(prev => [...prev, ...newSavedScreenshots]);
-
-        // 🔧 FIX: Clear all screenshots from useWebRTC after saving
-        const screenshotCount = screenshots.length;
-        for (let i = screenshotCount - 1; i >= 0; i--) {
-          deleteScreenshot(i);
-        }
-        console.log(`🧹 Cleared ${screenshotCount} screenshots from new screenshots array`);
-      }
-
-      // Update existing meeting data reference
-      if (!existingMeetingData) {
-        setExistingMeetingData({
-          meeting_id: id,
-          name: residentName,
-          address: residentAddress,
-          post_code: postCode,
-          repair_detail: repairDetails,
-          target_time: targetTime
-        });
-      }
 
     } catch (error) {
       console.error('❌ Save failed:', error);
@@ -518,42 +480,42 @@ export default function Page({ params }) {
       });
     } finally {
       setIsSaving(false);
+      setSaveInProgress(false);
     }
   };
 
-
-const handleLogout = async () => {
-  try {
-    const res = await logoutRequest();
-    
-    // Additional cleanup - clear any localStorage/sessionStorage
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    sessionStorage.clear();
-    
-    // Clear cookies from frontend side as well
-    document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; samesite=none";
-    
-    toast("Logout Successful", {
-      description: res.data.message
-    });
-    
-    setIsAuth(false);
-    setUser(null);
-    router.push('../');
-  } catch (error) {
-    // Even if logout API fails, clear local state
-    setIsAuth(false);
-    setUser(null);
-    localStorage.clear();
-    
-    toast("Logout Unsuccessful", {
-      description: error?.response?.data?.message || error.message
-    });
-    
-    router.push('../');
+  const handleLogout = async () => {
+    try {
+      const res = await logoutRequest();
+      
+      // Additional cleanup - clear any localStorage/sessionStorage
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      sessionStorage.clear();
+      
+      // Clear cookies from frontend side as well
+      document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; samesite=none";
+      
+      toast("Logout Successful", {
+        description: res.data.message
+      });
+      
+      setIsAuth(false);
+      setUser(null);
+      router.push('../');
+    } catch (error) {
+      // Even if logout API fails, clear local state
+      setIsAuth(false);
+      setUser(null);
+      localStorage.clear();
+      
+      toast("Logout Unsuccessful", {
+        description: error?.response?.data?.message || error.message
+      });
+      
+      router.push('../');
+    }
   }
-}
 
   // Add dashboard handler
   const handleDashboard = () => {
@@ -957,9 +919,6 @@ const handleLogout = async () => {
     console.log('Tool changed to:', tool); // Debug log
   }, [setSelectedTool]);
 
-  // Clear canvas function - Memoize to prevent re-renders
-  // (Removed duplicate clearCanvas declaration to fix redeclaration error)
-
   // Add effect to close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1046,12 +1005,22 @@ const handleLogout = async () => {
     fetchExistingMeetingData();
   }, [id, isClient]);
 
-  // Add individual save functions - Memoize these functions
+  // UPDATED: Add individual save functions with better duplicate protection
   const saveIndividualRecording = useCallback(async (recording) => {
     if (recording.isExisting) {
       toast.info("Recording already saved");
       return;
     }
+
+    const itemKey = `recording-${recording.id}`;
+    
+    // Prevent duplicate processing
+    if (processedItemsRef.current.has(itemKey)) {
+      console.log('⚠️ Recording already being processed:', itemKey);
+      return;
+    }
+    
+    processedItemsRef.current.add(itemKey);
 
     try {
       setSavingRecordingId(recording.id);
@@ -1079,7 +1048,7 @@ const handleLogout = async () => {
 
       const response = await createRequest(formData);
 
-      // Update the recording to mark it as existing
+      // Update the recording to mark it as existing - ATOMIC UPDATE
       setRecordings(prev => prev.map(r =>
         r.id === recording.id
           ? { ...r, isExisting: true }
@@ -1093,10 +1062,21 @@ const handleLogout = async () => {
       toast.error("Failed to save recording");
     } finally {
       setSavingRecordingId(null);
+      processedItemsRef.current.delete(itemKey);
     }
   }, [id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData]);
 
   const saveIndividualScreenshot = useCallback(async (screenshotData, index) => {
+    const itemKey = `screenshot-${index}`;
+    
+    // Prevent duplicate processing
+    if (processedItemsRef.current.has(itemKey)) {
+      console.log('⚠️ Screenshot already being processed:', itemKey);
+      return;
+    }
+    
+    processedItemsRef.current.add(itemKey);
+
     try {
       setSavingScreenshotIndex(index);
       console.log('💾 Saving individual screenshot...');
@@ -1137,17 +1117,25 @@ const handleLogout = async () => {
       setActivePencilScreenshot(null);
       setShowPencilDropdown(null);
 
-      // 🔧 FIX: Add saved screenshot to existing screenshots
+      // Add saved screenshot to existing screenshots with unique ID
       const newSavedScreenshot = {
-        id: `saved-${Date.now()}-${index}`,
+        id: `saved-${Date.now()}-${index}-${Math.random()}`,
         url: finalScreenshotData,
         timestamp: new Date().toLocaleString(),
         isExisting: true
       };
 
-      setExistingScreenshots(prev => [...prev, newSavedScreenshot]);
+      setExistingScreenshots(prev => {
+        // Check for duplicates
+        const alreadyExists = prev.some(s => s.url === newSavedScreenshot.url);
+        if (alreadyExists) {
+          console.log('⚠️ Screenshot already in existing array, skipping add');
+          return prev;
+        }
+        return [...prev, newSavedScreenshot];
+      });
 
-      // 🔧 FIX: Remove the screenshot from new screenshots array
+      // Remove the screenshot from new screenshots array
       deleteScreenshot(index);
       console.log(`🧹 Removed screenshot at index ${index} from new screenshots array`);
 
@@ -1156,9 +1144,9 @@ const handleLogout = async () => {
       toast.error("Failed to save screenshot");
     } finally {
       setSavingScreenshotIndex(null);
+      processedItemsRef.current.delete(itemKey);
     }
   }, [id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData, drawingData, mergeWithBackground, deleteScreenshot]);
-
 
   // Maximize handlers - Memoize these functions
   const maximizeVideo = useCallback((recording) => {
@@ -1202,7 +1190,6 @@ const handleLogout = async () => {
     }
     return user?.landlordInfo?.landlordName || null;
   };
-
 
   // Helper function to get landlord logo (prioritize token info)
   const getLandlordLogo = () => {
@@ -1303,6 +1290,52 @@ const handleLogout = async () => {
   // Add effect to handle client-side hydration right after state declarations
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  // NEW: Add cleanup effect to prevent memory leaks and handle window resize
+  useEffect(() => {
+    // Handle window resize to maintain canvas quality
+    const handleResize = () => {
+      // Trigger re-render of canvases on resize for optimal quality
+      const canvases = document.querySelectorAll('canvas[data-canvas-id]');
+      canvases.forEach(canvas => {
+        const container = canvas.parentElement;
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const devicePixelRatio = window.devicePixelRatio || 1;
+          
+          // Update canvas resolution if size changed
+          const newWidth = rect.width * devicePixelRatio;
+          const newHeight = rect.height * devicePixelRatio;
+          
+          if (canvas.width !== newWidth || canvas.height !== newHeight) {
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            
+            const ctx = canvas.getContext('2d');
+            ctx.scale(devicePixelRatio, devicePixelRatio);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            console.log('🔄 Updated canvas resolution on resize');
+          }
+        }
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      processedItemsRef.current.clear();
+    };
   }, []);
 
   // Add loading guard to prevent hydration mismatch
@@ -1413,9 +1446,12 @@ const handleLogout = async () => {
 
                           console.log('🎨 Setting up maximized canvas drawing transfer');
 
-                          // Set canvas dimensions to match the calculated display size
-                          canvas.width = displayWidth;
-                          canvas.height = displayHeight;
+                          // HIGH-RESOLUTION SETUP FOR MAXIMIZED CANVAS
+                          const devicePixelRatio = window.devicePixelRatio || 1;
+                          
+                          // Set canvas dimensions to match the calculated display size with pixel ratio
+                          canvas.width = displayWidth * devicePixelRatio;
+                          canvas.height = displayHeight * devicePixelRatio;
                           canvas.style.width = displayWidth + 'px';
                           canvas.style.height = displayHeight + 'px';
                           canvas.style.position = 'absolute';
@@ -1424,11 +1460,16 @@ const handleLogout = async () => {
                           canvas.style.transform = 'translate(-50%, -50%)';
 
                           const ctx = canvas.getContext('2d');
+                          ctx.scale(devicePixelRatio, devicePixelRatio);
                           ctx.imageSmoothingEnabled = true;
                           ctx.imageSmoothingQuality = 'high';
+                          ctx.lineCap = 'round';
+                          ctx.lineJoin = 'round';
+
+                          console.log(`🎨 Maximized canvas setup: ${canvas.width}x${canvas.height} (display: ${displayWidth}x${displayHeight}), ratio: ${devicePixelRatio}`);
 
                           // Clear the canvas first
-                          ctx.clearRect(0, 0, canvas.width, canvas.height);
+                          ctx.clearRect(0, 0, displayWidth, displayHeight);
 
                           // METHOD 1: Try to copy directly from small canvas
                           const sourceCanvas = document.querySelector(`canvas[data-canvas-id="${maximizedItem.id}"]`);
@@ -1439,7 +1480,7 @@ const handleLogout = async () => {
                             ctx.drawImage(
                               sourceCanvas,
                               0, 0, sourceCanvas.width, sourceCanvas.height,
-                              0, 0, canvas.width, canvas.height
+                              0, 0, displayWidth, displayHeight
                             );
                             console.log('✅ Successfully copied drawings from source canvas');
                             return;
@@ -1458,9 +1499,11 @@ const handleLogout = async () => {
                             let scaleY = 1;
 
                             if (originalCanvas) {
-                              scaleX = canvas.width / originalCanvas.width;
-                              scaleY = canvas.height / originalCanvas.height;
-                              console.log('Scale factors:', scaleX, scaleY);
+                              // Account for device pixel ratio in scaling calculations
+                              const originalRect = originalCanvas.getBoundingClientRect();
+                              scaleX = displayWidth / originalRect.width;
+                              scaleY = displayHeight / originalRect.height;
+                              console.log('Scale factors (corrected for DPR):', scaleX, scaleY);
                             }
 
                             // Draw all the strokes with proper scaling
@@ -1537,7 +1580,7 @@ const handleLogout = async () => {
                               }
                             });
 
-                            console.log('✅ Successfully reconstructed all strokes with scaling');
+                            console.log('✅ Successfully reconstructed all strokes with high-resolution scaling');
                           } else {
                             console.log('ℹ️ No drawing data found for canvas:', maximizedItem.id);
                           }
@@ -1566,7 +1609,6 @@ const handleLogout = async () => {
         </div>
       )}
 
-      {/* <button onClick={startPeerConnection}>Start Peer Connection</button> */}
       <div className="gap-6" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr' }}>
         {/* Left Column */}
         <div className="space-y-6 flex gap-5">
@@ -1684,8 +1726,6 @@ const handleLogout = async () => {
                 <span className="text-white text-lg">{isConnected ? formatTime(callDuration) : "0:00"}</span>
               </div>
 
-
-
               <div
                 className="absolute bottom-2 right-0 text-white px-3 py-1 text-sm font-medium flex items-center gap-3 flex-col"
                 style={{ display: isRecording ? 'none' : 'flex' }}
@@ -1716,9 +1756,6 @@ const handleLogout = async () => {
                 >
                   <ZoomOut className={`w-4 h-4 ${zoomLevel <= 0.5 ? 'opacity-50' : ''}`} />
                 </button>
-
-
-
               </div>
             </div>
 
@@ -1784,7 +1821,6 @@ const handleLogout = async () => {
                         }
                       }}>
 
-
                       <video
                         src={recording.url}
                         controls={true}
@@ -1797,8 +1833,6 @@ const handleLogout = async () => {
                           return newSet;
                         })}
                       />
-
-
 
                       {/* Action icons moved to top left corner, vertical alignment */}
                       <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
@@ -1982,6 +2016,34 @@ const handleLogout = async () => {
                           ref={(canvas) => {
                             if (canvas) {
                               canvas.setAttribute('data-background', screenshot);
+                              
+                              // HIGH-RESOLUTION CANVAS SETUP
+                              const container = canvas.parentElement;
+                              if (container) {
+                                const rect = container.getBoundingClientRect();
+                                const devicePixelRatio = window.devicePixelRatio || 1;
+                                
+                                // Set actual canvas size (high resolution)
+                                canvas.width = rect.width * devicePixelRatio;
+                                canvas.height = rect.height * devicePixelRatio;
+                                
+                                // Set display size (CSS pixels)
+                                canvas.style.width = rect.width + 'px';
+                                canvas.style.height = rect.height + 'px';
+                                
+                                // Scale context to match device pixel ratio
+                                const ctx = canvas.getContext('2d');
+                                ctx.scale(devicePixelRatio, devicePixelRatio);
+                                
+                                // Enable high-quality rendering
+                                ctx.imageSmoothingEnabled = true;
+                                ctx.imageSmoothingQuality = 'high';
+                                ctx.lineCap = 'round';
+                                ctx.lineJoin = 'round';
+                                
+                                console.log(`🎨 High-res canvas setup: ${canvas.width}x${canvas.height} (display: ${rect.width}x${rect.height})`);
+                              }
+                              
                               initializeCanvas(canvas, screenshot, canvasId);
                             }
                           }}
@@ -2204,14 +2266,12 @@ const handleLogout = async () => {
                         <button className='bg-none border-none cursor-pointer' onClick={handleDashboard}>Dashboard</button>
                       </DropdownMenuItem>
                       <DropdownMenuItem>
-
                         <button className='bg-none border-none cursor-pointer' onClick={() => setTickerOpen(true)}>Raise Support Ticket</button>
                       </DropdownMenuItem>
                       <DropdownMenuItem><button className='bg-none border-none cursor-pointer' onClick={() => setResetOpen(true)}>Reset Password</button></DropdownMenuItem>
                       <DropdownMenuItem > <button className='bg-none border-none cursor-pointer' onClick={() => setInviteOpen(true)}>Invite Coworkers</button></DropdownMenuItem>
                       <DropdownMenuItem><button className='bg-none border-none cursor-pointer' onClick={() => setMessageOpen(true)}>Amend Message</button></DropdownMenuItem>
                       <DropdownMenuItem> <button className='bg-none border-none cursor-pointer text-left' onClick={() => setLandlordDialogOpen(true)}>Add Landlord Name/Logo/ <br />Profile Image </button></DropdownMenuItem>
-
                       <DropdownMenuItem > <button className='bg-none border-none cursor-pointer' onClick={() => setFaqOpen(true)}>FAQ's</button></DropdownMenuItem>
                       <DropdownMenuItem > <button className='bg-none border-none cursor-pointer' onClick={() => setFeedbackOpen(true)}>Give Feedback</button></DropdownMenuItem>
                     </DropdownMenuContent>
@@ -2286,7 +2346,6 @@ const handleLogout = async () => {
                   </svg>
                 </button>
 
-
                 {showDropdown && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
                     <ul>
@@ -2343,12 +2402,8 @@ const handleLogout = async () => {
 
                 <button
                   type="button"
-                  onClick={(e) => handleSave(e)}
-                  disabled={
-                    (!isConnected && recordings.length === 0 && screenshots.length === 0) ||
-                    isSaving ||
-                    isEndingSave  // Add this to prevent clicking during end video process
-                  }
+                  onClick={handleSave}
+                  disabled={isSaveDisabled()}
                   className="w-full flex items-center justify-center p-3 bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md transition-colors"
                 >
                   {isSaving ? (
@@ -2382,12 +2437,8 @@ const handleLogout = async () => {
               End Video <br /> (Without Saving)
             </button>
             <button
-              onClick={(e) => handleEndVideoAndSave(e)}
-              disabled={
-                (!isConnected && recordings.length === 0 && screenshots.length === 0) ||
-                isEndingSave ||
-                isSaving  // Add this to prevent clicking during save process
-              }
+              onClick={handleEndVideoAndSave}
+              disabled={isSaveDisabled()}
               className="bg-green-500 disabled:opacity-50 hover:bg-green-600 text-white font-medium py-4 rounded-md transition-colors flex-1 whitespace-pre"
             >
               {isEndingSave ? (

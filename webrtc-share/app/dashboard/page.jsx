@@ -276,11 +276,14 @@ const handleLogout = async () => {
     const hours = date.getHours();
     const minutes = String(date.getMinutes()).padStart(2, '0');
     
-    // Convert to 12-hour format with leading zero for single digit hours
+    // Convert to 12-hour format - remove leading zero for PM but maintain space
     const ampm = hours >= 12 ? 'pm' : 'am';
-    const displayHours = String(hours % 12 || 12).padStart(2, '0');
+    const displayHours = hours % 12 || 12;
+    const formattedHours = ampm === 'pm' ? 
+      (displayHours < 10 ? ` ${displayHours}` : displayHours.toString()) : 
+      String(displayHours).padStart(2, '0');
     
-    return `${day} ${month} ${year}, ${displayHours}:${minutes}${ampm}`;
+    return `${day} ${month} ${year}, ${formattedHours}:${minutes}${ampm}`;
   };
 
   // Helper function to get last login time with fallback logic
@@ -310,12 +313,17 @@ const handleLogout = async () => {
     if (!dateString) return { time: 'Unknown', date: 'Unknown' };
     const date = new Date(dateString);
     
-    // Format time as "09.28 AM"
+    // Format time as "09.28 AM" or " 9.56 PM" (remove leading zero for PM but maintain space)
     const hours = date.getHours();
     const minutes = date.getMinutes();
     const ampm = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12;
-    const time = `${String(displayHours).padStart(2, '0')}.${String(minutes).padStart(2, '0')} ${ampm}`;
+    
+    // Remove leading zero for PM times but add space to maintain alignment
+    const formattedHours = ampm === 'PM' ? 
+      (displayHours < 10 ? ` ${displayHours}` : displayHours.toString()) : 
+      String(displayHours).padStart(2, '0');
+    const time = `${formattedHours}.${String(minutes).padStart(2, '0')} ${ampm}`;
     
     // Format date as "24/5/2025"
     const day = date.getDate();
@@ -547,12 +555,12 @@ const handleLogout = async () => {
               <div className="space-y-0 w-full">
                 {userLoading ? (
                   <>
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="grid grid-cols-[auto_auto_1fr] gap-2 items-end mb-1">
                       <div className="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
                       <span>:</span>
                       <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-[auto_auto_1fr] gap-2 items-end">
                       <div className="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
                       <span>:</span>
                       <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
@@ -560,15 +568,15 @@ const handleLogout = async () => {
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center gap-2">
-                      <p className="text-left whitespace-nowrap w-20">Logged in</p>
+                    <div className="grid grid-cols-[80px_auto_1fr] gap-2 items-end">
+                      <p className="text-left whitespace-nowrap">Logged in</p>
                       <span>:</span>
-                      <p className="text-left whitespace-nowrap">{moment(user?.currentLoginTime).format("DD MMMM YYYY, hh:mm A")}</p>
+                      <p className="text-left whitespace-nowrap">{moment(user?.currentLoginTime).format("DD MMMM YYYY, h:mm A")}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-left whitespace-nowrap w-20">Last Log in</p>
+                    <div className="grid grid-cols-[80px_auto_1fr] gap-2 items-end">
+                      <p className="text-left whitespace-nowrap">Last Log in</p>
                       <span>:</span>
-                      <p className="text-left whitespace-nowrap">{moment(user?.previousLoginTime || user?.currentLoginTime).format("DD MMMM YYYY, hh:mm A")}</p>
+                      <p className="text-left whitespace-nowrap">{moment(user?.previousLoginTime || user?.currentLoginTime).format("DD MMMM YYYY, h:mm A")}</p>
                     </div>
                   </>
                 )}
