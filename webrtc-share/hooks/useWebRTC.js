@@ -2,9 +2,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
-
+// Optimized peer configuration for maximum quality
 const peerConfig = {
-    iceTransportPolicy: "relay",
+    iceTransportPolicy: "all", // Changed from "relay" to allow direct connections for better quality
     iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun.l.google.com:5349" },
@@ -45,7 +45,6 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
     const [showVideoPlayError, setShowVideoPlayError] = useState(false);
     const router = useRouter();
     
-
     useEffect(() => {
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
         const socketUrl = backendUrl.replace('/api/v1', '');
@@ -63,42 +62,314 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             startPeerConnection();
            }
         });
+
+        // Cleanup on unmount
+        return () => {
+            if (socketConnection.current) {
+                socketConnection.current.disconnect();
+            }
+        };
     }, [roomId, isAdmin]);
 
+    // Enhanced getUserMedia with comprehensive device error handling
     const getUserMedia = async () => {
         try {
-            //choose back camera
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: "environment",
-                    width: {
-                        ideal: 1280
-                    },
-                    height: {
-                        ideal: 720
+            console.log('🎥 Starting camera access...');
+            
+            // Step 1: Check if getUserMedia is supported
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('Camera API is not supported in this browser. Please use a modern browser like Chrome, Firefox, or Safari.');
+            }
+
+            // Step 2: Check permissions first (if supported)
+            try {
+                const permissionStatus = await navigator.permissions.query({ name: 'camera' });
+                console.log('📷 Camera permission status:', permissionStatus.state);
+                
+                if (permissionStatus.state === 'denied') {
+                    throw new Error('Camera permission denied. Please enable camera access in browser settings and refresh the page.');
+                }
+            } catch (permError) {
+                console.log('⚠️ Permission API not supported, proceeding...');
+            }
+
+            // Step 3: Enumerate available devices to check what's actually available
+            let availableDevices = [];
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                availableDevices = devices.filter(device => device.kind === 'videoinput');
+                console.log('📹 Available video devices:', availableDevices.length);
+                
+                if (availableDevices.length === 0) {
+                    throw new Error('No camera devices found. Please connect a camera and refresh the page.');
+                }
+                
+                // Log device info (without sensitive details)
+                availableDevices.forEach((device, index) => {
+                    console.log(`Camera ${index + 1}:`, {
+                        label: device.label || 'Unknown Camera',
+                        deviceId: device.deviceId ? 'present' : 'missing'
+                    });
+                });
+                
+            } catch (enumError) {
+                console.log('⚠️ Could not enumerate devices, proceeding with basic constraints');
+            }
+
+            // Step 4: Progressive constraint strategy (from best to basic)
+            const constraintStrategies = [
+                // Strategy 1: High quality with back camera preference
+                {
+                    name: "High Quality Back Camera",
+                    constraints: {
+                        video: {
+                            facingMode: { ideal: "environment" },
+                            width: { min: 640, ideal: 1920, max: 4096 },
+                            height: { min: 480, ideal: 1080, max: 2160 },
+                            frameRate: { min: 15, ideal: 30, max: 60 }
+                        },
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
                     }
                 },
-                audio: false,
+                // Strategy 2: Medium quality with back camera preference
+                {
+                    name: "Medium Quality Back Camera",
+                    constraints: {
+                        video: {
+                            facingMode: { ideal: "environment" },
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            frameRate: { ideal: 30 }
+                        },
+                        audio: true
+                    }
+                },
+                // Strategy 3: Basic quality with any back camera
+                {
+                    name: "Basic Back Camera",
+                    constraints: {
+                        video: {
+                            facingMode: "environment"
+                        },
+                        audio: true
+                    }
+                },
+                // Strategy 4: High quality any camera
+                {
+                    name: "High Quality Any Camera",
+                    constraints: {
+                        video: {
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                            frameRate: { ideal: 30 }
+                        },
+                        audio: true
+                    }
+                },
+                // Strategy 5: Basic quality any camera
+                {
+                    name: "Basic Quality Any Camera",
+                    constraints: {
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        },
+                        audio: true
+                    }
+                },
+                // Strategy 6: Very basic - just specify video/audio
+                {
+                    name: "Very Basic",
+                    constraints: {
+                        video: true,
+                        audio: true
+                    }
+                },
+                // Strategy 7: Video only (no audio) - if audio fails
+                {
+                    name: "Video Only - No Audio",
+                    constraints: {
+                        video: true,
+                        audio: false
+                    }
+                },
+                // Strategy 8: Default front camera if available
+                {
+                    name: "Front Camera Fallback",
+                    constraints: {
+                        video: {
+                            facingMode: "user"
+                        },
+                        audio: true
+                    }
+                }
+            ];
 
-            });
+            let stream = null;
+            let usedStrategy = null;
+            let lastError = null;
+
+            // Try each strategy until one works
+            for (const strategy of constraintStrategies) {
+                try {
+                    console.log(`🔄 Trying strategy: ${strategy.name}`);
+                    stream = await navigator.mediaDevices.getUserMedia(strategy.constraints);
+                    usedStrategy = strategy.name;
+                    console.log(`✅ Success with strategy: ${strategy.name}`);
+                    break;
+                } catch (strategyError) {
+                    lastError = strategyError;
+                    console.log(`❌ Strategy "${strategy.name}" failed:`, strategyError.message);
+                    
+                    // If it's a specific constraint error, try without problematic constraints
+                    if (strategyError.name === 'OverconstrainedError' || 
+                        strategyError.message.includes('Requested device not found') ||
+                        strategyError.message.includes('facingMode') ||
+                        strategyError.message.includes('constraint')) {
+                        
+                        try {
+                            // Remove problematic constraints and try again
+                            const fallbackConstraints = { ...strategy.constraints };
+                            
+                            if (fallbackConstraints.video && typeof fallbackConstraints.video === 'object') {
+                                // Remove specific constraints that might be causing issues
+                                delete fallbackConstraints.video.facingMode;
+                                delete fallbackConstraints.video.width;
+                                delete fallbackConstraints.video.height;
+                                delete fallbackConstraints.video.frameRate;
+                                
+                                console.log(`🔄 Retrying "${strategy.name}" with relaxed constraints`);
+                                stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+                                usedStrategy = strategy.name + " (relaxed constraints)";
+                                console.log(`✅ Success with modified strategy: ${usedStrategy}`);
+                                break;
+                            }
+                        } catch (fallbackError) {
+                            console.log(`❌ Fallback also failed for "${strategy.name}":`, fallbackError.message);
+                        }
+                    }
+                    
+                    // Continue to next strategy
+                    continue;
+                }
+            }
+
+            // If no strategy worked
+            if (!stream) {
+                console.error('❌ All camera access strategies failed');
+                
+                // Provide detailed error message based on the last error
+                let userMessage = 'Unable to access camera. ';
+                
+                if (lastError) {
+                    if (lastError.name === 'NotFoundError' || lastError.message.includes('Requested device not found')) {
+                        userMessage += 'No camera found. Please ensure a camera is connected and not being used by another application.';
+                    } else if (lastError.name === 'NotAllowedError' || lastError.message.includes('Permission denied')) {
+                        userMessage += 'Camera permission denied. Please allow camera access when prompted or enable it in browser settings.';
+                    } else if (lastError.name === 'NotReadableError') {
+                        userMessage += 'Camera is busy or being used by another application. Please close other camera apps and try again.';
+                    } else if (lastError.name === 'SecurityError') {
+                        userMessage += 'Camera access blocked. Please use HTTPS or localhost.';
+                    } else {
+                        userMessage += 'Please check camera permissions and device availability.';
+                    }
+                } else {
+                    userMessage += 'Please check camera permissions and device availability.';
+                }
+                
+                const error = new Error(userMessage);
+                error.originalError = lastError;
+                throw error;
+            }
+
+            // Step 5: Log actual stream capabilities and success info
+            const videoTrack = stream.getVideoTracks()[0];
+            const audioTrack = stream.getAudioTracks()[0];
+            
+            if (videoTrack) {
+                const settings = videoTrack.getSettings();
+                
+                console.log('📹 Video track settings:', {
+                    width: settings.width,
+                    height: settings.height,
+                    frameRate: settings.frameRate,
+                    facingMode: settings.facingMode,
+                    deviceId: settings.deviceId ? 'present' : 'missing'
+                });
+                
+                // Try to get capabilities if supported
+                try {
+                    const capabilities = videoTrack.getCapabilities();
+                    console.log('📹 Video capabilities:', {
+                        maxWidth: capabilities.width?.max,
+                        maxHeight: capabilities.height?.max,
+                        maxFrameRate: capabilities.frameRate?.max,
+                        facingModes: capabilities.facingMode
+                    });
+                } catch (capError) {
+                    console.log('⚠️ Could not get video capabilities');
+                }
+            }
+            
+            if (audioTrack) {
+                const settings = audioTrack.getSettings();
+                console.log('🎵 Audio track active:', settings);
+            }
+
+            // Step 6: Set up the stream
             setLocalStream(stream);
             localStreamRef.current = stream;
-            videoRef.current.srcObject = stream;
-            videoRef.current.play();
-        } catch (error) {
-            console.error('Error getting user media:', error);
-        }
-    }
+            
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                videoRef.current.play().catch(playError => {
+                    console.log('⚠️ Video autoplay failed (this is normal):', playError.message);
+                });
+            }
 
+            console.log(`✅ Camera stream acquired successfully using: ${usedStrategy}`);
+            console.log(`📊 Final stream stats:`, {
+                videoTracks: stream.getVideoTracks().length,
+                audioTracks: stream.getAudioTracks().length,
+                active: stream.active
+            });
+            
+            return stream;
+            
+        } catch (error) {
+            console.error('❌ Failed to get user media:', error);
+            
+            // Re-throw the error for handling in the calling code
+            throw error;
+        }
+    };
 
     const createDummyVideoTrack = () => {
         const canvas = document.createElement("canvas");
-        canvas.width = 640;
-        canvas.height = 480;
+        canvas.width = 1920;  // Higher resolution dummy
+        canvas.height = 1080;
     
         const context = canvas.getContext("2d");
-        context.fillStyle = "black";
+        context.fillStyle = "#1a1a1a";
         context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Add some visual content to dummy track
+        context.fillStyle = "white";
+        context.font = "48px Arial";
+        context.textAlign = "center";
+        context.fillText("Waiting for connection...", canvas.width/2, canvas.height/2);
+        
+        // Add a subtle pattern to make it more interesting
+        context.fillStyle = "#333";
+        for (let i = 0; i < canvas.width; i += 100) {
+            for (let j = 0; j < canvas.height; j += 100) {
+                context.fillRect(i, j, 1, 1);
+            }
+        }
     
         const stream = canvas.captureStream(30); // 30 FPS
         return stream;
@@ -109,23 +380,41 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             try {
                 peerConnectionRef.current.close();
             } catch (error) {
-                console.error('Error closing peer connection:', error);
+                console.error('Error closing existing peer connection:', error);
             }
         }
 
         const peerConnection = new RTCPeerConnection(peerConfig);
 
+        // Configure for maximum quality
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
                 socketConnection.current.emit('ice-candidate', event.candidate, roomId);
+                console.log('📡 ICE candidate sent');
             }
         }
 
         if(!isAdmin) {
-            localStreamRef.current.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStreamRef.current);
-            });
-        }else{
+            // Add tracks with maximum quality settings
+            if (localStreamRef.current) {
+                localStreamRef.current.getTracks().forEach(track => {
+                    const sender = peerConnection.addTrack(track, localStreamRef.current);
+                    
+                    // Apply high quality parameters for video tracks
+                    if (track.kind === 'video') {
+                        const params = sender.getParameters();
+                        if (params.encodings && params.encodings.length > 0) {
+                            params.encodings[0].maxBitrate = 10000000; // 10 Mbps for maximum quality
+                            params.encodings[0].maxFramerate = 30;
+                            params.encodings[0].scaleResolutionDownBy = 1; // No downscaling
+                            sender.setParameters(params).then(() => {
+                                console.log('✅ High quality video parameters applied');
+                            }).catch(console.error);
+                        }
+                    }
+                });
+            }
+        } else {
             const stream = createDummyVideoTrack();
             stream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, stream);
@@ -134,26 +423,39 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         
         peerConnection.ontrack = (event) => {
             if(!isAdmin) return;
-            setRemoteStream(event.streams[0]);
-            videoRef.current.srcObject = event.streams[0];
-            videoRef.current.play().then(() => {
-                setIsConnected(true);
-            }).catch((error) => {
-                setIsConnected(true);
-                setShowVideoPlayError(true);
-            });
-        }
-
-        peerConnection.onnegotiationneeded = async () => {
-            try {
-                
-            } catch (error) {
-                console.error('Error creating offer:', error);
+            
+            const stream = event.streams[0];
+            setRemoteStream(stream);
+            
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                videoRef.current.play().then(() => {
+                    setIsConnected(true);
+                    setShowVideoPlayError(false);
+                    
+                    // Log received stream quality
+                    const videoTrack = stream.getVideoTracks()[0];
+                    if (videoTrack) {
+                        const settings = videoTrack.getSettings();
+                        console.log('📺 Received video quality:', {
+                            width: settings.width,
+                            height: settings.height,
+                            frameRate: settings.frameRate
+                        });
+                    }
+                }).catch((error) => {
+                    console.error('❌ Video play error:', error);
+                    setIsConnected(true);
+                    setShowVideoPlayError(true);
+                });
             }
         }
 
+        peerConnection.onnegotiationneeded = async () => {
+            console.log('🔄 Renegotiation needed');
+        }
+
         peerConnection.onicecandidateerror = (error) => {
-            // Check if error has any meaningful properties before logging
             const hasErrorData = error && (
                 error.errorCode || 
                 error.errorText || 
@@ -164,21 +466,22 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             );
             
             if (hasErrorData) {
-                console.warn('ICE candidate error:', {
+                console.warn('⚠️ ICE candidate error:', {
                     errorCode: error.errorCode,
-                    errorText: error.errorText,
-                    url: error.url,
-                    address: error.address,
-                    port: error.port
+                    errorText: error.errorText
                 });
             }
-            // ICE candidate errors are often normal during connection establishment
-            // Empty error objects are common and don't indicate actual problems
         }
 
         peerConnection.oniceconnectionstatechange = () => {
-            console.log('ICE connection state changed:', peerConnection.iceConnectionState);
-            if(peerConnection.iceConnectionState == "disconnected"){
+            console.log('📡 ICE connection state:', peerConnection.iceConnectionState);
+            
+            if(peerConnection.iceConnectionState === "connected" || 
+               peerConnection.iceConnectionState === "completed") {
+                setIsConnected(true);
+                setShowVideoPlayError(false);
+            } else if(peerConnection.iceConnectionState === "disconnected" || 
+                     peerConnection.iceConnectionState === "failed") {
                 setIsConnected(false);
                 if(!isAdmin) {
                     router.push('/');
@@ -187,295 +490,439 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         }
         
         peerConnection.onicegatheringstatechange = () => {
-            console.log('ICE gathering state changed:', peerConnection.iceGatheringState);
+            console.log('📡 ICE gathering state:', peerConnection.iceGatheringState);
         }
 
         return peerConnection;
-        
     }
 
     const handleVideoPlay = () => {
-        videoRef.current.play();
-        setIsConnected(true);
-        setShowVideoPlayError(false);
+        if (videoRef.current) {
+            videoRef.current.play()
+                .then(() => {
+                    setIsConnected(true);
+                    setShowVideoPlayError(false);
+                    console.log('▶️ Video playback started');
+                })
+                .catch(error => {
+                    console.error('❌ Video play failed:', error);
+                });
+        }
     }
 
     const startPeerConnection = async () => {
         try {
+            console.log('🚀 Starting peer connection...');
+            
             if(!isAdmin) {
                 await getUserMedia();
             }
+            
             const peerConnection = createRTCPeerConnection();
-            const offer = await peerConnection.createOffer();
+            const offer = await peerConnection.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true,
+                voiceActivityDetection: false  // Disable for consistent quality
+            });
+            
             await peerConnection.setLocalDescription(offer);
             socketConnection.current.emit('offer', offer, roomId);
-            console.log('Offer sent');
+            console.log('✅ High quality offer sent');
 
             peerConnectionRef.current = peerConnection;
         } catch (error) {
-            console.error('Error starting peer connection:', error);
+            console.error('❌ Error starting peer connection:', error);
+            
+            // Show user-friendly error message
+            if (error.message.includes('camera') || error.message.includes('Camera')) {
+                // This is a camera-related error, show to user
+                console.error('👤 Camera Error:', error.message);
+                // You can integrate with your toast/notification system here
+            }
         }
     }
-
-  
-
 
     const handleOffer = async (offer) => {
-        console.log('handleOffer');
+        console.log('📨 Handling incoming offer...');
         try {
+            await getUserMedia(); // Ensure we have camera access
+            
             const peerConnection = createRTCPeerConnection();
             peerConnectionRef.current = peerConnection;
+            
             await peerConnectionRef.current.setRemoteDescription(offer);
-            const answer = await peerConnectionRef.current.createAnswer();
+            
+            const answer = await peerConnectionRef.current.createAnswer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true,
+                voiceActivityDetection: false
+            });
+            
             await peerConnectionRef.current.setLocalDescription(answer);
             socketConnection.current.emit('answer', answer, roomId);
+            console.log('✅ High quality answer sent');
         } catch (error) {
-            console.error('Error handling offer:', error);
+            console.error('❌ Error handling offer:', error);
         }
     }
 
-
-   
-
     const handleAnswer = async (answer) => {
-        console.log('handleAnswer');
+        console.log('📨 Handling incoming answer...');
         try {
-            await peerConnectionRef.current.setRemoteDescription(answer);
+            if (peerConnectionRef.current) {
+                await peerConnectionRef.current.setRemoteDescription(answer);
+                console.log('✅ Answer processed successfully');
+            }
         } catch (error) {
-            console.error('Error handling answer:', error);
+            console.error('❌ Error handling answer:', error);
         }
     }
     
     const handleIceCandidate = async (candidate) => {
-        console.log('handleIceCandidate');
         try {
-            await peerConnectionRef.current.addIceCandidate(candidate);
+            if (peerConnectionRef.current && peerConnectionRef.current.remoteDescription) {
+                await peerConnectionRef.current.addIceCandidate(candidate);
+                console.log('✅ ICE candidate added');
+            } else {
+                console.warn('⚠️ ICE candidate received before remote description set');
+            }
         } catch (error) {
-            console.error('Error handling ice candidate:', error);
+            console.error('❌ Error handling ICE candidate:', error);
         }
     }
 
     const handleDisconnect = () => {
         try {
-            socketConnection.current.emit('user-disconnected', roomId);
-            setIsConnected(false);
-            peerConnectionRef.current.close();
-            localStream?.getTracks().forEach(track => track.stop());
-            if(remoteStream) {
-                remoteStream.getTracks().forEach(track => track.stop());
+            console.log('🔌 Disconnecting...');
+            
+            if (socketConnection.current) {
+                socketConnection.current.emit('user-disconnected', roomId);
             }
+            
+            setIsConnected(false);
+            setShowVideoPlayError(false);
+            
+            if (peerConnectionRef.current) {
+                peerConnectionRef.current.close();
+                peerConnectionRef.current = null;
+            }
+            
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    track.stop();
+                });
+                setLocalStream(null);
+            }
+            
+            if (remoteStream) {
+                remoteStream.getTracks().forEach(track => {
+                    track.stop();
+                });
+                setRemoteStream(null);
+            }
+            
+            if (localStreamRef.current) {
+                localStreamRef.current.getTracks().forEach(track => {
+                    track.stop();
+                });
+                localStreamRef.current = null;
+            }
+            
+            if (videoRef.current) {
+                videoRef.current.srcObject = null;
+            }
+            
             if(!isAdmin) {
                 router.push('/?show-feedback=true');
             }
+            
+            console.log('✅ Disconnected successfully');
         } catch (error) {
-            console.error('Error disconnecting:', error);
+            console.error('❌ Error during disconnect:', error);
         }
     }
 
     const handleUserDisconnected = () => {
+        console.log('👤 User disconnected');
         setIsConnected(false);
+        setShowVideoPlayError(false);
+        
         if(!isAdmin) {
             router.push('/?show-feedback=true');
         }
     }
 
-    //setup listeners for incoming offers
+    // Setup listeners for incoming offers
     useEffect(() => {
+        if (!socketConnection.current) return;
+
         socketConnection.current.on('offer', handleOffer);
         socketConnection.current.on('answer', handleAnswer);
         socketConnection.current.on('ice-candidate', handleIceCandidate);
         socketConnection.current.on('user-disconnected', handleUserDisconnected);
 
         return () => {
-            socketConnection.current.off('offer', handleOffer);
-            socketConnection.current.off('answer', handleAnswer);
-            socketConnection.current.off('ice-candidate', handleIceCandidate);
-            socketConnection.current.off('user-disconnected', handleUserDisconnected);
+            if (socketConnection.current) {
+                socketConnection.current.off('offer', handleOffer);
+                socketConnection.current.off('answer', handleAnswer);
+                socketConnection.current.off('ice-candidate', handleIceCandidate);
+                socketConnection.current.off('user-disconnected', handleUserDisconnected);
+            }
         }
-    }, [isAdmin,roomId]);
+    }, [isAdmin, roomId]);
 
+    // Enhanced screenshot function with maximum quality
     const takeScreenshot = () => {
-        if (!remoteStream) return;
+        if (!remoteStream && !localStream) {
+            console.error('❌ No stream available for screenshot');
+            return;
+        }
+        
+        const stream = isAdmin ? remoteStream : localStream;
+        if (!stream) {
+            console.error('❌ Stream not available');
+            return;
+        }
         
         try {
-            // Get source video dimensions from the track settings
-            const videoTrack = remoteStream.getVideoTracks()[0];
-            const settings = videoTrack ? videoTrack.getSettings() : { width: 1280, height: 720 };
+            const videoTrack = stream.getVideoTracks()[0];
+            if (!videoTrack) {
+                console.error('❌ No video track available');
+                return;
+            }
             
-            // Use higher resolution - either from stream or default to 4K
-            const width = settings.width || 3840;
-            const height = settings.height || 2160;
+            const settings = videoTrack.getSettings();
+            console.log('📸 Taking screenshot from stream:', {
+                width: settings.width,
+                height: settings.height,
+                frameRate: settings.frameRate
+            });
             
-            // Create a video element to capture the frame
-            const video = document.createElement('video');
-            video.srcObject = remoteStream;
-            video.muted = true; // Prevent audio feedback
+            // Use the actual video element for capturing
+            const sourceVideo = videoRef.current;
+            if (!sourceVideo) {
+                console.error('❌ Video element not available');
+                return;
+            }
             
-            // Create a ultra high-resolution canvas (4x resolution for extreme quality)
-            const canvas = document.createElement('canvas');
-            canvas.width = width * 4;  // Increased from 2x to 4x resolution
-            canvas.height = height * 4;
-            const ctx = canvas.getContext('2d');
-            
-            // Apply advanced image quality settings
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.filter = 'contrast(1.05) saturate(1.05)'; // Slightly enhance contrast and color
-            
-            video.onloadedmetadata = () => {
-                video.play();
-                
-                // Add a slight delay to ensure the frame is fully rendered
-                setTimeout(() => {
-                    // Draw with proper scaling to maintain aspect ratio
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const captureFrame = () => {
+                try {
+                    // Get the actual video dimensions
+                    const videoWidth = sourceVideo.videoWidth || settings.width || 1920;
+                    const videoHeight = sourceVideo.videoHeight || settings.height || 1080;
                     
-                    // Generate maximum quality PNG
+                    console.log('📸 Capturing frame:', {
+                        videoWidth,
+                        videoHeight,
+                        readyState: sourceVideo.readyState
+                    });
+                    
+                    // Create high-resolution canvas
+                    const canvas = document.createElement('canvas');
+                    const scale = 2; // 2x resolution for crispy images
+                    canvas.width = videoWidth * scale;
+                    canvas.height = videoHeight * scale;
+                    
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Apply highest quality settings
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    
+                    // Scale the context for high-resolution rendering
+                    ctx.scale(scale, scale);
+                    
+                    // Draw the video frame
+                    ctx.drawImage(sourceVideo, 0, 0, videoWidth, videoHeight);
+                    
+                    // Generate PNG with maximum quality
                     const screenshot = canvas.toDataURL('image/png', 1.0);
-                    setScreenshots((prev) => [screenshot, ...prev]);
                     
-                    // Clean up
-                    video.pause();
-                    video.srcObject = null;
-                }, 200); // Increased delay for better frame capture
+                    setScreenshots((prev) => [screenshot, ...prev]);
+                    console.log('✅ High quality screenshot captured:', {
+                        resolution: `${canvas.width}x${canvas.height}`,
+                        size: `${Math.round(screenshot.length / 1024)}KB`
+                    });
+                    
+                } catch (captureError) {
+                    console.error('❌ Error capturing frame:', captureError);
+                }
             };
+            
+            // Check if video is ready
+            if (sourceVideo.readyState >= 2) { // HAVE_CURRENT_DATA
+                captureFrame();
+            } else {
+                // Wait for video to be ready
+                const handleLoadedData = () => {
+                    captureFrame();
+                    sourceVideo.removeEventListener('loadeddata', handleLoadedData);
+                };
+                sourceVideo.addEventListener('loadeddata', handleLoadedData);
+                
+                // Fallback timeout
+                setTimeout(() => {
+                    sourceVideo.removeEventListener('loadeddata', handleLoadedData);
+                    captureFrame(); // Try anyway
+                }, 1000);
+            }
+            
         } catch (error) {
-            console.error('Error taking high-quality screenshot:', error);
+            console.error('❌ Error in takeScreenshot:', error);
         }
     };
       
+    // Enhanced recording function with maximum quality
     const takeRecording = () => {
-        if (!remoteStream) return;
+        if (!remoteStream && !localStream) {
+            console.error('❌ No stream available for recording');
+            return;
+        }
+        
+        const stream = isAdmin ? remoteStream : localStream;
+        if (!stream) {
+            console.error('❌ Stream not available');
+            return;
+        }
         
         if (!recordingActive) {
-            // Define ultra-high quality options for MediaRecorder
-            const options = {
-                mimeType: 'video/webm;codecs=vp9,opus', // VP9 provides best quality/size ratio
-                videoBitsPerSecond: 8000000, // Increased to 8 Mbps for higher quality
-                audioBitsPerSecond: 192000   // Increased to 192 kbps for better audio
-            };
-            
-            // Try to use the highest quality video constraints possible
-            try {
-                const videoTrack = remoteStream.getVideoTracks()[0];
-                if (videoTrack) {
-                    const capabilities = videoTrack.getCapabilities();
-                    // Apply highest possible constraints if supported by browser
-                    if (capabilities) {
-                        const constraints = {};
-                        
-                        // Set highest possible resolution
-                        if (capabilities.width && capabilities.width.max) {
-                            constraints.width = capabilities.width.max;
-                        }
-                        
-                        if (capabilities.height && capabilities.height.max) {
-                            constraints.height = capabilities.height.max;
-                        }
-                        
-                        // Set higher framerate for smoother video (30fps)
-                        if (capabilities.frameRate && capabilities.frameRate.max) {
-                            constraints.frameRate = Math.min(capabilities.frameRate.max, 30);
-                        }
-                        
-                        videoTrack.applyConstraints(constraints)
-                            .then(() => console.log('Applied higher quality constraints:', constraints))
-                            .catch(err => console.log('Could not apply quality constraints:', err));
-                    }
+            // Ultra-high quality recording options
+            const qualityOptions = [
+                {
+                    mimeType: 'video/webm;codecs=vp9,opus',
+                    videoBitsPerSecond: 15000000, // 15 Mbps - ultra premium quality
+                    audioBitsPerSecond: 320000    // 320 kbps - audiophile quality
+                },
+                {
+                    mimeType: 'video/webm;codecs=vp8,opus',
+                    videoBitsPerSecond: 10000000, // 10 Mbps fallback
+                    audioBitsPerSecond: 256000
+                },
+                {
+                    mimeType: 'video/webm;codecs=h264,opus',
+                    videoBitsPerSecond: 8000000,  // H.264 fallback
+                    audioBitsPerSecond: 192000
+                },
+                {
+                    mimeType: 'video/webm',
+                    videoBitsPerSecond: 6000000,  // Basic WebM
+                    audioBitsPerSecond: 128000
+                },
+                {
+                    mimeType: 'video/mp4',
+                    videoBitsPerSecond: 4000000,  // MP4 fallback
+                    audioBitsPerSecond: 128000
                 }
-            } catch (err) {
-                console.log('Error setting track constraints:', err);
+            ];
+            
+            let selectedOptions = null;
+            
+            // Find the best supported option
+            for (const option of qualityOptions) {
+                if (MediaRecorder.isTypeSupported(option.mimeType)) {
+                    selectedOptions = option;
+                    console.log(`✅ Selected recording format: ${option.mimeType}`);
+                    break;
+                }
             }
             
-            // Fall back to other codecs if VP9 is not supported
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                options.mimeType = 'video/webm;codecs=vp8,opus';
-                // Still use high bitrate for VP8
-                options.videoBitsPerSecond = 6000000; 
+            if (!selectedOptions) {
+                console.error('❌ No supported recording format found');
+                return;
+            }
+            
+            console.log('🎥 Starting recording with:', selectedOptions);
+            
+            try {
+                setRecordingActive(true);
+                mediaRecordingChunks.current = [];
                 
-                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                    options.mimeType = 'video/webm';
-                    options.videoBitsPerSecond = 4000000; // Fallback but still good quality
-                    
-                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                        // Final fallback - use default
-                        options.mimeType = '';
-                    }
-                }
-            }
-            
-            setRecordingActive(true);
-            mediaRecordingChunks.current = [];
-            
-            try {
-                const mediaRecorder = new MediaRecorder(remoteStream, options);
+                const mediaRecorder = new MediaRecorder(stream, selectedOptions);
                 
                 mediaRecorder.ondataavailable = (event) => {
                     if (event.data && event.data.size > 0) {
                         mediaRecordingChunks.current.push(event.data);
+                        console.log(`📊 Recording chunk: ${event.data.size} bytes`);
                     }
                 };
                 
-                // Request data more frequently for better recovery if connection drops
-                mediaRecorder.start(500); // Reduced from 1000ms to 500ms for more frequent chunks
-                mediaRecorderRef.current = mediaRecorder;
-                
-                console.log('Recording started with high quality options:', options);
-            } catch (error) {
-                console.error('Error starting high-quality recording:', error);
-                setRecordingActive(false);
-                
-                // Try again with default options but still aim for decent quality
-                try {
-                    const mediaRecorder = new MediaRecorder(remoteStream, {
-                        videoBitsPerSecond: 2500000 // Still provide some bitrate guidance
-                    });
-                    mediaRecorder.ondataavailable = (event) => {
-                        if (event.data && event.data.size > 0) {
-                            mediaRecordingChunks.current.push(event.data);
-                        }
-                    };
-                    
-                    mediaRecorder.start(500);
-                    mediaRecorderRef.current = mediaRecorder;
-                    setRecordingActive(true);
-                    console.log('Recording started with fallback quality options');
-                } catch (innerError) {
-                    console.error('Failed to start recording even with fallback options:', innerError);
-                    toast?.error?.('Failed to start recording');
-                }
-            }
-        } else {
-            // Stop recording
-            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-                mediaRecorderRef.current.stop();
-                
-                mediaRecorderRef.current.onstop = () => {
+                mediaRecorder.onstop = () => {
                     if (mediaRecordingChunks.current.length > 0) {
                         const recordingBlob = new Blob(mediaRecordingChunks.current, { 
-                            type: mediaRecorderRef.current.mimeType || 'video/webm' 
+                            type: selectedOptions.mimeType
                         });
                         
                         const recordingUrl = URL.createObjectURL(recordingBlob);
                         setRecordings(prev => [recordingUrl, ...prev]);
+                        
+                        console.log('✅ High quality recording saved:', {
+                            format: selectedOptions.mimeType,
+                            size: `${Math.round(recordingBlob.size / 1024 / 1024 * 100) / 100}MB`,
+                            chunks: mediaRecordingChunks.current.length
+                        });
+                        
                         mediaRecordingChunks.current = [];
                     }
                     setRecordingActive(false);
                 };
+                
+                mediaRecorder.onerror = (event) => {
+                    console.error('❌ Recording error:', event.error);
+                    setRecordingActive(false);
+                };
+                
+                // Start recording with optimal chunk size
+                mediaRecorder.start(250); // 250ms chunks for smooth recording
+                mediaRecorderRef.current = mediaRecorder;
+                
+                console.log('✅ High quality recording started');
+                
+            } catch (error) {
+                console.error('❌ Error starting recording:', error);
+                setRecordingActive(false);
+            }
+        } else {
+            // Stop recording
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                mediaRecorderRef.current.stop();
+                console.log('🛑 Recording stopped');
             } else {
                 setRecordingActive(false);
             }
         }
     };
 
-    // Add function to delete a screenshot at specific index
+    // Function to delete a screenshot at specific index
     const deleteScreenshot = (index) => {
         setScreenshots(prev => {
             const newScreenshots = [...prev];
-            newScreenshots.splice(index, 1);
+            if (index >= 0 && index < newScreenshots.length) {
+                newScreenshots.splice(index, 1);
+                console.log(`🗑️ Screenshot ${index} deleted`);
+            }
             return newScreenshots;
         });
     };
+
+    // Cleanup effect
+    useEffect(() => {
+        return () => {
+            // Cleanup all streams and connections on unmount
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            if (remoteStream) {
+                remoteStream.getTracks().forEach(track => track.stop());
+            }
+            if (peerConnectionRef.current) {
+                peerConnectionRef.current.close();
+            }
+            if (socketConnection.current) {
+                socketConnection.current.disconnect();
+            }
+            console.log('🧹 Cleanup completed');
+        };
+    }, []);
 
     return {
         localStream,
@@ -492,7 +939,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         takeRecording,
         handleVideoPlay,
         showVideoPlayError,
-        deleteScreenshot  // Export the new function
+        deleteScreenshot
     }
 }
 
