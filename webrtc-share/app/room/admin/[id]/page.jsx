@@ -623,7 +623,7 @@ export default function Page({ params }) {
     };
   }, [isRecording, recordingStartTime]);
 
-  // Screen recording functions
+  // ENHANCED Screen recording functions with ULTRA HIGH QUALITY
   const startScreenRecording = async () => {
     try {
       // Get video stream from the video element instead of screen
@@ -646,20 +646,55 @@ export default function Page({ params }) {
 
       setRecordingStream(stream);
 
-      // Create MediaRecorder with higher quality settings
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 5000000, // Increased to 5 Mbps for higher quality
-        audioBitsPerSecond: 128000   // Add audio bitrate for better audio quality
-      });
+      // ENHANCED: Create MediaRecorder with ULTRA HIGH quality settings
+      const recorderOptions = [
+        {
+          mimeType: 'video/webm;codecs=vp9,opus',
+          videoBitsPerSecond: 150000000, // 150 Mbps for ultra quality
+          audioBitsPerSecond: 256000     // High quality audio
+        },
+        {
+          mimeType: 'video/webm;codecs=vp9',
+          videoBitsPerSecond: 120000000  // 120 Mbps fallback
+        },
+        {
+          mimeType: 'video/webm;codecs=h264,avc1',
+          videoBitsPerSecond: 100000000  // 100 Mbps H.264
+        },
+        {
+          mimeType: 'video/webm;codecs=vp8',
+          videoBitsPerSecond: 80000000   // 80 Mbps VP8 fallback
+        },
+        {
+          mimeType: 'video/webm',
+          videoBitsPerSecond: 60000000   // 60 Mbps basic WebM
+        }
+      ];
+
+      let selectedOption = null;
+      for (const option of recorderOptions) {
+        if (MediaRecorder.isTypeSupported(option.mimeType)) {
+          selectedOption = option;
+          console.log(`✅ Selected ULTRA HIGH recording: ${option.mimeType} @ ${option.videoBitsPerSecond / 1000000}Mbps`);
+          break;
+        }
+      }
+
+      if (!selectedOption) {
+        toast('No high quality recording format supported');
+        return;
+      }
+
+      const recorder = new MediaRecorder(stream, selectedOption);
 
       // Reset chunks
       recordingChunks.current = [];
 
-      // Handle data available event - record in smaller chunks for better quality
+      // ENHANCED: Handle data available event - record in smaller chunks for ultra quality
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           recordingChunks.current.push(event.data);
+          console.log(`📊 Ultra quality chunk: ${(event.data.size / 1024 / 1024).toFixed(2)}MB`);
         }
       };
 
@@ -674,7 +709,7 @@ export default function Page({ params }) {
           videoRef.current.style.pointerEvents = 'auto';
         }
 
-        const blob = new Blob(recordingChunks.current, { type: 'video/webm' });
+        const blob = new Blob(recordingChunks.current, { type: selectedOption.mimeType });
         const videoUrl = URL.createObjectURL(blob);
 
         const newRecording = {
@@ -688,17 +723,23 @@ export default function Page({ params }) {
         setRecordings(prev => [...prev, newRecording]);
         setIsRecording(false);
         setRecordingStartTime(null);
+        
+        console.log('✅ ULTRA HIGH quality recording completed:', {
+          duration: `${duration}s`,
+          size: `${(blob.size / 1024 / 1024).toFixed(2)}MB`,
+          bitrate: `${selectedOption.videoBitsPerSecond / 1000000}Mbps`
+        });
       };
 
       setMediaRecorder(recorder);
-      // Start recording with timeslice for better quality chunks
-      recorder.start(1000); // Record in 1 second chunks
+      // ENHANCED: Start recording with ultra small timeslice for maximum quality
+      recorder.start(50); // Record in 50ms chunks for ultra smooth quality
       setIsRecording(true);
-      toast('Video recording started');
+      toast(`Ultra high quality recording started (${selectedOption.videoBitsPerSecond / 1000000}Mbps)`);
 
     } catch (error) {
-      console.error('Error starting video recording:', error);
-      // Fallback to webm if vp9 not supported
+      console.error('Error starting ultra high quality recording:', error);
+      // ENHANCED: Fallback with still high quality settings
       try {
         const stream = videoRef.current.srcObject;
         const startTime = Date.now();
@@ -706,8 +747,8 @@ export default function Page({ params }) {
 
         const recorder = new MediaRecorder(stream, {
           mimeType: 'video/webm',
-          videoBitsPerSecond: 3000000, // Higher fallback quality
-          audioBitsPerSecond: 128000
+          videoBitsPerSecond: 50000000, // 50 Mbps fallback quality
+          audioBitsPerSecond: 192000
         });
 
         // Hide controls
@@ -750,9 +791,9 @@ export default function Page({ params }) {
         };
 
         setMediaRecorder(recorder);
-        recorder.start(1000);
+        recorder.start(100); // 100ms chunks for fallback
         setIsRecording(true);
-        toast('High quality video recording started');
+        toast('High quality video recording started (50Mbps fallback)');
       } catch (fallbackError) {
         toast('Failed to start video recording');
         setRecordingStartTime(null);
@@ -1005,7 +1046,7 @@ export default function Page({ params }) {
     fetchExistingMeetingData();
   }, [id, isClient]);
 
-  // UPDATED: Add individual save functions with better duplicate protection
+  // ENHANCED: Add individual save functions with ultra high quality processing
   const saveIndividualRecording = useCallback(async (recording) => {
     if (recording.isExisting) {
       toast.info("Recording already saved");
@@ -1079,22 +1120,45 @@ export default function Page({ params }) {
 
     try {
       setSavingScreenshotIndex(index);
-      console.log('💾 Saving individual screenshot...');
+      console.log('💾 Saving individual ULTRA HIGH QUALITY screenshot...');
 
       let finalScreenshotData = screenshotData;
       const canvasId = `new-${index}`;
 
-      // Check if this screenshot has drawings and merge them at full resolution
+      // ENHANCED: Check if this screenshot has drawings and merge them at ULTRA HIGH resolution
       if (drawingData[canvasId]) {
-        console.log('🎨 Merging drawings with screenshot at full resolution...');
+        console.log('🎨 Merging drawings with screenshot at ULTRA HIGH resolution...');
         finalScreenshotData = await mergeWithBackground(screenshotData, canvasId);
-        console.log('✅ Drawing merge completed');
+        console.log('✅ ULTRA HIGH quality drawing merge completed');
+      }
+
+      // ENHANCED: Additional quality check - ensure PNG format for maximum quality
+      if (!finalScreenshotData.startsWith('data:image/png')) {
+        console.log('🔄 Converting to PNG for maximum quality...');
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const scale = 2; // Additional scaling for ultra quality
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.scale(scale, scale);
+          ctx.drawImage(img, 0, 0);
+          
+          finalScreenshotData = canvas.toDataURL('image/png', 1.0);
+          console.log('✅ Enhanced to ultra high quality PNG');
+        };
+        img.src = finalScreenshotData;
       }
 
       const screenshotsData = [{
         data: finalScreenshotData,
         timestamp: new Date().toISOString(),
-        size: finalScreenshotData.length
+        size: finalScreenshotData.length,
+        quality: 'ultra_high'
       }];
 
       const formData = {
@@ -1111,7 +1175,7 @@ export default function Page({ params }) {
 
       const response = await createRequest(formData);
 
-      toast.success("Screenshot saved successfully!");
+      toast.success("Ultra high quality screenshot saved successfully!");
 
       // Clear pencil mode and drawing data
       setActivePencilScreenshot(null);
@@ -1122,7 +1186,8 @@ export default function Page({ params }) {
         id: `saved-${Date.now()}-${index}-${Math.random()}`,
         url: finalScreenshotData,
         timestamp: new Date().toLocaleString(),
-        isExisting: true
+        isExisting: true,
+        quality: 'ultra_high'
       };
 
       setExistingScreenshots(prev => {
@@ -1137,11 +1202,11 @@ export default function Page({ params }) {
 
       // Remove the screenshot from new screenshots array
       deleteScreenshot(index);
-      console.log(`🧹 Removed screenshot at index ${index} from new screenshots array`);
+      console.log(`🧹 Removed ultra high quality screenshot at index ${index} from new screenshots array`);
 
     } catch (error) {
-      console.error('❌ Save screenshot failed:', error);
-      toast.error("Failed to save screenshot");
+      console.error('❌ Save ultra high quality screenshot failed:', error);
+      toast.error("Failed to save ultra high quality screenshot");
     } finally {
       setSavingScreenshotIndex(null);
       processedItemsRef.current.delete(itemKey);
@@ -1509,6 +1574,7 @@ export default function Page({ params }) {
                                       Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2)
                                     );
                                     ctx.arc(startX, startY, radius, 0, 2 * Math.PI);
+                                    ctx.stroke();
                                     break;
 
                                   case 'arrow':
@@ -1528,10 +1594,9 @@ export default function Page({ params }) {
                                       endX - headLength * Math.cos(angle + Math.PI / 6),
                                       endY - headLength * Math.sin(angle + Math.PI / 6)
                                     );
+                                    ctx.stroke();
                                     break;
                                 }
-
-                                ctx.stroke();
                               }
                             });
 

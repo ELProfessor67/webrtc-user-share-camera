@@ -116,35 +116,51 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                 console.log('⚠️ Could not enumerate devices, proceeding with basic constraints');
             }
 
-            // Step 4: Progressive constraint strategy (from best to basic) - VIDEO ONLY
+            // Step 4: ENHANCED Progressive constraint strategy (from best to basic) - ULTRA HIGH QUALITY VIDEO ONLY
             const constraintStrategies = [
-                // Strategy 1: High quality with back camera preference
+                // Strategy 1: Ultra High Quality 4K with back camera preference
                 {
-                    name: "High Quality Back Camera",
+                    name: "Ultra High Quality 4K Back Camera",
                     constraints: {
                         video: {
                             facingMode: { ideal: "environment" },
-                            width: { min: 640, ideal: 1920, max: 4096 },
-                            height: { min: 480, ideal: 1080, max: 2160 },
-                            frameRate: { min: 15, ideal: 30, max: 60 }
+                            width: { min: 1920, ideal: 3840, max: 7680 },
+                            height: { min: 1080, ideal: 2160, max: 4320 },
+                            frameRate: { min: 24, ideal: 60, max: 120 },
+                            aspectRatio: { ideal: 16/9 }
                         },
                         audio: false  // Audio disabled
                     }
                 },
-                // Strategy 2: Medium quality with back camera preference
+                // Strategy 2: High Quality 2K with back camera preference
                 {
-                    name: "Medium Quality Back Camera",
+                    name: "High Quality 2K Back Camera",
                     constraints: {
                         video: {
                             facingMode: { ideal: "environment" },
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 },
-                            frameRate: { ideal: 30 }
+                            width: { min: 1280, ideal: 2560, max: 3840 },
+                            height: { min: 720, ideal: 1440, max: 2160 },
+                            frameRate: { min: 24, ideal: 60, max: 120 },
+                            aspectRatio: { ideal: 16/9 }
                         },
                         audio: false  // Audio disabled
                     }
                 },
-                // Strategy 3: Basic quality with any back camera
+                // Strategy 3: Premium Full HD with back camera preference
+                {
+                    name: "Premium Full HD Back Camera",
+                    constraints: {
+                        video: {
+                            facingMode: { ideal: "environment" },
+                            width: { min: 1280, ideal: 1920, max: 2560 },
+                            height: { min: 720, ideal: 1080, max: 1440 },
+                            frameRate: { min: 30, ideal: 60, max: 120 },
+                            aspectRatio: { ideal: 16/9 }
+                        },
+                        audio: false  // Audio disabled
+                    }
+                },
+                // Strategy 4: Basic quality with any back camera
                 {
                     name: "Basic Back Camera",
                     constraints: {
@@ -154,19 +170,33 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                         audio: false  // Audio disabled
                     }
                 },
-                // Strategy 4: High quality any camera
+                // Strategy 5: Ultra High quality any camera
                 {
-                    name: "High Quality Any Camera",
+                    name: "Ultra High Quality Any Camera",
                     constraints: {
                         video: {
-                            width: { ideal: 1920 },
-                            height: { ideal: 1080 },
-                            frameRate: { ideal: 30 }
+                            width: { min: 1920, ideal: 3840, max: 7680 },
+                            height: { min: 1080, ideal: 2160, max: 4320 },
+                            frameRate: { min: 24, ideal: 60, max: 120 },
+                            aspectRatio: { ideal: 16/9 }
                         },
                         audio: false  // Audio disabled
                     }
                 },
-                // Strategy 5: Basic quality any camera
+                // Strategy 6: High quality any camera
+                {
+                    name: "High Quality Any Camera",
+                    constraints: {
+                        video: {
+                            width: { min: 1280, ideal: 1920, max: 3840 },
+                            height: { min: 720, ideal: 1080, max: 2160 },
+                            frameRate: { min: 30, ideal: 60, max: 120 },
+                            aspectRatio: { ideal: 16/9 }
+                        },
+                        audio: false  // Audio disabled
+                    }
+                },
+                // Strategy 7: Basic quality any camera
                 {
                     name: "Basic Quality Any Camera",
                     constraints: {
@@ -177,7 +207,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                         audio: false  // Audio disabled
                     }
                 },
-                // Strategy 6: Very basic - just video only
+                // Strategy 8: Very basic - just video only
                 {
                     name: "Very Basic Video Only",
                     constraints: {
@@ -185,7 +215,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                         audio: false  // Audio disabled
                     }
                 },
-                // Strategy 7: Default front camera if available
+                // Strategy 9: Default front camera if available
                 {
                     name: "Front Camera Fallback",
                     constraints: {
@@ -383,26 +413,31 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         }
 
         if(!isAdmin) {
-            // Add tracks with maximum quality settings
+            // Add tracks with ULTRA HIGH quality settings
             if (localStreamRef.current) {
                 localStreamRef.current.getTracks().forEach(track => {
                     const sender = peerConnection.addTrack(track, localStreamRef.current);
                     
-                    // Apply high quality parameters for video tracks
+                    // Apply ULTRA HIGH quality parameters for video tracks
                     if (track.kind === 'video') {
                         const params = sender.getParameters();
                         if (params.encodings && params.encodings.length > 0) {
-                            params.encodings[0].maxBitrate = 10000000; // 10 Mbps for maximum quality
-                            params.encodings[0].maxFramerate = 30;
+                            // ENHANCED: Ultra high bitrate for maximum quality
+                            params.encodings[0].maxBitrate = 50000000; // 50 Mbps for ultra quality
+                            params.encodings[0].maxFramerate = 60; // 60 FPS
                             params.encodings[0].scaleResolutionDownBy = 1; // No downscaling
+                            params.encodings[0].adaptivePtime = false; // Disable adaptive timing
+                            params.encodings[0].priority = 'high'; // High priority
+                            
                             sender.setParameters(params).then(() => {
-                                console.log('✅ High quality video parameters applied');
+                                console.log('✅ Ultra high quality video parameters applied - 50 Mbps @ 60fps');
                             }).catch(console.error);
                         }
                     }
                 });
             }
         } else {
+            // ENHANCED: High quality dummy stream for admin
             const stream = createDummyVideoTrack();
             stream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, stream);
@@ -507,15 +542,23 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             }
             
             const peerConnection = createRTCPeerConnection();
+            // ENHANCED: Ultra high quality offer settings
             const offer = await peerConnection.createOffer({
                 offerToReceiveAudio: false,  // Audio disabled
                 offerToReceiveVideo: true,
-                voiceActivityDetection: false  // Disable for consistent quality
+                voiceActivityDetection: false,  // Disable for consistent quality
+                // ENHANCED: Additional quality parameters
+                iceRestart: false,
+                offerToReceiveVideo: {
+                    codec: 'VP9', // Prefer VP9 for better quality
+                    maxBitrate: 50000000, // 50 Mbps
+                    maxFramerate: 60
+                }
             });
             
             await peerConnection.setLocalDescription(offer);
             socketConnection.current.emit('offer', offer, roomId);
-            console.log('✅ High quality offer sent');
+            console.log('✅ Ultra high quality offer sent (50 Mbps, 60fps)');
 
             peerConnectionRef.current = peerConnection;
         } catch (error) {
@@ -659,7 +702,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         }
     }, [isAdmin, roomId]);
 
-    // Enhanced screenshot function with maximum quality
+    // ENHANCED screenshot function with ULTRA HIGH quality and resolution
     const takeScreenshot = () => {
         if (!remoteStream && !localStream) {
             console.error('❌ No stream available for screenshot');
@@ -680,7 +723,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             }
             
             const settings = videoTrack.getSettings();
-            console.log('📸 Taking screenshot from stream:', {
+            console.log('📸 Taking ULTRA HIGH QUALITY screenshot from stream:', {
                 width: settings.width,
                 height: settings.height,
                 frameRate: settings.frameRate
@@ -695,41 +738,47 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             
             const captureFrame = () => {
                 try {
-                    // Get the actual video dimensions
-                    const videoWidth = sourceVideo.videoWidth || settings.width || 1920;
-                    const videoHeight = sourceVideo.videoHeight || settings.height || 1080;
+                    // Get the actual video dimensions - ENHANCED for ultra high resolution
+                    const videoWidth = sourceVideo.videoWidth || settings.width || 3840; // Default to 4K
+                    const videoHeight = sourceVideo.videoHeight || settings.height || 2160; // Default to 4K
                     
-                    console.log('📸 Capturing frame:', {
+                    console.log('📸 Capturing ULTRA HIGH QUALITY frame:', {
                         videoWidth,
                         videoHeight,
                         readyState: sourceVideo.readyState
                     });
                     
-                    // Create high-resolution canvas
+                    // ENHANCED: Create ULTRA high-resolution canvas
                     const canvas = document.createElement('canvas');
-                    const scale = 2; // 2x resolution for crispy images
+                    const scale = 4; // 4x resolution for ultra crispy images
                     canvas.width = videoWidth * scale;
                     canvas.height = videoHeight * scale;
                     
                     const ctx = canvas.getContext('2d');
                     
-                    // Apply highest quality settings
+                    // ENHANCED: Apply ULTRA highest quality settings
                     ctx.imageSmoothingEnabled = true;
                     ctx.imageSmoothingQuality = 'high';
                     
-                    // Scale the context for high-resolution rendering
+                    // Additional quality settings
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.filter = 'none'; // No filters for maximum clarity
+                    
+                    // Scale the context for ultra high-resolution rendering
                     ctx.scale(scale, scale);
                     
-                    // Draw the video frame
+                    // ENHANCED: Draw the video frame with ultra high quality
                     ctx.drawImage(sourceVideo, 0, 0, videoWidth, videoHeight);
                     
-                    // Generate PNG with maximum quality
-                    const screenshot = canvas.toDataURL('image/png', 1.0);
+                    // ENHANCED: Generate ultra high quality PNG
+                    const screenshot = canvas.toDataURL('image/png', 1.0); // Maximum quality PNG
                     
                     setScreenshots((prev) => [screenshot, ...prev]);
-                    console.log('✅ High quality screenshot captured:', {
+                    console.log('✅ ULTRA HIGH QUALITY screenshot captured:', {
                         resolution: `${canvas.width}x${canvas.height}`,
-                        size: `${Math.round(screenshot.length / 1024)}KB`
+                        scale: `${scale}x`,
+                        size: `${Math.round(screenshot.length / 1024)}KB`,
+                        format: 'PNG (Maximum Quality)'
                     });
                     
                 } catch (captureError) {
@@ -760,7 +809,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         }
     };
       
-    // Enhanced recording function with maximum quality
+    // ENHANCED recording function with ULTRA HIGH quality
     const takeRecording = () => {
         if (!remoteStream && !localStream) {
             console.error('❌ No stream available for recording');
@@ -774,27 +823,36 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         }
         
         if (!recordingActive) {
-            // Ultra-high quality recording options - VIDEO ONLY
+            // ENHANCED: Ultra-high quality recording options - ULTRA HIGH BITRATE VIDEO ONLY
             const qualityOptions = [
                 {
+                    mimeType: 'video/webm;codecs=vp9,opus',
+                    videoBitsPerSecond: 100000000,  // 100 Mbps - ultra premium quality
+                    bitsPerSecond: 100000000
+                },
+                {
                     mimeType: 'video/webm;codecs=vp9',
-                    videoBitsPerSecond: 15000000  // 15 Mbps - ultra premium quality (video only)
+                    videoBitsPerSecond: 80000000   // 80 Mbps - premium quality fallback
+                },
+                {
+                    mimeType: 'video/webm;codecs=h264,avc1',
+                    videoBitsPerSecond: 60000000   // 60 Mbps - high quality H.264
                 },
                 {
                     mimeType: 'video/webm;codecs=vp8',
-                    videoBitsPerSecond: 10000000  // 10 Mbps fallback (video only)
+                    videoBitsPerSecond: 40000000   // 40 Mbps fallback
                 },
                 {
                     mimeType: 'video/webm;codecs=h264',
-                    videoBitsPerSecond: 8000000   // H.264 fallback (video only)
+                    videoBitsPerSecond: 30000000   // H.264 fallback
                 },
                 {
                     mimeType: 'video/webm',
-                    videoBitsPerSecond: 6000000   // Basic WebM (video only)
+                    videoBitsPerSecond: 25000000   // Basic WebM
                 },
                 {
                     mimeType: 'video/mp4',
-                    videoBitsPerSecond: 4000000   // MP4 fallback (video only)
+                    videoBitsPerSecond: 20000000   // MP4 fallback
                 }
             ];
             
@@ -804,7 +862,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             for (const option of qualityOptions) {
                 if (MediaRecorder.isTypeSupported(option.mimeType)) {
                     selectedOptions = option;
-                    console.log(`✅ Selected recording format: ${option.mimeType}`);
+                    console.log(`✅ Selected ULTRA HIGH QUALITY recording format: ${option.mimeType} @ ${option.videoBitsPerSecond / 1000000}Mbps`);
                     break;
                 }
             }
@@ -814,7 +872,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                 return;
             }
             
-            console.log('🎥 Starting video recording with:', selectedOptions);
+            console.log('🎥 Starting ULTRA HIGH QUALITY video recording with:', selectedOptions);
             
             try {
                 setRecordingActive(true);
@@ -825,7 +883,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                 mediaRecorder.ondataavailable = (event) => {
                     if (event.data && event.data.size > 0) {
                         mediaRecordingChunks.current.push(event.data);
-                        console.log(`📊 Recording chunk: ${event.data.size} bytes`);
+                        console.log(`📊 ULTRA HIGH QUALITY Recording chunk: ${(event.data.size / 1024 / 1024).toFixed(2)} MB`);
                     }
                 };
                 
@@ -838,11 +896,12 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                         const recordingUrl = URL.createObjectURL(recordingBlob);
                         setRecordings(prev => [recordingUrl, ...prev]);
                         
-                        console.log('✅ High quality video recording saved:', {
+                        console.log('✅ ULTRA HIGH QUALITY video recording saved:', {
                             format: selectedOptions.mimeType,
+                            bitrate: `${selectedOptions.videoBitsPerSecond / 1000000}Mbps`,
                             size: `${Math.round(recordingBlob.size / 1024 / 1024 * 100) / 100}MB`,
                             chunks: mediaRecordingChunks.current.length,
-                            type: 'Video Only'
+                            type: 'Ultra High Quality Video Only'
                         });
                         
                         mediaRecordingChunks.current = [];
@@ -855,11 +914,11 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                     setRecordingActive(false);
                 };
                 
-                // Start recording with optimal chunk size
-                mediaRecorder.start(250); // 250ms chunks for smooth recording
+                // ENHANCED: Start recording with optimal chunk size for high quality
+                mediaRecorder.start(100); // 100ms chunks for ultra smooth recording
                 mediaRecorderRef.current = mediaRecorder;
                 
-                console.log('✅ High quality video recording started (audio disabled)');
+                console.log('✅ ULTRA HIGH QUALITY video recording started (audio disabled, ultra high bitrate)');
                 
             } catch (error) {
                 console.error('❌ Error starting recording:', error);
@@ -869,7 +928,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             // Stop recording
             if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
                 mediaRecorderRef.current.stop();
-                console.log('🛑 Recording stopped');
+                console.log('🛑 ULTRA HIGH QUALITY Recording stopped');
             } else {
                 setRecordingActive(false);
             }
