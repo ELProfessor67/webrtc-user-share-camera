@@ -744,8 +744,8 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                     console.log('📸 Capturing frame at video time:', currentTime);
                     
                     // Get the actual video dimensions - ENHANCED for ultra high resolution
-                    const videoWidth = sourceVideo.videoWidth || settings.width || 3840; // Default to 4K
-                    const videoHeight = sourceVideo.videoHeight || settings.height || 2160; // Default to 4K
+                    const videoWidth = sourceVideo.videoWidth || settings.width || 3840;
+                    const videoHeight = sourceVideo.videoHeight || settings.height || 2160;
                     
                     console.log('📸 Capturing ULTRA HIGH QUALITY frame:', {
                         videoWidth,
@@ -755,14 +755,11 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                         paused: sourceVideo.paused
                     });
                     
-                    // ENHANCED: Create ULTRA high-resolution canvas with unique ID
+                    // ENHANCED: Create ULTRA high-resolution canvas
                     const canvas = document.createElement('canvas');
                     const scale = 4; // 4x resolution for ultra crispy images
                     canvas.width = videoWidth * scale;
                     canvas.height = videoHeight * scale;
-                    
-                    // FIXED: Add unique identifier to prevent caching issues
-                    canvas.id = `screenshot-canvas-${Date.now()}-${Math.random()}`;
                     
                     const ctx = canvas.getContext('2d');
                     
@@ -772,7 +769,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                     
                     // Additional quality settings
                     ctx.globalCompositeOperation = 'source-over';
-                    ctx.filter = 'none'; // No filters for maximum clarity
+                    ctx.filter = 'none';
                     
                     // FIXED: Clear canvas first to ensure fresh capture
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -802,7 +799,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                         
                         // Force video refresh by seeking to current time
                         const originalTime = sourceVideo.currentTime;
-                        sourceVideo.currentTime = originalTime + 0.001; // Tiny seek to refresh
+                        sourceVideo.currentTime = originalTime + 0.001;
                         
                         setTimeout(() => {
                             ctx.drawImage(sourceVideo, 0, 0, videoWidth, videoHeight);
@@ -810,10 +807,8 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                             // Generate screenshot
                             const screenshot = canvas.toDataURL('image/png', 1.0);
                             
-                            // FIXED: Add timestamp and unique identifier to screenshot
-                            const uniqueScreenshot = screenshot + `#timestamp=${Date.now()}&random=${Math.random()}`;
-                            
-                            setScreenshots((prev) => [uniqueScreenshot, ...prev]);
+                            // FIXED: Add simple timestamp for uniqueness without breaking canvas
+                            setScreenshots((prev) => [screenshot, ...prev]);
                             console.log('✅ ULTRA HIGH QUALITY screenshot captured (alternative method):', {
                                 resolution: `${canvas.width}x${canvas.height}`,
                                 scale: `${scale}x`,
@@ -829,13 +824,11 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                         return;
                     }
                     
-                    // ENHANCED: Generate ultra high quality PNG with unique identifier
-                    const screenshot = canvas.toDataURL('image/png', 1.0); // Maximum quality PNG
+                    // ENHANCED: Generate ultra high quality PNG
+                    const screenshot = canvas.toDataURL('image/png', 1.0);
                     
-                    // FIXED: Add timestamp and unique identifier to prevent duplicates
-                    const uniqueScreenshot = screenshot + `#timestamp=${Date.now()}&random=${Math.random()}&frame=${currentTime}`;
-                    
-                    setScreenshots((prev) => [uniqueScreenshot, ...prev]);
+                    // FIXED: Simple array addition without unique identifiers that break canvas
+                    setScreenshots((prev) => [screenshot, ...prev]);
                     console.log('✅ ULTRA HIGH QUALITY screenshot captured:', {
                         resolution: `${canvas.width}x${canvas.height}`,
                         scale: `${scale}x`,
@@ -853,17 +846,9 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                 }
             };
             
-            // FIXED: Multiple capture strategies to ensure unique frames
+            // FIXED: Simplified capture strategy
             if (sourceVideo.readyState >= 2) { // HAVE_CURRENT_DATA
-                // Force a small video refresh before capture
-                const originalTime = sourceVideo.currentTime;
-                sourceVideo.currentTime = originalTime + 0.0001; // Tiny seek
-                
-                setTimeout(() => {
-                    captureFrame();
-                    sourceVideo.currentTime = originalTime; // Restore
-                }, 10);
-                
+                captureFrame();
             } else {
                 // Wait for video to be ready
                 const handleLoadedData = () => {
@@ -875,7 +860,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                 // Fallback timeout
                 setTimeout(() => {
                     sourceVideo.removeEventListener('loadeddata', handleLoadedData);
-                    captureFrame(); // Try anyway
+                    captureFrame();
                 }, 1000);
             }
             

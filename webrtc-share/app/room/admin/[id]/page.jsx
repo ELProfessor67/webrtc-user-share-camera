@@ -1,18 +1,11 @@
 "use client"
 import { useState, useRef, use, useEffect, useCallback } from "react"
-import { Camera, Trash2, ImageIcon, Plus, Maximize2, VideoIcon, PlayIcon, Save, Edit, Minimize2, Expand, ZoomIn, ZoomOut, Pencil, X, Play } from "lucide-react"
+import { Trash2, Plus, Maximize2, VideoIcon, PlayIcon, Save, Edit, Minimize2, Expand, ZoomIn, ZoomOut, Pencil, X, Play } from "lucide-react"
 import useWebRTC from "@/hooks/useWebRTC"
 import useDrawingTools from "@/hooks/useDrawingTools"
 import { createRequest, getMeetingByMeetingId, deleteRecordingRequest, deleteScreenshotRequest } from "@/http/meetingHttp"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -899,25 +892,6 @@ export default function Page({ params }) {
     }
   };
 
-  // Pencil tool functions - Memoize to prevent re-renders
-  // Fixed Pencil tool functions
-  const handlePencilClick = useCallback((canvasId) => {
-    console.log('handlePencilClick called with:', canvasId);
-    console.log('Current activePencilScreenshot:', activePencilScreenshot);
-    console.log('Current showPencilDropdown:', showPencilDropdown);
-
-    if (activePencilScreenshot === canvasId && showPencilDropdown === canvasId) {
-      // Close if already open
-      console.log('Closing pencil dropdown');
-      setActivePencilScreenshot(null);
-      setShowPencilDropdown(null);
-    } else {
-      // Open for this canvas
-      console.log('Opening pencil dropdown for:', canvasId);
-      setActivePencilScreenshot(canvasId);
-      setShowPencilDropdown(canvasId);
-    }
-  }, [activePencilScreenshot, showPencilDropdown]);
 
   // Updated clear canvas function
   const clearCanvas = useCallback((canvasId) => {
@@ -943,6 +917,23 @@ export default function Page({ params }) {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showPencilDropdown]);
+
+  // FIXED: Pencil tool functions with better state management
+  const handlePencilClick = useCallback((canvasId) => {
+    console.log('🖋️ Pencil button clicked for canvas:', canvasId);
+    console.log('Current state - active:', activePencilScreenshot, 'dropdown:', showPencilDropdown);
+
+    if (showPencilDropdown === canvasId) {
+      // If dropdown is already open for this canvas, close it
+      console.log('Closing dropdown for:', canvasId);
+      setShowPencilDropdown(null);
+    } else {
+      // Open dropdown for this canvas
+      console.log('Opening dropdown for:', canvasId);
+      setActivePencilScreenshot(canvasId);  // Set active for drawing
+      setShowPencilDropdown(canvasId);     // Show dropdown
+    }
+  }, [activePencilScreenshot, showPencilDropdown]);
 
   const handleColorSelect = useCallback((color) => {
     setSelectedColor(color);
@@ -1984,12 +1975,11 @@ export default function Page({ params }) {
                   const isActive = activePencilScreenshot === canvasId;
                   const shouldShowDropdown = showPencilDropdown === canvasId;
                   
-                  // FIXED: Clean screenshot URL by removing unique identifiers for display
+                  // FIXED: Use clean screenshot URL without breaking drawing functionality
                   const cleanScreenshotUrl = screenshot.split('#')[0];
-                  const screenshotTimestamp = Date.now() + index; // Unique timestamp per screenshot
 
                   return (
-                    <div key={`${canvasId}-${screenshotTimestamp}`} className="relative pencil-dropdown-container">
+                    <div key={`screenshot-container-${index}`} className="relative pencil-dropdown-container">
                       <img src="/icons/ci_label.svg" className="mb-2" />
                       <div className="aspect-square bg-gray-200 rounded-md overflow-visible flex items-center justify-center relative">
                         {/* Minimize/Maximize icons */}
@@ -2033,7 +2023,7 @@ export default function Page({ params }) {
                               <Save className="w-4 h-4" />
                             )}
                           </button>
-                          <button
+                                                                                                     <button
                             onClick={() => deleteNewScreenshot(index)}
                             className="p-1 hover:bg-black/20 rounded text-white"
                             title="Delete screenshot"
@@ -2042,42 +2032,52 @@ export default function Page({ params }) {
                           </button>
                         </div>
 
-                        {/* FIXED: Screenshot Image with unique key and clean URL */}
+                        {/* FIXED: Screenshot Image with proper loading */}
                         <img
-                          key={`screenshot-img-${index}-${screenshotTimestamp}`}
+                          key={`screenshot-img-${index}`}
                           src={cleanScreenshotUrl}
                           alt={`screenshot ${index + 1}`}
                           className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
-                          onLoad={() => {
+                          onLoad={(e) => {
                             console.log(`📸 Screenshot ${index + 1} loaded successfully`);
-                          }}
-                          onError={(e) => {
-                            console.error(`❌ Failed to load screenshot ${index + 1}`);
+                            // FIXED: Initialize canvas after image loads
+                            const canvas = e.target.parentElement.querySelector(`canvas[data-canvas-id="${canvasId}"]`);
+                            if (canvas) {
+                              console.log(`🎨 Re-initializing canvas for ${canvasId} after image load`);
+                              initializeCanvas(canvas, cleanScreenshotUrl, canvasId);
+                            }
                           }}
                         />
 
-                        {/* ALWAYS VISIBLE Canvas for drawings - FIXED initialization */}
+                        {/* FIXED: Canvas for drawings with proper event handling */}
                         <canvas
-                          key={`canvas-${index}-${screenshotTimestamp}`}
+                          key={`canvas-${index}`}
                           data-canvas-id={canvasId}
                           ref={(canvas) => {
-                            if (canvas) {
-                              // FIXED: Set clean URL as background
+                            if (canvas && cleanScreenshotUrl) {
+                              console.log(`🎨 Setting up canvas for ${canvasId}`);
                               canvas.setAttribute('data-background', cleanScreenshotUrl);
                               canvas.setAttribute('data-screenshot-index', index);
-                              canvas.setAttribute('data-timestamp', screenshotTimestamp);
                               
-                              // Initialize with clean screenshot URL
+                              // Initialize canvas immediately
                               initializeCanvas(canvas, cleanScreenshotUrl, canvasId);
-                              
-                              console.log(`🎨 Canvas initialized for screenshot ${index + 1} with ID: ${canvasId}`);
                             }
                           }}
-                          className={`absolute top-0 left-0 w-full h-full z-10 rounded-md ${isActive ? 'cursor-crosshair' : 'pointer-events-none'
-                            }`}
+                          className={`absolute top-0 left-0 w-full h-full z-10 rounded-md transition-all ${
+                            isActive 
+                              ? 'cursor-crosshair pointer-events-auto' 
+                              : 'pointer-events-none'
+                          }`}
+                          style={{
+                            // FIXED: Ensure canvas is properly positioned and visible
+                            pointerEvents: isActive ? 'auto' : 'none',
+                            touchAction: isActive ? 'none' : 'auto'
+                          }}
                           onMouseDown={(e) => {
                             if (isActive) {
                               e.preventDefault();
+                              e.stopPropagation();
+                              console.log('🖱️ Mouse down on canvas:', canvasId);
                               startDrawing(e);
                             }
                           }}
@@ -2090,6 +2090,7 @@ export default function Page({ params }) {
                           onMouseUp={(e) => {
                             if (isActive) {
                               e.preventDefault();
+                              console.log('🖱️ Mouse up on canvas:', canvasId);
                               stopDrawing(e);
                             }
                           }}
@@ -2102,11 +2103,17 @@ export default function Page({ params }) {
                           onTouchStart={(e) => {
                             if (isActive) {
                               e.preventDefault();
+                              e.stopPropagation();
+                              console.log('👆 Touch start on canvas:', canvasId);
                               const touch = e.touches[0];
-                              const mouseEvent = new MouseEvent('mousedown', {
+                              const rect = e.target.getBoundingClientRect();
+                              const mouseEvent = {
+                                ...e,
                                 clientX: touch.clientX,
-                                clientY: touch.clientY
-                              });
+                                clientY: touch.clientY,
+                                target: e.target,
+                                currentTarget: e.currentTarget
+                              };
                               startDrawing(mouseEvent);
                             }
                           }}
@@ -2114,89 +2121,79 @@ export default function Page({ params }) {
                             if (isActive) {
                               e.preventDefault();
                               const touch = e.touches[0];
-                              const mouseEvent = new MouseEvent('mousemove', {
+                              const mouseEvent = {
+                                ...e,
                                 clientX: touch.clientX,
-                                clientY: touch.clientY
-                              });
+                                clientY: touch.clientY,
+                                target: e.target,
+                                currentTarget: e.currentTarget
+                              };
                               draw(mouseEvent);
                             }
                           }}
                           onTouchEnd={(e) => {
                             if (isActive) {
                               e.preventDefault();
-                              const mouseEvent = new MouseEvent('mouseup', {});
-                              stopDrawing(mouseEvent);
+                              console.log('👆 Touch end on canvas:', canvasId);
+                              stopDrawing(e);
                             }
                           }}
                         />
 
-                        {/* RIGHT SIDE DROPDOWN - Compact Version */}
+                        {/* Drawing Tools Dropdown Modal */}
                         {shouldShowDropdown && (
-                          <div className="absolute left-full top-0 ml-2 bg-white border border-gray-300 rounded-md shadow-lg p-2 min-w-[200px] z-50 max-h-[350px] overflow-y-auto">
-                            <div className="space-y-2">
-                              {/* Header with Close Button */}
+                          <div 
+                            className="absolute left-full top-0 ml-2 bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[240px] z-50 max-h-[400px] overflow-y-auto"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="space-y-3">
+                              {/* Header with Clear and Close buttons */}
                               <div className="flex items-center justify-between pb-2 border-b border-gray-200">
-                                <h3 className="text-xs font-medium text-gray-800">🎨 Tools</h3>
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    console.log('🖋️ Closing dropdown via X button');
-                                    setShowPencilDropdown(null);
-                                    setActivePencilScreenshot(null);
-                                  }}
-                                  className="p-0.5 hover:bg-gray-100 rounded transition-colors"
-                                  title="Close"
-                                >
-                                  <X className="w-3 h-3 text-gray-600" />
-                                </button>
+                                <h3 className="text-sm font-semibold text-gray-800">Drawing Tools</h3>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      clearCanvas(canvasId);
+                                    }}
+                                    className="p-1 hover:bg-red-50 rounded text-red-600 transition-colors"
+                                    title="Clear Canvas"
+                                  >
+                                    🗑️
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setShowPencilDropdown(null);
+                                      setActivePencilScreenshot(null);
+                                    }}
+                                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                                    title="Close"
+                                  >
+                                    <X className="w-4 h-4 text-gray-600" />
+                                  </button>
+                                </div>
                               </div>
-
-                              {/* Line Width */}
-                              <div>
-                                <p className="text-xs font-medium text-gray-700 mb-1">Size:</p>
-                                <input
-                                  type="range"
-                                  min="1"
-                                  max="15"
-                                  value={lineWidth}
-                                  onChange={(e) => setLineWidth(parseInt(e.target.value))}
-                                  className="w-full h-1 bg-gray-200 rounded appearance-none cursor-pointer"
-                                />
-                                <div className="text-xs text-gray-500 text-center">{lineWidth}px</div>
-                              </div>
-
-                              {/* Action Buttons */}
-                              <div className="pb-2 border-b border-gray-200">
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    console.log('🖋️ Clear button clicked for:', canvasId);
-                                    clearCanvas(canvasId);
-                                  }}
-                                  className="px-2 py-1 text-xs bg-red-50 text-red-600 rounded border hover:bg-red-100 transition-colors w-full"
-                                  title="Clear all drawings"
-                                >
-                                  🗑️ Clear
-                                </button>
-                              </div>
-
+                              
                               {/* Tools Section */}
                               <div>
-                                <p className="text-xs font-medium text-gray-700 mb-1">Tools:</p>
-                                <div className="grid grid-cols-3 gap-1">
+                                <p className="text-xs font-medium text-gray-700 mb-2">Tools:</p>
+                                <div className="grid grid-cols-5 gap-1">
                                   {tools.map((tool) => (
                                     <button
                                       key={tool.name}
                                       onClick={(e) => {
                                         e.preventDefault();
-                                        console.log('🖋️ Tool selected:', tool.name);
+                                        e.stopPropagation();
                                         setSelectedTool(tool.name);
                                       }}
-                                      className={`w-full h-7 flex items-center justify-center text-xs border rounded transition-all hover:scale-105 ${selectedTool === tool.name
-                                        ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                        : 'bg-gray-50 border-gray-300 hover:bg-gray-100'
-                                        }`}
+                                      className={`p-2 text-xs border rounded hover:scale-105 transition-all duration-200 flex flex-col items-center gap-1 ${
+                                        selectedTool === tool.name
+                                          ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                          : 'bg-gray-50 border-gray-300 hover:bg-gray-100'
+                                      }`}
                                       title={tool.title}
                                     >
                                       <span className="text-sm">{tool.icon}</span>
@@ -2207,18 +2204,21 @@ export default function Page({ params }) {
 
                               {/* Colors Section */}
                               <div>
-                                <p className="text-xs font-medium text-gray-700 mb-1">Colors:</p>
+                                <p className="text-xs font-medium text-gray-700 mb-2">Colors:</p>
                                 <div className="grid grid-cols-6 gap-1">
                                   {colors.map((color) => (
                                     <button
                                       key={color}
                                       onClick={(e) => {
                                         e.preventDefault();
-                                        console.log('🖋️ Color selected:', color);
+                                        e.stopPropagation();
                                         setSelectedColor(color);
                                       }}
-                                      className={`w-6 h-6 rounded-full transition-transform border hover:scale-110 ${selectedColor === color ? 'border-gray-800 scale-110 shadow-md' : 'border-gray-300'
-                                        }`}
+                                      className={`w-6 h-6 rounded border-2 transition-all duration-200 hover:scale-110 ${
+                                        selectedColor === color 
+                                          ? 'border-gray-800 scale-110 ring-2 ring-gray-300' 
+                                          : 'border-gray-300 hover:border-gray-500'
+                                      }`}
                                       style={{ backgroundColor: color }}
                                       title={`Select ${color}`}
                                     />
@@ -2226,39 +2226,46 @@ export default function Page({ params }) {
                                 </div>
                               </div>
 
+                              {/* Line Width Section */}
+                              <div>
+                                <p className="text-xs font-medium text-gray-700 mb-2">Size: {lineWidth}px</p>
+                                <input
+                                  type="range"
+                                  min="1"
+                                  max="20"
+                                  value={lineWidth}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    setLineWidth(parseInt(e.target.value));
+                                  }}
+                                  className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                  style={{
+                                    background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(lineWidth / 20) * 100}%, #e5e7eb ${(lineWidth / 20) * 100}%, #e5e7eb 100%)`
+                                  }}
+                                />
+                              </div>
+
                               {/* Current Settings Display */}
-                              <div className="pt-2 border-t border-gray-200">
-                                <p className="text-xs text-gray-600 bg-gray-50 p-1.5 rounded text-center">
-                                  <strong>{tools.find(t => t.name === selectedTool)?.title}</strong>
+                              <div className="bg-gray-50 p-2 rounded border text-center">
+                                <p className="text-xs text-gray-600">
+                                  <span className="font-medium text-gray-800">
+                                    {tools.find(t => t.name === selectedTool)?.icon} {selectedTool}
+                                  </span>
                                   {selectedTool !== 'eraser' && (
                                     <>
                                       {' '}- <span
-                                        className="inline-block w-2 h-2 rounded-full border border-gray-400 align-middle mx-0.5"
+                                        className="inline-block w-3 h-3 rounded border align-middle mx-1"
                                         style={{ backgroundColor: selectedColor }}
                                       ></span>
-                                      {' '}- {lineWidth}px
+                                      {lineWidth}px
                                     </>
                                   )}
                                 </p>
                               </div>
-
-                              {/* Start Drawing Button */}
-                              <div>
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    console.log('🖋️ Start Drawing clicked for:', canvasId);
-                                    setShowPencilDropdown(null);
-                                    // Keep activePencilScreenshot active for drawing
-                                  }}
-                                  className="w-full py-1.5 px-3 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors"
-                                >
-                                  ✏️ Draw
-                                </button>
-                              </div>
                             </div>
                           </div>
                         )}
+
                       </div>
                     </div>
                   );
