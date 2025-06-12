@@ -50,11 +50,11 @@ export default function Page() {
   const [itemsPerPage] = useState(5);
   const [viewMode, setViewMode] = useState('active');
   const [archivedCount, setArchivedCount] = useState(0);
-  
+
   // Add state for VideoLinkSender
   const [showVideoLinkSender, setShowVideoLinkSender] = useState(false);
 
-  const {setResetOpen,setMessageOpen,setLandlordDialogOpen,setTickerOpen,setInviteOpen, setFeedbackOpen, setFaqOpen, setExportOpen, setHistoryOpen} = useDialog();
+  const { setResetOpen, setMessageOpen, setLandlordDialogOpen, setTickerOpen, setInviteOpen, setFeedbackOpen, setFaqOpen, setExportOpen, setHistoryOpen } = useDialog();
 
   useEffect(() => {
     fetchMeetings();
@@ -79,7 +79,7 @@ export default function Page() {
         archivedParam = false; // Only get non-archived meetings
       }
       // If viewMode is 'all', archivedParam stays null to get all meetings
-      
+
       console.log('📋 Fetching meetings with archived param:', archivedParam, 'viewMode:', viewMode);
       const response = await getAllMeetings(archivedParam);
       setMeetings(response.data.meetings || []);
@@ -132,7 +132,7 @@ export default function Page() {
     const confirmed = window.confirm(
       `Are you sure you want to delete "${meetingName || 'this meeting'}"?\n\nThis will permanently delete:\n• The meeting document\n• All recordings\n• All screenshots\n• All associated media files\n\nThis action cannot be undone.`
     );
-    
+
     if (!confirmed) {
       return;
     }
@@ -140,7 +140,7 @@ export default function Page() {
     try {
       console.log(`🗑️ Starting complete meeting deletion for: ${meetingName || id}`);
       const response = await deleteMeeting(id);
-      
+
       // Show detailed success message
       if (response.data.deletion_summary) {
         const summary = response.data.deletion_summary;
@@ -150,7 +150,7 @@ export default function Page() {
       } else {
         toast.success("Meeting deleted successfully");
       }
-      
+
       fetchMeetings(); // Refresh the list
     } catch (error) {
       console.error('❌ Meeting deletion failed:', error);
@@ -160,38 +160,38 @@ export default function Page() {
     }
   };
 
-const handleLogout = async () => {
-  try {
-    const res = await logoutRequest();
-    
-    // Additional cleanup - clear any localStorage/sessionStorage
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    sessionStorage.clear();
-    
-    // Clear cookies from frontend side as well
-    document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; samesite=none";
-    
-    toast("Logout Successful", {
-      description: res.data.message
-    });
-    
-    setIsAuth(false);
-    setUser(null);
-    router.push('../../../');
-  } catch (error) {
-    // Even if logout API fails, clear local state
-    setIsAuth(false);
-    setUser(null);
-    localStorage.clear();
-    
-    toast("Logout Unsuccessful", {
-      description: error?.response?.data?.message || error.message
-    });
-    
-    router.push('../../../');
+  const handleLogout = async () => {
+    try {
+      const res = await logoutRequest();
+
+      // Additional cleanup - clear any localStorage/sessionStorage
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      sessionStorage.clear();
+
+      // Clear cookies from frontend side as well
+      document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; samesite=none";
+
+      toast("Logout Successful", {
+        description: res.data.message
+      });
+
+      setIsAuth(false);
+      setUser(null);
+      router.push('../../../');
+    } catch (error) {
+      // Even if logout API fails, clear local state
+      setIsAuth(false);
+      setUser(null);
+      localStorage.clear();
+
+      toast("Logout Unsuccessful", {
+        description: error?.response?.data?.message || error.message
+      });
+
+      router.push('../../../');
+    }
   }
-}
 
   // Handler for video link success
   const handleVideoLinkSuccess = (token) => {
@@ -202,7 +202,7 @@ const handleLogout = async () => {
   // Helper function to get initials from name
   const getInitials = (name) => {
     if (!name) return 'U';
-    
+
     // Split name into words and get first letter of each word (max 2)
     const words = name.trim().split(' ').filter(word => word.length > 0);
     if (words.length === 1) {
@@ -228,14 +228,14 @@ const handleLogout = async () => {
         return user.landlordInfo.landlordLogo;
       }
     }
-    
+
     // Check if using officer image
     if (user?.landlordInfo?.officerImage) {
       if (isValidImageUrl(user.landlordInfo.officerImage)) {
         return user.landlordInfo.officerImage;
       }
     }
-    
+
     // Return null to show initials instead
     return null;
   };
@@ -265,7 +265,7 @@ const handleLogout = async () => {
     const minutes = date.getMinutes();
     const ampm = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12;
-    
+
     // Create formatted time with consistent width
     if (ampm === 'PM') {
       // PM: no leading zero but maintain consistent spacing
@@ -282,18 +282,18 @@ const handleLogout = async () => {
   const formatLoginTime = (dateString) => {
     if (!dateString) return 'Never';
     const date = new Date(dateString);
-    
+
     // Array of month names
     const months = [
       'January', 'February', 'March', 'April', 'May', 'June',
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
-    
+
     const day = String(date.getDate()).padStart(2, '0');
     const month = months[date.getMonth()];
     const year = date.getFullYear();
     const timeStr = formatTime(date);
-    
+
     return `${day} ${month} ${year}, ${timeStr.toLowerCase()}`;
   };
 
@@ -314,7 +314,7 @@ const handleLogout = async () => {
     if (user?.email) {
       return user.email.split('@')[0];
     }
-    
+
     // Default fallback
     return 'User';
   };
@@ -323,13 +323,13 @@ const handleLogout = async () => {
   const formatMeetingDate = (dateString) => {
     if (!dateString) return { time: 'Unknown', date: 'Unknown' };
     const date = new Date(dateString);
-    
+
     // Format time using the same logic as formatTime but with dots
     const hours = date.getHours();
     const minutes = date.getMinutes();
     const ampm = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12;
-    
+
     let timeStr;
     if (ampm === 'PM') {
       // PM: no leading zero but maintain consistent spacing
@@ -340,16 +340,16 @@ const handleLogout = async () => {
       // AM: with leading zero
       timeStr = `${String(displayHours).padStart(2, '0')}.${String(minutes).padStart(2, '0')} ${ampm}`;
     }
-    
+
     // Format date as "24/5/2025"
     const day = date.getDate();
     const month = date.getMonth() + 1; // getMonth() returns 0-11
     const year = date.getFullYear();
     const formattedDate = `${day}/${month}/${year}`;
-    
-    return { 
-      time: timeStr, 
-      date: formattedDate 
+
+    return {
+      time: timeStr,
+      date: formattedDate
     };
   };
 
@@ -357,42 +357,42 @@ const handleLogout = async () => {
   const generateShareUrl = (meetingId) => {
     const baseUrl = window.location.origin;
     const shareUrl = new URL(`${baseUrl}/share/${meetingId}`);
-    
+
     // Add landlord information as query parameters if available
     if (user?.landlordInfo) {
       // Add landlord name
       if (user.landlordInfo.landlordName) {
         shareUrl.searchParams.set('landlordName', user.landlordInfo.landlordName);
       }
-      
+
       // Add landlord logo URL
       if (user.landlordInfo.landlordLogo && isValidImageUrl(user.landlordInfo.landlordLogo)) {
         shareUrl.searchParams.set('landlordLogo', user.landlordInfo.landlordLogo);
       }
-      
+
       // Add profile shape preference
       if (user.landlordInfo.profileShape) {
         shareUrl.searchParams.set('profileShape', user.landlordInfo.profileShape);
       }
-      
+
       // Add officer image if using it as profile
-      if (user.landlordInfo.officerImage && 
-          !user.landlordInfo.useLandlordLogoAsProfile && 
-          isValidImageUrl(user.landlordInfo.officerImage)) {
+      if (user.landlordInfo.officerImage &&
+        !user.landlordInfo.useLandlordLogoAsProfile &&
+        isValidImageUrl(user.landlordInfo.officerImage)) {
         shareUrl.searchParams.set('officerImage', user.landlordInfo.officerImage);
       }
-      
+
       // Add flag for using landlord logo as profile
       if (user.landlordInfo.useLandlordLogoAsProfile) {
         shareUrl.searchParams.set('useLandlordLogoAsProfile', 'true');
       }
     }
-    
+
     // Add user display name as fallback
     if (user?.email) {
       shareUrl.searchParams.set('userName', user.email.split('@')[0]);
     }
-    
+
     return shareUrl.toString();
   };
 
@@ -446,7 +446,7 @@ const handleLogout = async () => {
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between p-4 relative min-h-[140px]">
-            <div 
+            <div
               className="flex items-center gap-2 cursor-pointer"
               onClick={() => setLandlordDialogOpen(true)}
               style={{ minWidth: '120px' }}
@@ -457,10 +457,10 @@ const handleLogout = async () => {
                   <div className="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
                 </div>
               ) : getLandlordLogo() ? (
-                <img 
-                  src={getLandlordLogo()} 
-                  alt="Landlord Logo" 
-                  className="max-h-10 max-w-[120px] object-contain" 
+                <img
+                  src={getLandlordLogo()}
+                  alt="Landlord Logo"
+                  className="max-h-10 max-w-[120px] object-contain"
                 />
               ) : (
                 <div className="flex items-center gap-2">
@@ -471,16 +471,16 @@ const handleLogout = async () => {
                 </div>
               )}
             </div>
-            
+
             {/* Center positioned dashboard and image - fixed position */}
             <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center flex-col z-10">
               <h1 className="text-4xl font-bold">Dashboard</h1>
               <img src="/devices.svg" alt="Videodesk" className="mt-2 w-60" />
             </div>
-            
+
             <div className="flex items-center gap-4">
               {/* Archive Icon Button */}
-              <Button 
+              <Button
                 className={`${viewMode === 'archived' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-500 hover:bg-gray-600'} text-white rounded-full px-4 py-2 flex items-center gap-2`}
                 onClick={() => {
                   console.log('🔄 Current viewMode:', viewMode);
@@ -502,7 +502,7 @@ const handleLogout = async () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button className={"bg-amber-500 text-white rounded-3xl flex items-center gap-2 text-xl"}>Actions <img src="/icons/arrow-down.svg"/></Button>
+                  <Button className={"bg-amber-500 text-white rounded-3xl flex items-center gap-2 text-xl"}>Actions <img src="/icons/arrow-down.svg" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className={'bg-white border-none shadow-sm'}>
                   <DropdownMenuItem>
@@ -537,7 +537,7 @@ const handleLogout = async () => {
                   </>
                 ) : (
                   <>
-                    <div 
+                    <div
                       className={`w-12 h-12 overflow-hidden cursor-pointer ${getProfileShapeClass()} flex items-center justify-center border border-gray-300`}
                       onClick={() => setLandlordDialogOpen(true)}
                       title="Click to update profile image"
@@ -587,19 +587,19 @@ const handleLogout = async () => {
                     <div className="grid grid-cols-[80px_auto_1fr] gap-2 items-end">
                       <p className="text-left whitespace-nowrap">Logged in</p>
                       <span>:</span>
-                      <p className="text-left whitespace-nowrap font-mono" style={{whiteSpace: 'pre'}}>{formatLoginTime(user?.currentLoginTime)}</p>
+                      <p className="text-left whitespace-nowrap font-mono" style={{ whiteSpace: 'pre' }}>{formatLoginTime(user?.currentLoginTime)}</p>
                     </div>
                     <div className="grid grid-cols-[80px_auto_1fr] gap-2 items-end">
                       <p className="text-left whitespace-nowrap">Last Log in</p>
                       <span>:</span>
-                      <p className="text-left whitespace-nowrap font-mono" style={{whiteSpace: 'pre'}}>{formatLoginTime(user?.previousLoginTime || user?.currentLoginTime)}</p>
+                      <p className="text-left whitespace-nowrap font-mono" style={{ whiteSpace: 'pre' }}>{formatLoginTime(user?.previousLoginTime || user?.currentLoginTime)}</p>
                     </div>
                   </>
                 )}
               </div>
 
-              <Button 
-                className="bg-amber-500 hover:bg-amber-600 text-white px-8 py-4 rounded-lg font-medium cursor-pointer mt-4 text-lg" 
+              <Button
+                className="bg-amber-500 hover:bg-amber-600 text-white px-8 py-4 rounded-lg font-medium cursor-pointer mt-4 text-lg"
                 onClick={() => setShowVideoLinkSender(true)}
                 disabled={userLoading}
               >
@@ -675,7 +675,7 @@ const handleLogout = async () => {
                     const shareUrl = generateShareUrl(meeting.meeting_id);
                     const actualIndex = indexOfFirstItem + index;
                     const isArchived = meeting.archived || false;
-                    
+
                     return (
                       <tr key={meeting._id} className="hover:bg-gray-50 border-b">
                         <td className="px-4 py-3 w-2/5">
@@ -699,21 +699,21 @@ const handleLogout = async () => {
                           </button>
                         </td>
                         <td className="px-4 py-3 w-1/6">
-                          <span className="font-mono" style={{whiteSpace: 'pre'}}>{time}</span> {date}
+                          <span className="font-mono" style={{ whiteSpace: 'pre' }}>{time}</span> <span className="font-mono">{date}</span>
                         </td>
                         <td className="px-4 py-3 w-1/6">
                           <div className="flex justify-start gap-3">
-                            <button 
+                            <button
                               title="Discard"
                               onClick={() => handleDeleteMeeting(meeting._id, meeting.name)}
                               className="hover:bg-red-50 p-1 rounded"
                             >
                               <img src="/icons/trash-red.svg" className="w-4 h-4" />
                             </button>
-                            
+
                             {/* Show appropriate archive/unarchive button based on meeting status */}
                             {isArchived ? (
-                              <button 
+                              <button
                                 title="Unarchive"
                                 onClick={() => handleUnarchiveMeeting(meeting._id, meeting.name)}
                                 className="hover:bg-green-50 p-1 rounded"
@@ -721,7 +721,7 @@ const handleLogout = async () => {
                                 <ArchiveRestore className="w-4 h-4 text-green-600" />
                               </button>
                             ) : (
-                              <button 
+                              <button
                                 title="Archive"
                                 onClick={() => handleArchiveMeeting(meeting._id, meeting.name)}
                                 className="hover:bg-gray-50 p-1 rounded"
@@ -729,15 +729,15 @@ const handleLogout = async () => {
                                 <img src="/icons/download.svg" className="w-4 h-4" />
                               </button>
                             )}
-                            
-                            <button 
-                              title="Export" 
+
+                            <button
+                              title="Export"
                               onClick={() => setExportOpen(true, meeting)}
                               className="hover:bg-gray-50 p-1 rounded"
                             >
                               <img src="/icons/icon-park_share.svg" className="w-5 h-5" />
                             </button>
-                            <button 
+                            <button
                               title="History"
                               onClick={() => setHistoryOpen(true, meeting)}
                               className="hover:bg-gray-50 p-1 rounded"
@@ -759,7 +759,7 @@ const handleLogout = async () => {
                 <div className="text-sm text-gray-600">
                   Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, meetings.length)} of {meetings.length} results
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handlePrevPage}
@@ -768,23 +768,22 @@ const handleLogout = async () => {
                   >
                     Previous
                   </button>
-                  
+
                   <div className="flex gap-1">
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
                       <button
                         key={pageNumber}
                         onClick={() => handlePageClick(pageNumber)}
-                        className={`px-3 py-1 text-sm border border-gray-300 rounded-md ${
-                          currentPage === pageNumber
+                        className={`px-3 py-1 text-sm border border-gray-300 rounded-md ${currentPage === pageNumber
                             ? 'bg-blue-500 text-white border-blue-500'
                             : 'hover:bg-gray-50'
-                        }`}
+                          }`}
                       >
                         {pageNumber}
                       </button>
                     ))}
                   </div>
-                  
+
                   <button
                     onClick={handleNextPage}
                     disabled={currentPage === totalPages}
@@ -800,7 +799,7 @@ const handleLogout = async () => {
       </div>
 
       {/* Replace the old form and dialog with the new component */}
-      <VideoLinkSender 
+      <VideoLinkSender
         isOpen={showVideoLinkSender}
         onClose={() => setShowVideoLinkSender(false)}
         onSuccess={handleVideoLinkSuccess}
