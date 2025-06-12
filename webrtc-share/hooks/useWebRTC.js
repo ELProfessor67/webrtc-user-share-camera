@@ -702,7 +702,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         }
     }, [isAdmin, roomId]);
 
-    // ENHANCED screenshot function with ULTRA HIGH quality and resolution
+    // ENHANCED screenshot function with ULTRA HIGH quality and resolution - FIXED for unique screenshots
     const takeScreenshot = () => {
         if (!remoteStream && !localStream) {
             console.error('❌ No stream available for screenshot');
@@ -726,7 +726,8 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             console.log('📸 Taking ULTRA HIGH QUALITY screenshot from stream:', {
                 width: settings.width,
                 height: settings.height,
-                frameRate: settings.frameRate
+                frameRate: settings.frameRate,
+                timestamp: new Date().toISOString()
             });
             
             // Use the actual video element for capturing
@@ -738,6 +739,10 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             
             const captureFrame = () => {
                 try {
+                    // FIXED: Force video to current time to ensure fresh frame
+                    const currentTime = sourceVideo.currentTime;
+                    console.log('📸 Capturing frame at video time:', currentTime);
+                    
                     // Get the actual video dimensions - ENHANCED for ultra high resolution
                     const videoWidth = sourceVideo.videoWidth || settings.width || 3840; // Default to 4K
                     const videoHeight = sourceVideo.videoHeight || settings.height || 2160; // Default to 4K
@@ -745,14 +750,19 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                     console.log('📸 Capturing ULTRA HIGH QUALITY frame:', {
                         videoWidth,
                         videoHeight,
-                        readyState: sourceVideo.readyState
+                        readyState: sourceVideo.readyState,
+                        currentTime: currentTime,
+                        paused: sourceVideo.paused
                     });
                     
-                    // ENHANCED: Create ULTRA high-resolution canvas
+                    // ENHANCED: Create ULTRA high-resolution canvas with unique ID
                     const canvas = document.createElement('canvas');
                     const scale = 4; // 4x resolution for ultra crispy images
                     canvas.width = videoWidth * scale;
                     canvas.height = videoHeight * scale;
+                    
+                    // FIXED: Add unique identifier to prevent caching issues
+                    canvas.id = `screenshot-canvas-${Date.now()}-${Math.random()}`;
                     
                     const ctx = canvas.getContext('2d');
                     
@@ -764,31 +774,96 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                     ctx.globalCompositeOperation = 'source-over';
                     ctx.filter = 'none'; // No filters for maximum clarity
                     
+                    // FIXED: Clear canvas first to ensure fresh capture
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
                     // Scale the context for ultra high-resolution rendering
                     ctx.scale(scale, scale);
                     
-                    // ENHANCED: Draw the video frame with ultra high quality
-                    ctx.drawImage(sourceVideo, 0, 0, videoWidth, videoHeight);
+                    // FIXED: Ensure we're capturing the current frame, not cached
+                    try {
+                        // Method 1: Direct draw with forced refresh
+                        ctx.drawImage(sourceVideo, 0, 0, videoWidth, videoHeight);
+                        
+                        // FIXED: Verify the canvas has actual image data
+                        const imageData = ctx.getImageData(0, 0, Math.min(100, videoWidth * scale), Math.min(100, videoHeight * scale));
+                        const hasData = imageData.data.some(pixel => pixel !== 0);
+                        
+                        if (!hasData) {
+                            console.warn('⚠️ Canvas appears empty, trying alternative capture method');
+                            throw new Error('Canvas empty');
+                        }
+                        
+                    } catch (drawError) {
+                        console.log('🔄 Trying alternative capture method...');
+                        
+                        // Method 2: Alternative capture with video refresh
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        
+                        // Force video refresh by seeking to current time
+                        const originalTime = sourceVideo.currentTime;
+                        sourceVideo.currentTime = originalTime + 0.001; // Tiny seek to refresh
+                        
+                        setTimeout(() => {
+                            ctx.drawImage(sourceVideo, 0, 0, videoWidth, videoHeight);
+                            
+                            // Generate screenshot
+                            const screenshot = canvas.toDataURL('image/png', 1.0);
+                            
+                            // FIXED: Add timestamp and unique identifier to screenshot
+                            const uniqueScreenshot = screenshot + `#timestamp=${Date.now()}&random=${Math.random()}`;
+                            
+                            setScreenshots((prev) => [uniqueScreenshot, ...prev]);
+                            console.log('✅ ULTRA HIGH QUALITY screenshot captured (alternative method):', {
+                                resolution: `${canvas.width}x${canvas.height}`,
+                                scale: `${scale}x`,
+                                size: `${Math.round(screenshot.length / 1024)}KB`,
+                                format: 'PNG (Maximum Quality)',
+                                timestamp: new Date().toISOString()
+                            });
+                            
+                            // Restore original time
+                            sourceVideo.currentTime = originalTime;
+                        }, 50);
+                        
+                        return;
+                    }
                     
-                    // ENHANCED: Generate ultra high quality PNG
+                    // ENHANCED: Generate ultra high quality PNG with unique identifier
                     const screenshot = canvas.toDataURL('image/png', 1.0); // Maximum quality PNG
                     
-                    setScreenshots((prev) => [screenshot, ...prev]);
+                    // FIXED: Add timestamp and unique identifier to prevent duplicates
+                    const uniqueScreenshot = screenshot + `#timestamp=${Date.now()}&random=${Math.random()}&frame=${currentTime}`;
+                    
+                    setScreenshots((prev) => [uniqueScreenshot, ...prev]);
                     console.log('✅ ULTRA HIGH QUALITY screenshot captured:', {
                         resolution: `${canvas.width}x${canvas.height}`,
                         scale: `${scale}x`,
                         size: `${Math.round(screenshot.length / 1024)}KB`,
-                        format: 'PNG (Maximum Quality)'
+                        format: 'PNG (Maximum Quality)',
+                        timestamp: new Date().toISOString(),
+                        videoTime: currentTime
                     });
+                    
+                    // FIXED: Clean up canvas
+                    canvas.remove();
                     
                 } catch (captureError) {
                     console.error('❌ Error capturing frame:', captureError);
                 }
             };
             
-            // Check if video is ready
+            // FIXED: Multiple capture strategies to ensure unique frames
             if (sourceVideo.readyState >= 2) { // HAVE_CURRENT_DATA
-                captureFrame();
+                // Force a small video refresh before capture
+                const originalTime = sourceVideo.currentTime;
+                sourceVideo.currentTime = originalTime + 0.0001; // Tiny seek
+                
+                setTimeout(() => {
+                    captureFrame();
+                    sourceVideo.currentTime = originalTime; // Restore
+                }, 10);
+                
             } else {
                 // Wait for video to be ready
                 const handleLoadedData = () => {

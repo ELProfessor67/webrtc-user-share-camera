@@ -1120,89 +1120,101 @@ export default function Page({ params }) {
 
     try {
       setSavingScreenshotIndex(index);
-      console.log('💾 Saving individual ULTRA HIGH QUALITY screenshot...');
+      console.log('💾 Saving individual ULTRA HIGH QUALITY screenshot...', index);
 
-      let finalScreenshotData = screenshotData;
+      // FIXED: Use clean screenshot data (remove unique identifiers)
+      let finalScreenshotData = screenshotData.split('#')[0]; // Remove timestamp markers
       const canvasId = `new-${index}`;
 
       // ENHANCED: Check if this screenshot has drawings and merge them at ULTRA HIGH resolution
       if (drawingData[canvasId]) {
         console.log('🎨 Merging drawings with screenshot at ULTRA HIGH resolution...');
-        finalScreenshotData = await mergeWithBackground(screenshotData, canvasId);
+        finalScreenshotData = await mergeWithBackground(finalScreenshotData, canvasId);
         console.log('✅ ULTRA HIGH quality drawing merge completed');
       }
 
       // ENHANCED: Additional quality check - ensure PNG format for maximum quality
       if (!finalScreenshotData.startsWith('data:image/png')) {
         console.log('🔄 Converting to PNG for maximum quality...');
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const scale = 2; // Additional scaling for ultra quality
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-          
-          const ctx = canvas.getContext('2d');
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.scale(scale, scale);
-          ctx.drawImage(img, 0, 0);
-          
-          finalScreenshotData = canvas.toDataURL('image/png', 1.0);
-          console.log('✅ Enhanced to ultra high quality PNG');
-        };
-        img.src = finalScreenshotData;
+        
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const scale = 2; // Additional scaling for ultra quality
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.scale(scale, scale);
+            ctx.drawImage(img, 0, 0);
+            
+            finalScreenshotData = canvas.toDataURL('image/png', 1.0);
+            console.log('✅ Enhanced to ultra high quality PNG');
+            
+            // Continue with save process
+            processSave(finalScreenshotData);
+          };
+          img.src = finalScreenshotData;
+        });
+      } else {
+        processSave(finalScreenshotData);
       }
 
-      const screenshotsData = [{
-        data: finalScreenshotData,
-        timestamp: new Date().toISOString(),
-        size: finalScreenshotData.length,
-        quality: 'ultra_high'
-      }];
+      async function processSave(imageData) {
+        const screenshotsData = [{
+          data: imageData,
+          timestamp: new Date().toISOString(),
+          size: imageData.length,
+          quality: 'ultra_high',
+          index: index // Add index for tracking
+        }];
 
-      const formData = {
-        meeting_id: id,
-        name: residentName,
-        address: residentAddress,
-        post_code: postCode,
-        repair_detail: repairDetails,
-        target_time: targetTime,
-        recordings: [],
-        screenshots: screenshotsData,
-        update_mode: existingMeetingData ? 'update' : 'create'
-      };
+        const formData = {
+          meeting_id: id,
+          name: residentName,
+          address: residentAddress,
+          post_code: postCode,
+          repair_detail: repairDetails,
+          target_time: targetTime,
+          recordings: [],
+          screenshots: screenshotsData,
+          update_mode: existingMeetingData ? 'update' : 'create'
+        };
 
-      const response = await createRequest(formData);
+        const response = await createRequest(formData);
 
-      toast.success("Ultra high quality screenshot saved successfully!");
+        toast.success("Ultra high quality screenshot saved successfully!");
 
-      // Clear pencil mode and drawing data
-      setActivePencilScreenshot(null);
-      setShowPencilDropdown(null);
+        // Clear pencil mode and drawing data
+        setActivePencilScreenshot(null);
+        setShowPencilDropdown(null);
 
-      // Add saved screenshot to existing screenshots with unique ID
-      const newSavedScreenshot = {
-        id: `saved-${Date.now()}-${index}-${Math.random()}`,
-        url: finalScreenshotData,
-        timestamp: new Date().toLocaleString(),
-        isExisting: true,
-        quality: 'ultra_high'
-      };
+        // Add saved screenshot to existing screenshots with unique ID
+        const newSavedScreenshot = {
+          id: `saved-${Date.now()}-${index}-${Math.random()}`,
+          url: imageData,
+          timestamp: new Date().toLocaleString(),
+          isExisting: true,
+          quality: 'ultra_high'
+        };
 
-      setExistingScreenshots(prev => {
-        // Check for duplicates
-        const alreadyExists = prev.some(s => s.url === newSavedScreenshot.url);
-        if (alreadyExists) {
-          console.log('⚠️ Screenshot already in existing array, skipping add');
-          return prev;
-        }
-        return [...prev, newSavedScreenshot];
-      });
+        setExistingScreenshots(prev => {
+          // Check for duplicates
+          const alreadyExists = prev.some(s => s.url === newSavedScreenshot.url);
+          if (alreadyExists) {
+            console.log('⚠️ Screenshot already in existing array, skipping add');
+            return prev;
+          }
+          return [...prev, newSavedScreenshot];
+        });
 
-      // Remove the screenshot from new screenshots array
-      deleteScreenshot(index);
-      console.log(`🧹 Removed ultra high quality screenshot at index ${index} from new screenshots array`);
+        // Remove the screenshot from new screenshots array
+        deleteScreenshot(index);
+        console.log(`🧹 Removed ultra high quality screenshot at index ${index} from new screenshots array`);
+      }
 
     } catch (error) {
       console.error('❌ Save ultra high quality screenshot failed:', error);
@@ -1971,9 +1983,13 @@ export default function Page({ params }) {
                   const canvasId = `new-${index}`;
                   const isActive = activePencilScreenshot === canvasId;
                   const shouldShowDropdown = showPencilDropdown === canvasId;
+                  
+                  // FIXED: Clean screenshot URL by removing unique identifiers for display
+                  const cleanScreenshotUrl = screenshot.split('#')[0];
+                  const screenshotTimestamp = Date.now() + index; // Unique timestamp per screenshot
 
                   return (
-                    <div key={canvasId} className="relative pencil-dropdown-container">
+                    <div key={`${canvasId}-${screenshotTimestamp}`} className="relative pencil-dropdown-container">
                       <img src="/icons/ci_label.svg" className="mb-2" />
                       <div className="aspect-square bg-gray-200 rounded-md overflow-visible flex items-center justify-center relative">
                         {/* Minimize/Maximize icons */}
@@ -1983,7 +1999,7 @@ export default function Page({ params }) {
                           </button>
                           <button
                             className="p-1 hover:bg-black/20 rounded text-white"
-                            onClick={() => maximizeScreenshot(screenshot, index, false)}
+                            onClick={() => maximizeScreenshot(cleanScreenshotUrl, index, false)}
                           >
                             <Expand className="w-4 h-4" />
                           </button>
@@ -2006,7 +2022,7 @@ export default function Page({ params }) {
                           </button>
 
                           <button
-                            onClick={() => saveIndividualScreenshot(screenshot, index)}
+                            onClick={() => saveIndividualScreenshot(cleanScreenshotUrl, index)}
                             className={`p-1 hover:bg-black/20 rounded text-white ${savingScreenshotIndex === index ? 'opacity-80' : ''}`}
                             title="Save screenshot"
                             disabled={savingScreenshotIndex === index}
@@ -2026,20 +2042,35 @@ export default function Page({ params }) {
                           </button>
                         </div>
 
-                        {/* Screenshot Image */}
+                        {/* FIXED: Screenshot Image with unique key and clean URL */}
                         <img
-                          src={screenshot}
-                          alt="new screenshot"
+                          key={`screenshot-img-${index}-${screenshotTimestamp}`}
+                          src={cleanScreenshotUrl}
+                          alt={`screenshot ${index + 1}`}
                           className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
+                          onLoad={() => {
+                            console.log(`📸 Screenshot ${index + 1} loaded successfully`);
+                          }}
+                          onError={(e) => {
+                            console.error(`❌ Failed to load screenshot ${index + 1}`);
+                          }}
                         />
 
-                        {/* ALWAYS VISIBLE Canvas for drawings */}
+                        {/* ALWAYS VISIBLE Canvas for drawings - FIXED initialization */}
                         <canvas
+                          key={`canvas-${index}-${screenshotTimestamp}`}
                           data-canvas-id={canvasId}
                           ref={(canvas) => {
                             if (canvas) {
-                              canvas.setAttribute('data-background', screenshot);
-                              initializeCanvas(canvas, screenshot, canvasId);
+                              // FIXED: Set clean URL as background
+                              canvas.setAttribute('data-background', cleanScreenshotUrl);
+                              canvas.setAttribute('data-screenshot-index', index);
+                              canvas.setAttribute('data-timestamp', screenshotTimestamp);
+                              
+                              // Initialize with clean screenshot URL
+                              initializeCanvas(canvas, cleanScreenshotUrl, canvasId);
+                              
+                              console.log(`🎨 Canvas initialized for screenshot ${index + 1} with ID: ${canvasId}`);
                             }
                           }}
                           className={`absolute top-0 left-0 w-full h-full z-10 rounded-md ${isActive ? 'cursor-crosshair' : 'pointer-events-none'
