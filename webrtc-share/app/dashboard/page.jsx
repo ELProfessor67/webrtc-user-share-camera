@@ -259,7 +259,26 @@ const handleLogout = async () => {
     return 'rounded-full'; // default
   };
 
-  // Helper function to format date
+  // Helper function to format time with proper alignment
+  const formatTime = (date) => {
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    
+    // Create formatted time with consistent width
+    if (ampm === 'PM') {
+      // PM: no leading zero but maintain consistent spacing
+      const hourStr = displayHours.toString();
+      const paddedHour = hourStr.length === 1 ? ` ${hourStr}` : hourStr;
+      return `${paddedHour}:${String(minutes).padStart(2, '0')} ${ampm}`;
+    } else {
+      // AM: with leading zero
+      return `${String(displayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${ampm}`;
+    }
+  };
+
+  // Helper function to format date for login times
   const formatLoginTime = (dateString) => {
     if (!dateString) return 'Never';
     const date = new Date(dateString);
@@ -273,17 +292,9 @@ const handleLogout = async () => {
     const day = String(date.getDate()).padStart(2, '0');
     const month = months[date.getMonth()];
     const year = date.getFullYear();
-    const hours = date.getHours();
-    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const timeStr = formatTime(date);
     
-    // Convert to 12-hour format - remove leading zero for PM but maintain space
-    const ampm = hours >= 12 ? 'pm' : 'am';
-    const displayHours = hours % 12 || 12;
-    const formattedHours = ampm === 'pm' ? 
-      (displayHours < 10 ? ` ${displayHours}` : displayHours.toString()) : 
-      String(displayHours).padStart(2, '0');
-    
-    return `${day} ${month} ${year}, ${formattedHours}:${minutes}${ampm}`;
+    return `${day} ${month} ${year}, ${timeStr.toLowerCase()}`;
   };
 
   // Helper function to get last login time with fallback logic
@@ -308,22 +319,27 @@ const handleLogout = async () => {
     return 'User';
   };
 
-  // Helper function to format date for display
+  // Helper function to format date for display in meetings table
   const formatMeetingDate = (dateString) => {
     if (!dateString) return { time: 'Unknown', date: 'Unknown' };
     const date = new Date(dateString);
     
-    // Format time as "09.28 AM" or " 9.56 PM" (remove leading zero for PM but maintain space)
+    // Format time using the same logic as formatTime but with dots
     const hours = date.getHours();
     const minutes = date.getMinutes();
     const ampm = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12;
     
-    // Remove leading zero for PM times but add space to maintain alignment
-    const formattedHours = ampm === 'PM' ? 
-      (displayHours < 10 ? ` ${displayHours}` : displayHours.toString()) : 
-      String(displayHours).padStart(2, '0');
-    const time = `${formattedHours}.${String(minutes).padStart(2, '0')} ${ampm}`;
+    let timeStr;
+    if (ampm === 'PM') {
+      // PM: no leading zero but maintain consistent spacing
+      const hourStr = displayHours.toString();
+      const paddedHour = hourStr.length === 1 ? ` ${hourStr}` : hourStr;
+      timeStr = `${paddedHour}.${String(minutes).padStart(2, '0')} ${ampm}`;
+    } else {
+      // AM: with leading zero
+      timeStr = `${String(displayHours).padStart(2, '0')}.${String(minutes).padStart(2, '0')} ${ampm}`;
+    }
     
     // Format date as "24/5/2025"
     const day = date.getDate();
@@ -332,7 +348,7 @@ const handleLogout = async () => {
     const formattedDate = `${day}/${month}/${year}`;
     
     return { 
-      time: time, 
+      time: timeStr, 
       date: formattedDate 
     };
   };
@@ -571,12 +587,12 @@ const handleLogout = async () => {
                     <div className="grid grid-cols-[80px_auto_1fr] gap-2 items-end">
                       <p className="text-left whitespace-nowrap">Logged in</p>
                       <span>:</span>
-                      <p className="text-left whitespace-nowrap">{moment(user?.currentLoginTime).format("DD MMMM YYYY, h:mm A")}</p>
+                      <p className="text-left whitespace-nowrap font-mono" style={{whiteSpace: 'pre'}}>{formatLoginTime(user?.currentLoginTime)}</p>
                     </div>
                     <div className="grid grid-cols-[80px_auto_1fr] gap-2 items-end">
                       <p className="text-left whitespace-nowrap">Last Log in</p>
                       <span>:</span>
-                      <p className="text-left whitespace-nowrap">{moment(user?.previousLoginTime || user?.currentLoginTime).format("DD MMMM YYYY, h:mm A")}</p>
+                      <p className="text-left whitespace-nowrap font-mono" style={{whiteSpace: 'pre'}}>{formatLoginTime(user?.previousLoginTime || user?.currentLoginTime)}</p>
                     </div>
                   </>
                 )}
@@ -682,7 +698,9 @@ const handleLogout = async () => {
                             www.Videodesk.co.uk/share/{meeting.meeting_id.substring(0, 8)}...
                           </button>
                         </td>
-                        <td className="px-4 py-3 w-1/6">{time} {date}</td>
+                        <td className="px-4 py-3 w-1/6">
+                          <span className="font-mono" style={{whiteSpace: 'pre'}}>{time}</span> {date}
+                        </td>
                         <td className="px-4 py-3 w-1/6">
                           <div className="flex justify-start gap-3">
                             <button 
