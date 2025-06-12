@@ -139,6 +139,16 @@ const FeedbackDialog = () => {
 };
 
 const Page = () => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header/>

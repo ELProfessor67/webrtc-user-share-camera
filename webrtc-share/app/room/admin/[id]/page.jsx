@@ -1292,45 +1292,9 @@ export default function Page({ params }) {
     setIsClient(true);
   }, []);
 
-  // NEW: Add cleanup effect to prevent memory leaks and handle window resize
+  // NEW: Add cleanup effect to prevent memory leaks
   useEffect(() => {
-    // Handle window resize to maintain canvas quality
-    const handleResize = () => {
-      // Trigger re-render of canvases on resize for optimal quality
-      const canvases = document.querySelectorAll('canvas[data-canvas-id]');
-      canvases.forEach(canvas => {
-        const container = canvas.parentElement;
-        if (container) {
-          const rect = container.getBoundingClientRect();
-          const devicePixelRatio = window.devicePixelRatio || 1;
-          
-          // Update canvas resolution if size changed
-          const newWidth = rect.width * devicePixelRatio;
-          const newHeight = rect.height * devicePixelRatio;
-          
-          if (canvas.width !== newWidth || canvas.height !== newHeight) {
-            canvas.width = newWidth;
-            canvas.height = newHeight;
-            canvas.style.width = rect.width + 'px';
-            canvas.style.height = rect.height + 'px';
-            
-            const ctx = canvas.getContext('2d');
-            ctx.scale(devicePixelRatio, devicePixelRatio);
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            
-            console.log('🔄 Updated canvas resolution on resize');
-          }
-        }
-      });
-    };
-
-    window.addEventListener('resize', handleResize);
-    
     return () => {
-      window.removeEventListener('resize', handleResize);
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
@@ -1402,7 +1366,13 @@ export default function Page({ params }) {
                       maxWidth: '100%',
                       maxHeight: '100%',
                       width: 'auto',
-                      height: 'auto'
+                      height: 'auto',
+                      imageRendering: 'crisp-edges',
+                      imageRendering: '-webkit-optimize-contrast',
+                      imageRendering: 'pixelated',
+                      backfaceVisibility: 'hidden',
+                      transform: 'translateZ(0)',
+                      filter: 'none'
                     }}
                     onLoad={(e) => {
                       console.log('📸 Maximized image loaded for canvas ID:', maximizedItem.id);
@@ -1446,12 +1416,9 @@ export default function Page({ params }) {
 
                           console.log('🎨 Setting up maximized canvas drawing transfer');
 
-                          // HIGH-RESOLUTION SETUP FOR MAXIMIZED CANVAS
-                          const devicePixelRatio = window.devicePixelRatio || 1;
-                          
-                          // Set canvas dimensions to match the calculated display size with pixel ratio
-                          canvas.width = displayWidth * devicePixelRatio;
-                          canvas.height = displayHeight * devicePixelRatio;
+                          // Set canvas dimensions to match the calculated display size
+                          canvas.width = displayWidth;
+                          canvas.height = displayHeight;
                           canvas.style.width = displayWidth + 'px';
                           canvas.style.height = displayHeight + 'px';
                           canvas.style.position = 'absolute';
@@ -1460,16 +1427,11 @@ export default function Page({ params }) {
                           canvas.style.transform = 'translate(-50%, -50%)';
 
                           const ctx = canvas.getContext('2d');
-                          ctx.scale(devicePixelRatio, devicePixelRatio);
                           ctx.imageSmoothingEnabled = true;
                           ctx.imageSmoothingQuality = 'high';
-                          ctx.lineCap = 'round';
-                          ctx.lineJoin = 'round';
-
-                          console.log(`🎨 Maximized canvas setup: ${canvas.width}x${canvas.height} (display: ${displayWidth}x${displayHeight}), ratio: ${devicePixelRatio}`);
 
                           // Clear the canvas first
-                          ctx.clearRect(0, 0, displayWidth, displayHeight);
+                          ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                           // METHOD 1: Try to copy directly from small canvas
                           const sourceCanvas = document.querySelector(`canvas[data-canvas-id="${maximizedItem.id}"]`);
@@ -1480,7 +1442,7 @@ export default function Page({ params }) {
                             ctx.drawImage(
                               sourceCanvas,
                               0, 0, sourceCanvas.width, sourceCanvas.height,
-                              0, 0, displayWidth, displayHeight
+                              0, 0, canvas.width, canvas.height
                             );
                             console.log('✅ Successfully copied drawings from source canvas');
                             return;
@@ -1499,11 +1461,9 @@ export default function Page({ params }) {
                             let scaleY = 1;
 
                             if (originalCanvas) {
-                              // Account for device pixel ratio in scaling calculations
-                              const originalRect = originalCanvas.getBoundingClientRect();
-                              scaleX = displayWidth / originalRect.width;
-                              scaleY = displayHeight / originalRect.height;
-                              console.log('Scale factors (corrected for DPR):', scaleX, scaleY);
+                              scaleX = canvas.width / originalCanvas.width;
+                              scaleY = canvas.height / originalCanvas.height;
+                              console.log('Scale factors:', scaleX, scaleY);
                             }
 
                             // Draw all the strokes with proper scaling
@@ -1580,7 +1540,7 @@ export default function Page({ params }) {
                               }
                             });
 
-                            console.log('✅ Successfully reconstructed all strokes with high-resolution scaling');
+                            console.log('✅ Successfully reconstructed all strokes with scaling');
                           } else {
                             console.log('ℹ️ No drawing data found for canvas:', maximizedItem.id);
                           }
@@ -1937,7 +1897,14 @@ export default function Page({ params }) {
                       <img
                         src={screenshot.url}
                         alt="existing screenshot"
-                        className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
+                        className="w-full h-full object-cover absolute top-0 left-0 z-0 rounded-md"
+                        style={{
+                          imageRendering: 'crisp-edges',
+                          imageRendering: '-webkit-optimize-contrast',
+                          imageRendering: 'pixelated',
+                          backfaceVisibility: 'hidden',
+                          transform: 'translateZ(0)'
+                        }}
                       />
                     </div>
                   </div>
@@ -2007,7 +1974,14 @@ export default function Page({ params }) {
                         <img
                           src={screenshot}
                           alt="new screenshot"
-                          className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
+                          className="w-full h-full object-cover absolute top-0 left-0 z-0 rounded-md"
+                          style={{
+                            imageRendering: 'crisp-edges',
+                            imageRendering: '-webkit-optimize-contrast', 
+                            imageRendering: 'pixelated',
+                            backfaceVisibility: 'hidden',
+                            transform: 'translateZ(0)'
+                          }}
                         />
 
                         {/* ALWAYS VISIBLE Canvas for drawings */}
@@ -2016,34 +1990,6 @@ export default function Page({ params }) {
                           ref={(canvas) => {
                             if (canvas) {
                               canvas.setAttribute('data-background', screenshot);
-                              
-                              // HIGH-RESOLUTION CANVAS SETUP
-                              const container = canvas.parentElement;
-                              if (container) {
-                                const rect = container.getBoundingClientRect();
-                                const devicePixelRatio = window.devicePixelRatio || 1;
-                                
-                                // Set actual canvas size (high resolution)
-                                canvas.width = rect.width * devicePixelRatio;
-                                canvas.height = rect.height * devicePixelRatio;
-                                
-                                // Set display size (CSS pixels)
-                                canvas.style.width = rect.width + 'px';
-                                canvas.style.height = rect.height + 'px';
-                                
-                                // Scale context to match device pixel ratio
-                                const ctx = canvas.getContext('2d');
-                                ctx.scale(devicePixelRatio, devicePixelRatio);
-                                
-                                // Enable high-quality rendering
-                                ctx.imageSmoothingEnabled = true;
-                                ctx.imageSmoothingQuality = 'high';
-                                ctx.lineCap = 'round';
-                                ctx.lineJoin = 'round';
-                                
-                                console.log(`🎨 High-res canvas setup: ${canvas.width}x${canvas.height} (display: ${rect.width}x${rect.height})`);
-                              }
-                              
                               initializeCanvas(canvas, screenshot, canvasId);
                             }
                           }}

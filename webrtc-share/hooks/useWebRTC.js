@@ -153,16 +153,27 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         }
 
         peerConnection.onicecandidateerror = (error) => {
-            // Only log if there's meaningful error information
-            if (error && (error.errorCode || error.errorText || error.url)) {
-                console.error('ICE candidate error:', {
+            // Check if error has any meaningful properties before logging
+            const hasErrorData = error && (
+                error.errorCode || 
+                error.errorText || 
+                error.url || 
+                error.address || 
+                error.port ||
+                Object.keys(error).length > 0
+            );
+            
+            if (hasErrorData) {
+                console.warn('ICE candidate error:', {
                     errorCode: error.errorCode,
                     errorText: error.errorText,
-                    url: error.url
+                    url: error.url,
+                    address: error.address,
+                    port: error.port
                 });
             }
             // ICE candidate errors are often normal during connection establishment
-            // so we don't need to take any action here
+            // Empty error objects are common and don't indicate actual problems
         }
 
         peerConnection.oniceconnectionstatechange = () => {

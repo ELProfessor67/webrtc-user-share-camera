@@ -72,6 +72,7 @@ const SendFriendSectionComponent = () => {
                             value={fromName}
                             onChange={(e) => setFromName(e.target.value)}
                             required
+                            suppressHydrationWarning={true}
                         />
                     </div>
 
@@ -83,6 +84,7 @@ const SendFriendSectionComponent = () => {
                             value={friendEmail}
                             onChange={(e) => setFriendEmail(e.target.value)}
                             required
+                            suppressHydrationWarning={true}
                         />
                     </div>
 
@@ -94,6 +96,7 @@ const SendFriendSectionComponent = () => {
                             onChange={(e) => setMessage(e.target.value)}
                             rows={2}
                             required
+                            suppressHydrationWarning={true}
                         />
                     </div>
 
