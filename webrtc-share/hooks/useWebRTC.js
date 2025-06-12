@@ -74,7 +74,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
     // Enhanced getUserMedia with comprehensive device error handling
     const getUserMedia = async () => {
         try {
-            console.log('🎥 Starting camera access...');
+            console.log('🎥 Starting camera access (video only mode)...');
             
             // Step 1: Check if getUserMedia is supported
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -116,7 +116,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                 console.log('⚠️ Could not enumerate devices, proceeding with basic constraints');
             }
 
-            // Step 4: Progressive constraint strategy (from best to basic)
+            // Step 4: Progressive constraint strategy (from best to basic) - VIDEO ONLY
             const constraintStrategies = [
                 // Strategy 1: High quality with back camera preference
                 {
@@ -128,11 +128,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                             height: { min: 480, ideal: 1080, max: 2160 },
                             frameRate: { min: 15, ideal: 30, max: 60 }
                         },
-                        audio: {
-                            echoCancellation: true,
-                            noiseSuppression: true,
-                            autoGainControl: true
-                        }
+                        audio: false  // Audio disabled
                     }
                 },
                 // Strategy 2: Medium quality with back camera preference
@@ -145,7 +141,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                             height: { ideal: 720 },
                             frameRate: { ideal: 30 }
                         },
-                        audio: true
+                        audio: false  // Audio disabled
                     }
                 },
                 // Strategy 3: Basic quality with any back camera
@@ -155,7 +151,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                         video: {
                             facingMode: "environment"
                         },
-                        audio: true
+                        audio: false  // Audio disabled
                     }
                 },
                 // Strategy 4: High quality any camera
@@ -167,7 +163,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                             height: { ideal: 1080 },
                             frameRate: { ideal: 30 }
                         },
-                        audio: true
+                        audio: false  // Audio disabled
                     }
                 },
                 // Strategy 5: Basic quality any camera
@@ -178,33 +174,25 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                             width: { ideal: 1280 },
                             height: { ideal: 720 }
                         },
-                        audio: true
+                        audio: false  // Audio disabled
                     }
                 },
-                // Strategy 6: Very basic - just specify video/audio
+                // Strategy 6: Very basic - just video only
                 {
-                    name: "Very Basic",
+                    name: "Very Basic Video Only",
                     constraints: {
                         video: true,
-                        audio: true
+                        audio: false  // Audio disabled
                     }
                 },
-                // Strategy 7: Video only (no audio) - if audio fails
-                {
-                    name: "Video Only - No Audio",
-                    constraints: {
-                        video: true,
-                        audio: false
-                    }
-                },
-                // Strategy 8: Default front camera if available
+                // Strategy 7: Default front camera if available
                 {
                     name: "Front Camera Fallback",
                     constraints: {
                         video: {
                             facingMode: "user"
                         },
-                        audio: true
+                        audio: false  // Audio disabled
                     }
                 }
             ];
@@ -263,7 +251,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                 console.error('❌ All camera access strategies failed');
                 
                 // Provide detailed error message based on the last error
-                let userMessage = 'Unable to access camera. ';
+                let userMessage = 'Unable to access camera (video only mode). ';
                 
                 if (lastError) {
                     if (lastError.name === 'NotFoundError' || lastError.message.includes('Requested device not found')) {
@@ -520,7 +508,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             
             const peerConnection = createRTCPeerConnection();
             const offer = await peerConnection.createOffer({
-                offerToReceiveAudio: true,
+                offerToReceiveAudio: false,  // Audio disabled
                 offerToReceiveVideo: true,
                 voiceActivityDetection: false  // Disable for consistent quality
             });
@@ -553,7 +541,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             await peerConnectionRef.current.setRemoteDescription(offer);
             
             const answer = await peerConnectionRef.current.createAnswer({
-                offerToReceiveAudio: true,
+                offerToReceiveAudio: false,  // Audio disabled
                 offerToReceiveVideo: true,
                 voiceActivityDetection: false
             });
@@ -786,32 +774,27 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         }
         
         if (!recordingActive) {
-            // Ultra-high quality recording options
+            // Ultra-high quality recording options - VIDEO ONLY
             const qualityOptions = [
                 {
-                    mimeType: 'video/webm;codecs=vp9,opus',
-                    videoBitsPerSecond: 15000000, // 15 Mbps - ultra premium quality
-                    audioBitsPerSecond: 320000    // 320 kbps - audiophile quality
+                    mimeType: 'video/webm;codecs=vp9',
+                    videoBitsPerSecond: 15000000  // 15 Mbps - ultra premium quality (video only)
                 },
                 {
-                    mimeType: 'video/webm;codecs=vp8,opus',
-                    videoBitsPerSecond: 10000000, // 10 Mbps fallback
-                    audioBitsPerSecond: 256000
+                    mimeType: 'video/webm;codecs=vp8',
+                    videoBitsPerSecond: 10000000  // 10 Mbps fallback (video only)
                 },
                 {
-                    mimeType: 'video/webm;codecs=h264,opus',
-                    videoBitsPerSecond: 8000000,  // H.264 fallback
-                    audioBitsPerSecond: 192000
+                    mimeType: 'video/webm;codecs=h264',
+                    videoBitsPerSecond: 8000000   // H.264 fallback (video only)
                 },
                 {
                     mimeType: 'video/webm',
-                    videoBitsPerSecond: 6000000,  // Basic WebM
-                    audioBitsPerSecond: 128000
+                    videoBitsPerSecond: 6000000   // Basic WebM (video only)
                 },
                 {
                     mimeType: 'video/mp4',
-                    videoBitsPerSecond: 4000000,  // MP4 fallback
-                    audioBitsPerSecond: 128000
+                    videoBitsPerSecond: 4000000   // MP4 fallback (video only)
                 }
             ];
             
@@ -831,7 +814,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                 return;
             }
             
-            console.log('🎥 Starting recording with:', selectedOptions);
+            console.log('🎥 Starting video recording with:', selectedOptions);
             
             try {
                 setRecordingActive(true);
@@ -855,10 +838,11 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                         const recordingUrl = URL.createObjectURL(recordingBlob);
                         setRecordings(prev => [recordingUrl, ...prev]);
                         
-                        console.log('✅ High quality recording saved:', {
+                        console.log('✅ High quality video recording saved:', {
                             format: selectedOptions.mimeType,
                             size: `${Math.round(recordingBlob.size / 1024 / 1024 * 100) / 100}MB`,
-                            chunks: mediaRecordingChunks.current.length
+                            chunks: mediaRecordingChunks.current.length,
+                            type: 'Video Only'
                         });
                         
                         mediaRecordingChunks.current = [];
@@ -875,7 +859,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                 mediaRecorder.start(250); // 250ms chunks for smooth recording
                 mediaRecorderRef.current = mediaRecorder;
                 
-                console.log('✅ High quality recording started');
+                console.log('✅ High quality video recording started (audio disabled)');
                 
             } catch (error) {
                 console.error('❌ Error starting recording:', error);
@@ -920,7 +904,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             if (socketConnection.current) {
                 socketConnection.current.disconnect();
             }
-            console.log('🧹 Cleanup completed');
+            console.log('🧹 Cleanup completed (video only)');
         };
     }, []);
 
