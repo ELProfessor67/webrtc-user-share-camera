@@ -1366,13 +1366,7 @@ export default function Page({ params }) {
                       maxWidth: '100%',
                       maxHeight: '100%',
                       width: 'auto',
-                      height: 'auto',
-                      imageRendering: 'crisp-edges',
-                      imageRendering: '-webkit-optimize-contrast',
-                      imageRendering: 'pixelated',
-                      backfaceVisibility: 'hidden',
-                      transform: 'translateZ(0)',
-                      filter: 'none'
+                      height: 'auto'
                     }}
                     onLoad={(e) => {
                       console.log('📸 Maximized image loaded for canvas ID:', maximizedItem.id);
@@ -1897,14 +1891,7 @@ export default function Page({ params }) {
                       <img
                         src={screenshot.url}
                         alt="existing screenshot"
-                        className="w-full h-full object-cover absolute top-0 left-0 z-0 rounded-md"
-                        style={{
-                          imageRendering: 'crisp-edges',
-                          imageRendering: '-webkit-optimize-contrast',
-                          imageRendering: 'pixelated',
-                          backfaceVisibility: 'hidden',
-                          transform: 'translateZ(0)'
-                        }}
+                        className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
                       />
                     </div>
                   </div>
@@ -1974,14 +1961,7 @@ export default function Page({ params }) {
                         <img
                           src={screenshot}
                           alt="new screenshot"
-                          className="w-full h-full object-cover absolute top-0 left-0 z-0 rounded-md"
-                          style={{
-                            imageRendering: 'crisp-edges',
-                            imageRendering: '-webkit-optimize-contrast', 
-                            imageRendering: 'pixelated',
-                            backfaceVisibility: 'hidden',
-                            transform: 'translateZ(0)'
-                          }}
+                          className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
                         />
 
                         {/* ALWAYS VISIBLE Canvas for drawings */}
