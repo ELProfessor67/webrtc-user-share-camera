@@ -1370,7 +1370,8 @@ export default function Page({ params }) {
                     }}
                     onLoad={(e) => {
                       console.log('📸 Maximized image loaded for canvas ID:', maximizedItem.id);
-
+                      // COMMENTED OUT: Drawing functionality in maximize view
+                      /*
                       // Get the actual image dimensions
                       const img = e.target;
                       const naturalWidth = img.naturalWidth;
@@ -1540,10 +1541,12 @@ export default function Page({ params }) {
                           }
                         }, 100); // Small delay to ensure DOM is ready
                       }
+                      */
                     }}
                   />
 
-                  {/* Canvas Overlay for Drawings (only for new screenshots) */}
+                  {/* COMMENTED OUT: Canvas Overlay for Drawings in maximize view */}
+                  {/* 
                   {!maximizedItem.isExisting && (
                     <canvas
                       data-maximized-canvas-id={maximizedItem.id}
@@ -1555,6 +1558,7 @@ export default function Page({ params }) {
                       }}
                     />
                   )}
+                  */}
                 </div>
               </div>
             )}

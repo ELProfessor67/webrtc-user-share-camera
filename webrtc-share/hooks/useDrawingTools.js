@@ -24,14 +24,13 @@ const useDrawingTools = () => {
     '#ff8000', '#8000ff', '#008000', '#800000'
   ];
 
-  const tools = [
-    
-    // { name: 'eraser', icon: '🗑️', title: 'Eraser' },
-    { name: 'line', icon: '📏', title: 'Line - Draw straight lines between two points' },
-    { name: 'rectangle', icon: '⬜', title: 'Rectangle - Draw rectangular shapes' },
-    { name: 'circle', icon: '⭕', title: 'Circle - Draw circular shapes from center point' },
-    { name: 'arrow', icon: '➡️', title: 'Arrow - Draw directional arrows' }
-  ];
+const tools = [
+  { name: 'brush', icon: '🖌️', title: 'Brush - Free drawing' },
+  { name: 'line', icon: '📏', title: 'Line - Draw straight lines between two points' },
+  { name: 'rectangle', icon: '⬜', title: 'Rectangle - Draw rectangular shapes' },
+  { name: 'circle', icon: '⭕', title: 'Circle - Draw circular shapes from center point' },
+  { name: 'arrow', icon: '➡️', title: 'Arrow - Draw directional arrows' }
+];
 
   const getDevicePixelRatio = () => {
     return window.devicePixelRatio || 1;
