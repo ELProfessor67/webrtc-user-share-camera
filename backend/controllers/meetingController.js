@@ -601,6 +601,7 @@ export const getMeetingForShare = catchAsyncError(async (req, res, next) => {
 });
 
 // New function to record visitor access
+// New function to record visitor access with meeting-specific tracking
 export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
     const { visitor_name, visitor_email, from_storage = false } = req.body;
     const meetingId = req.params.id;
@@ -635,17 +636,23 @@ export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
                       (req.connection.socket ? req.connection.socket.remoteAddress : null);
     const user_agent = req.get('User-Agent') || 'Unknown';
 
-    // Check if this visitor already accessed recently (within last hour)
+    // ============ ENHANCED MEETING-SPECIFIC ACCESS CONTROL ============
+    
+    // Reduced time limit to 10 minutes for better security
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes instead of 1 hour
+    
+    // Check if this visitor already accessed THIS SPECIFIC MEETING recently
     if (!from_storage) {
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
         const recentAccess = meeting.access_history?.find(access => 
             access.visitor_email === visitor_email.toLowerCase() && 
-            access.access_time > oneHourAgo
+            access.access_time > tenMinutesAgo
         );
 
         if (recentAccess) {
-            console.log('🔄 Visitor already accessed recently, updating last access time');
+            console.log(`🔄 Visitor already accessed meeting ${meetingId} recently, updating access time`);
             recentAccess.access_time = new Date();
+            recentAccess.ip_address = ip_address; // Update IP for tracking
+            recentAccess.user_agent = user_agent; // Update user agent
             await meeting.save();
             
             return res.status(200).json({
@@ -656,20 +663,42 @@ export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
                     name: visitor_name,
                     email: visitor_email,
                     access_time: recentAccess.access_time,
-                    returning_visitor: true
+                    returning_visitor: true,
+                    session_expires: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
                 }
             });
         }
     }
 
-    // Create new visitor access record
+    // ============ SECURITY ENHANCEMENT ============
+    // Check if visitor is trying to access multiple meetings rapidly (potential abuse)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    
+    // Find all meetings this visitor has accessed in the last 5 minutes
+    const recentMeetingAccess = await MeetingModel.countDocuments({
+        'access_history': {
+            $elemMatch: {
+                visitor_email: visitor_email.toLowerCase(),
+                access_time: { $gt: fiveMinutesAgo }
+            }
+        }
+    });
+    
+    // Limit to 3 different meetings per 5 minutes to prevent abuse
+    if (recentMeetingAccess >= 3 && !from_storage) {
+        console.log(`⚠️ Rate limit exceeded for visitor: ${visitor_email} (${recentMeetingAccess} meetings in 5 minutes)`);
+        return next(new ErrorHandler("Too many meeting access attempts. Please wait a few minutes before accessing another meeting.", 429));
+    }
+
+    // Create new visitor access record with enhanced tracking
     const visitorAccess = {
         visitor_name: visitor_name.trim(),
         visitor_email: visitor_email.trim().toLowerCase(),
         access_time: new Date(),
         ip_address: ip_address,
         user_agent: user_agent,
-        from_storage: from_storage || false
+        from_storage: from_storage || false,
+        meeting_specific_session_id: `${meetingId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` // Unique session per meeting
     };
 
     // Add to access history
@@ -680,6 +709,13 @@ export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
     meeting.access_history.push(visitorAccess);
     meeting.total_access_count = (meeting.total_access_count || 0) + 1;
 
+    // ============ CLEANUP OLD ACCESS RECORDS ============
+    // Remove access records older than 24 hours to keep database clean
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    meeting.access_history = meeting.access_history.filter(access => 
+        access.access_time > twentyFourHoursAgo
+    );
+
     await meeting.save();
 
     console.log(`✅ Visitor access recorded successfully:`, {
@@ -687,7 +723,8 @@ export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
         visitor: visitor_name,
         email: visitor_email,
         total_access: meeting.total_access_count,
-        from_storage
+        from_storage,
+        session_expires: '10 minutes'
     });
 
     res.status(200).json({
@@ -700,7 +737,13 @@ export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
             name: visitor_name,
             email: visitor_email,
             access_time: visitorAccess.access_time,
-            session_expires: new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
+            session_expires: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
+            meeting_session_id: visitorAccess.meeting_specific_session_id
+        },
+        security_info: {
+            session_duration: '10 minutes',
+            meeting_specific: true,
+            rate_limit_remaining: Math.max(0, 3 - recentMeetingAccess)
         }
     });
 });

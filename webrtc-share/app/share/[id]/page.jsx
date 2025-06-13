@@ -41,6 +41,97 @@ export default function SharePage({ params }) {
   });
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
+  // ============ MEETING-SPECIFIC CACHE FUNCTIONS ============
+  
+  // Cache key format: "meeting_access_[meetingId]"
+  const getCacheKey = (meetingId) => `meeting_access_${meetingId}`;
+  
+  // Check if visitor has recent access to THIS specific meeting (10 minutes)
+  const checkMeetingAccess = (meetingId) => {
+    try {
+      const cacheKey = getCacheKey(meetingId);
+      const cachedData = localStorage.getItem(cacheKey);
+      
+      if (!cachedData) {
+        console.log(`🔍 No cached access found for meeting: ${meetingId}`);
+        return null;
+      }
+      
+      const { visitorData, timestamp } = JSON.parse(cachedData);
+      const tenMinutesAgo = Date.now() - (10 * 60 * 1000); // 10 minutes in milliseconds
+      
+      if (timestamp > tenMinutesAgo) {
+        console.log(`✅ Valid cached access found for meeting: ${meetingId}`, visitorData);
+        return visitorData;
+      } else {
+        console.log(`⏰ Cached access expired for meeting: ${meetingId}, removing...`);
+        localStorage.removeItem(cacheKey);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Error checking meeting access cache:', error);
+      return null;
+    }
+  };
+  
+  // Store visitor access for THIS specific meeting
+  const storeMeetingAccess = (meetingId, visitorData) => {
+    try {
+      const cacheKey = getCacheKey(meetingId);
+      const cacheData = {
+        visitorData,
+        timestamp: Date.now(),
+        meetingId // Extra security: store meeting ID in cache data
+      };
+      
+      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+      console.log(`💾 Stored access cache for meeting: ${meetingId}`, visitorData);
+    } catch (error) {
+      console.error('❌ Error storing meeting access cache:', error);
+    }
+  };
+  
+  // Clear access cache for THIS specific meeting
+  const clearMeetingAccess = (meetingId) => {
+    try {
+      const cacheKey = getCacheKey(meetingId);
+      localStorage.removeItem(cacheKey);
+      console.log(`🧹 Cleared access cache for meeting: ${meetingId}`);
+    } catch (error) {
+      console.error('❌ Error clearing meeting access cache:', error);
+    }
+  };
+  
+  // Clean up expired cache entries for all meetings (optional cleanup)
+  const cleanupExpiredCache = () => {
+    try {
+      const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+      
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        
+        if (key && key.startsWith('meeting_access_')) {
+          try {
+            const cachedData = localStorage.getItem(key);
+            if (cachedData) {
+              const { timestamp } = JSON.parse(cachedData);
+              if (timestamp <= tenMinutesAgo) {
+                localStorage.removeItem(key);
+                console.log(`🧹 Cleaned up expired cache: ${key}`);
+              }
+            }
+          } catch (parseError) {
+            // Remove corrupted cache entries
+            localStorage.removeItem(key);
+            console.log(`🧹 Removed corrupted cache: ${key}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error during cache cleanup:', error);
+    }
+  };
+
   // Format recording duration
   const formatRecordingTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -51,12 +142,16 @@ export default function SharePage({ params }) {
   // Function to handle visitor access
   const handleVisitorAccess = async (visitorData) => {
     try {
-      console.log('🔐 Recording visitor access for meeting:', id);
+      console.log(`🔐 Recording visitor access for meeting: ${id}`);
       const response = await recordVisitorAccessRequest(id, visitorData);
       
       if (response.success) {
         setAccessGranted(true);
-        console.log('✅ Visitor access recorded successfully');
+        
+        // Store access in meeting-specific cache
+        storeMeetingAccess(id, visitorData);
+        
+        console.log(`✅ Visitor access recorded successfully for meeting: ${id}`);
         
         // Now fetch meeting data
         await fetchMeetingData();
@@ -69,13 +164,44 @@ export default function SharePage({ params }) {
     }
   };
 
+  // Function to handle cached access restoration
+  const restoreCachedAccess = async (cachedVisitorData) => {
+    try {
+      console.log(`🔄 Restoring cached access for meeting: ${id}`);
+      
+      // Send request with from_storage flag to update server-side access time
+      const response = await recordVisitorAccessRequest(id, {
+        ...cachedVisitorData,
+        from_storage: true
+      });
+      
+      if (response.success) {
+        setAccessGranted(true);
+        console.log(`✅ Cached access restored successfully for meeting: ${id}`);
+        
+        // Refresh the cache timestamp
+        storeMeetingAccess(id, cachedVisitorData);
+        
+        // Fetch meeting data
+        await fetchMeetingData();
+      } else {
+        throw new Error(response.message || 'Failed to restore cached access');
+      }
+    } catch (error) {
+      console.error('❌ Failed to restore cached access:', error);
+      // If cached access fails, clear it and show modal
+      clearMeetingAccess(id);
+      openVisitorAccessModal(handleVisitorAccess);
+    }
+  };
+
   // Fetch meeting data when component mounts
   const fetchMeetingData = async () => {
     if (!id) return;
     
     setIsLoadingMeetingData(true);
     try {
-      console.log('🔍 Fetching meeting data for share ID:', id);
+      console.log(`🔍 Fetching meeting data for share ID: ${id}`);
       const response = await getMeetingByMeetingId(id);
       
       if (response.data.success && response.data.meeting) {
@@ -262,22 +388,29 @@ export default function SharePage({ params }) {
   useEffect(() => {
     if (!id) return;
     
+    // Clean up expired cache entries on component mount
+    cleanupExpiredCache();
+    
     // Extract landlord info from URL first
     extractLandlordInfoFromUrl();
     
-    // Check if access has been granted, if not show visitor modal
-    if (!accessGranted) {
-      console.log('🔐 Access not granted, showing visitor modal...');
-      openVisitorAccessModal(handleVisitorAccess);
+    // ============ ENHANCED ACCESS CONTROL ============
+    // Check for cached access to THIS specific meeting
+    const cachedAccess = checkMeetingAccess(id);
+    
+    if (cachedAccess) {
+      console.log(`🔄 Found cached access for meeting ${id}, attempting to restore...`);
+      restoreCachedAccess(cachedAccess);
     } else {
-      fetchMeetingData();
+      console.log(`🔐 No valid cached access for meeting ${id}, showing access modal...`);
+      openVisitorAccessModal(handleVisitorAccess);
     }
     
     // Simulate profile loading
     setTimeout(() => {
       setIsLoadingProfile(false);
     }, 1500);
-  }, [id, accessGranted]);
+  }, [id]);
 
   // Show loading while waiting for access or loading data
   if (!accessGranted || isLoadingMeetingData) {
@@ -453,7 +586,7 @@ export default function SharePage({ params }) {
           </div>
         </div>
 
-        {/* FIXED: Enhanced Video & Image Section */}
+        {/* Enhanced Video & Image Section */}
         <div className="bg-white rounded-3xl shadow-xl p-8 border-2 border-gray-200">
           {/* Videos Section */}
           {recordings.length > 0 && (
@@ -463,7 +596,7 @@ export default function SharePage({ params }) {
                 <h2 className="text-xl font-bold text-gray-800 uppercase tracking-wide">Videos</h2>
               </div>
               
-              {/* Fixed: Better container for videos */}
+              {/* Better container for videos */}
               <div className="w-full">
                 <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   {recordings.map((recording) => {
@@ -542,7 +675,7 @@ export default function SharePage({ params }) {
                 <h2 className="text-xl font-bold text-gray-800 uppercase tracking-wide">SCREENSHOT(S)</h2>
               </div>
               
-              {/* Fixed: Better container for screenshots */}
+              {/* Better container for screenshots */}
               <div className="w-full">
                 <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   {screenshots.map((screenshot, index) => (
