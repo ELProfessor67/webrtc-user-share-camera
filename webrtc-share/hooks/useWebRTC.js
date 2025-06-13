@@ -124,10 +124,10 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                     constraints: {
                         video: {
                             facingMode: { ideal: "environment" },
-                            width: { min: 1920, ideal: 3840, max: 7680 },
-                            height: { min: 1080, ideal: 2160, max: 4320 },
+                            width: { min: 1080, ideal: 2160, max: 4320 },
+                            height: { min: 1920, ideal: 3840, max: 7680 },
                             frameRate: { min: 24, ideal: 60, max: 120 },
-                            aspectRatio: { ideal: 16/9 }
+                            aspectRatio: { ideal: 9/16 }
                         },
                         audio: false  // Audio disabled
                     }
@@ -138,10 +138,10 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                     constraints: {
                         video: {
                             facingMode: { ideal: "environment" },
-                            width: { min: 1280, ideal: 2560, max: 3840 },
-                            height: { min: 720, ideal: 1440, max: 2160 },
+                            width: { min: 720, ideal: 1440, max: 2160 },
+                            height: { min: 1280, ideal: 2560, max: 3840 },
                             frameRate: { min: 24, ideal: 60, max: 120 },
-                            aspectRatio: { ideal: 16/9 }
+                            aspectRatio: { ideal: 9/16 }
                         },
                         audio: false  // Audio disabled
                     }
@@ -152,10 +152,10 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                     constraints: {
                         video: {
                             facingMode: { ideal: "environment" },
-                            width: { min: 1280, ideal: 1920, max: 2560 },
-                            height: { min: 720, ideal: 1080, max: 1440 },
+                            width: { min: 720, ideal: 1080, max: 1440 },
+                            height: { min: 1280, ideal: 1920, max: 2560 },
                             frameRate: { min: 30, ideal: 60, max: 120 },
-                            aspectRatio: { ideal: 16/9 }
+                            aspectRatio: { ideal: 9/16 }
                         },
                         audio: false  // Audio disabled
                     }
@@ -175,10 +175,10 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                     name: "Ultra High Quality Any Camera",
                     constraints: {
                         video: {
-                            width: { min: 1920, ideal: 3840, max: 7680 },
-                            height: { min: 1080, ideal: 2160, max: 4320 },
+                            width: { min: 1080, ideal: 2160, max: 4320 },
+                            height: { min: 1920, ideal: 3840, max: 7680 },
                             frameRate: { min: 24, ideal: 60, max: 120 },
-                            aspectRatio: { ideal: 16/9 }
+                            aspectRatio: { ideal: 9/16 }
                         },
                         audio: false  // Audio disabled
                     }
@@ -191,7 +191,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                             width: { min: 1280, ideal: 1920, max: 3840 },
                             height: { min: 720, ideal: 1080, max: 2160 },
                             frameRate: { min: 30, ideal: 60, max: 120 },
-                            aspectRatio: { ideal: 16/9 }
+                            aspectRatio: { ideal: 9/16 }
                         },
                         audio: false  // Audio disabled
                     }

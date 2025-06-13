@@ -1824,7 +1824,7 @@ export default function Page({ params }) {
                   .map((screenshot, index) => (
                     <div key={`existing-${screenshot.id}`}>
                       <img src="/icons/ci_label.svg" className="mb-2" />
-                      <div className="aspect-square bg-gray-200 rounded-md overflow-hidden flex items-center justify-center relative">
+                      <div className="aspect-[9/16] bg-gray-200 rounded-md overflow-hidden flex items-center justify-center relative">
                         <div className="absolute top-2 right-2 flex flex-row gap-1 z-10">
                           <button className="p-1 hover:bg-black/20 rounded text-white">
                             <Minimize2 className="w-4 h-4" />
@@ -1887,7 +1887,7 @@ export default function Page({ params }) {
                   return (
                     <div key={`screenshot-container-${screenshotId}`} className="relative pencil-dropdown-container">
                       <img src="/icons/ci_label.svg" className="mb-2" />
-                      <div className="aspect-square bg-gray-200 rounded-md overflow-visible flex items-center justify-center relative">
+                      <div className="aspect-[9/16] bg-gray-200 rounded-md overflow-visible flex items-center justify-center relative">
                         {/* Minimize/Maximize icons */}
                         <div className="absolute top-2 right-2 flex flex-row gap-1 z-20">
                           <button className="p-1 hover:bg-black/20 rounded text-white">
