@@ -4,6 +4,9 @@ import sendResponse from '../utils/sendResponse.js';
 import ErrorHandler from '../utils/errorHandler.js';
 import sendEmail from '../utils/sendEmail.js';
 import { v2 as cloudinary } from 'cloudinary';
+import path from "path"
+import fs from "fs"
+import os from "os"
 
 // Configure cloudinary with optimized settings
 cloudinary.config({
@@ -30,21 +33,60 @@ const validateFileSize = (base64Data, maxSizeMB = 50) => {
 
 // Optimized upload function with retry logic
 const uploadToCloudinary = async (data, options, retries = 2) => {
+    
     for (let attempt = 1; attempt <= retries + 1; attempt++) {
         try {
             console.log(`🔄 Upload attempt ${attempt}...`);
             const startTime = Date.now();
+            let result;
+            if(options.resource_type == "video"){
+                const tempFilePath = path.join(os.tmpdir(), `temp-video-${Date.now()}.webm`);
+                
+                try {
+                    console.log(`📁 Creating temporary file: ${tempFilePath}`);
+                    
+                    // Write base64 data to temporary file
+                    fs.writeFileSync(tempFilePath, data, 'base64');
+                    
+                    console.log(`📤 Uploading temporary file to Cloudinary...`);
+                    
+                    // Upload the temporary file
+                    result = await cloudinary.uploader.upload(tempFilePath, {
+                        ...options,
+                        timeout: parseInt(process.env.CLOUDINARY_UPLOAD_TIMEOUT) || 60000,
+                        resource_type: "raw"
+                    });
+                    
+                    console.log(`🗑️ Cleaning up temporary file...`);
+                    
+                } catch (uploadError) {
+                    console.error(`❌ Error during video upload:`, uploadError.message);
+                    throw uploadError;
+                } finally {
+                    // Always clean up temporary file, even if upload fails
+                    try {
+                        if (fs.existsSync(tempFilePath)) {
+                            fs.unlinkSync(tempFilePath);
+                            console.log(`✅ Temporary file deleted successfully`);
+                        }
+                    } catch (deleteError) {
+                        console.warn(`⚠️ Warning: Could not delete temporary file ${tempFilePath}:`, deleteError.message);
+                    }
+                }
+            }else{
+                result = await cloudinary.uploader.upload(data, {
+                    ...options,
+                    timeout: parseInt(process.env.CLOUDINARY_UPLOAD_TIMEOUT) || 60000
+                });
+            }
             
-            const result = await cloudinary.uploader.upload(data, {
-                ...options,
-                timeout: parseInt(process.env.CLOUDINARY_UPLOAD_TIMEOUT) || 60000
-            });
             
             const duration = Date.now() - startTime;
             console.log(`✅ Upload successful in ${duration}ms`);
             
             return result;
         } catch (error) {
+            console.log(error)
             console.error(`❌ Upload attempt ${attempt} failed:`, error.message);
             
             if (attempt <= retries && (error.code === 'ETIMEDOUT' || error.message.includes('timeout'))) {
@@ -107,7 +149,8 @@ export const create = catchAsyncError(async (req, res, next) => {
                 try {
                     validateFileSize(recording.data, 100);
                     
-                    const uploadResult = await uploadToCloudinary(recording.data, {
+                    const recordingData = recording.data.split(",")[2];
+                    const uploadResult = await uploadToCloudinary(recordingData, {
                         folder: 'videodesk_recordings',
                         public_id: `recording_${meeting_id}_${user_id}_${Date.now()}_${i}`,
                         resource_type: 'video',
@@ -279,8 +322,8 @@ const updateMeetingWithNewMediaOnly = async (meeting, data, res, next, user_id, 
                 
                 try {
                     validateFileSize(recording.data, 100);
-                    
-                    const uploadResult = await uploadToCloudinary(recording.data, {
+                    const recordingData = recording.data.split(",")[2];
+                    const uploadResult = await uploadToCloudinary(recordingData, {
                         folder: 'videodesk_recordings',
                         public_id: `recording_${meeting.meeting_id}_${user_id}_${Date.now()}_${i}`,
                         resource_type: 'video',

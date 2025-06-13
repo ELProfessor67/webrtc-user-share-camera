@@ -1713,7 +1713,7 @@ export default function Page({ params }) {
             {/* Video Recording Section */}
             <div>
               <h2 className="text-lg font-medium mb-3">Video Recording :</h2>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 h-[20rem] overflow-y-auto">
                 {recordings.length === 0 && (
                   <h1>No recordings</h1>
                 )}
@@ -1723,7 +1723,7 @@ export default function Page({ params }) {
                     <img src="/icons/ci_label.svg" className="mb-2" />
                     <div
                       data-recording-id={recording.id}
-                      className="aspect-square bg-gray-200 rounded-md overflow-hidden relative cursor-pointer"
+                      className="aspect-[9/16] bg-gray-200 rounded-md overflow-hidden relative cursor-pointer"
                       onClick={(e) => {
                         const video = e.currentTarget.querySelector('video');
                         if (video.paused) {
@@ -1808,7 +1808,7 @@ export default function Page({ params }) {
               <h2 className="text-lg font-medium mb-3">Image screenshot :</h2>
 
               {/* Grid with overflow-visible to allow dropdown to show */}
-              <div className="grid grid-cols-2 gap-3 overflow-visible">
+              <div className="grid grid-cols-2 gap-3 overflow-visible  h-[20rem] overflow-y-auto">
                 {(existingScreenshots.length === 0 && screenshots.length === 0) && (
                   <h1>No screenshots</h1>
                 )}
