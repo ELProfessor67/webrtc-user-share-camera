@@ -41,97 +41,6 @@ export default function SharePage({ params }) {
   });
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
-  // ============ MEETING-SPECIFIC CACHE FUNCTIONS ============
-  
-  // Cache key format: "meeting_access_[meetingId]"
-  const getCacheKey = (meetingId) => `meeting_access_${meetingId}`;
-  
-  // Check if visitor has recent access to THIS specific meeting (10 minutes)
-  const checkMeetingAccess = (meetingId) => {
-    try {
-      const cacheKey = getCacheKey(meetingId);
-      const cachedData = localStorage.getItem(cacheKey);
-      
-      if (!cachedData) {
-        console.log(`🔍 No cached access found for meeting: ${meetingId}`);
-        return null;
-      }
-      
-      const { visitorData, timestamp } = JSON.parse(cachedData);
-      const tenMinutesAgo = Date.now() - (10 * 60 * 1000); // 10 minutes in milliseconds
-      
-      if (timestamp > tenMinutesAgo) {
-        console.log(`✅ Valid cached access found for meeting: ${meetingId}`, visitorData);
-        return visitorData;
-      } else {
-        console.log(`⏰ Cached access expired for meeting: ${meetingId}, removing...`);
-        localStorage.removeItem(cacheKey);
-        return null;
-      }
-    } catch (error) {
-      console.error('❌ Error checking meeting access cache:', error);
-      return null;
-    }
-  };
-  
-  // Store visitor access for THIS specific meeting
-  const storeMeetingAccess = (meetingId, visitorData) => {
-    try {
-      const cacheKey = getCacheKey(meetingId);
-      const cacheData = {
-        visitorData,
-        timestamp: Date.now(),
-        meetingId // Extra security: store meeting ID in cache data
-      };
-      
-      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-      console.log(`💾 Stored access cache for meeting: ${meetingId}`, visitorData);
-    } catch (error) {
-      console.error('❌ Error storing meeting access cache:', error);
-    }
-  };
-  
-  // Clear access cache for THIS specific meeting
-  const clearMeetingAccess = (meetingId) => {
-    try {
-      const cacheKey = getCacheKey(meetingId);
-      localStorage.removeItem(cacheKey);
-      console.log(`🧹 Cleared access cache for meeting: ${meetingId}`);
-    } catch (error) {
-      console.error('❌ Error clearing meeting access cache:', error);
-    }
-  };
-  
-  // Clean up expired cache entries for all meetings (optional cleanup)
-  const cleanupExpiredCache = () => {
-    try {
-      const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
-      
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const key = localStorage.key(i);
-        
-        if (key && key.startsWith('meeting_access_')) {
-          try {
-            const cachedData = localStorage.getItem(key);
-            if (cachedData) {
-              const { timestamp } = JSON.parse(cachedData);
-              if (timestamp <= tenMinutesAgo) {
-                localStorage.removeItem(key);
-                console.log(`🧹 Cleaned up expired cache: ${key}`);
-              }
-            }
-          } catch (parseError) {
-            // Remove corrupted cache entries
-            localStorage.removeItem(key);
-            console.log(`🧹 Removed corrupted cache: ${key}`);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error during cache cleanup:', error);
-    }
-  };
-
   // Format recording duration
   const formatRecordingTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -139,7 +48,7 @@ export default function SharePage({ params }) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Function to handle visitor access
+  // Function to handle visitor access - NO CACHE
   const handleVisitorAccess = async (visitorData) => {
     try {
       console.log(`🔐 Recording visitor access for meeting: ${id}`);
@@ -147,10 +56,6 @@ export default function SharePage({ params }) {
       
       if (response.success) {
         setAccessGranted(true);
-        
-        // Store access in meeting-specific cache
-        storeMeetingAccess(id, visitorData);
-        
         console.log(`✅ Visitor access recorded successfully for meeting: ${id}`);
         
         // Now fetch meeting data
@@ -161,37 +66,6 @@ export default function SharePage({ params }) {
     } catch (error) {
       console.error('❌ Failed to record visitor access:', error);
       throw error;
-    }
-  };
-
-  // Function to handle cached access restoration
-  const restoreCachedAccess = async (cachedVisitorData) => {
-    try {
-      console.log(`🔄 Restoring cached access for meeting: ${id}`);
-      
-      // Send request with from_storage flag to update server-side access time
-      const response = await recordVisitorAccessRequest(id, {
-        ...cachedVisitorData,
-        from_storage: true
-      });
-      
-      if (response.success) {
-        setAccessGranted(true);
-        console.log(`✅ Cached access restored successfully for meeting: ${id}`);
-        
-        // Refresh the cache timestamp
-        storeMeetingAccess(id, cachedVisitorData);
-        
-        // Fetch meeting data
-        await fetchMeetingData();
-      } else {
-        throw new Error(response.message || 'Failed to restore cached access');
-      }
-    } catch (error) {
-      console.error('❌ Failed to restore cached access:', error);
-      // If cached access fails, clear it and show modal
-      clearMeetingAccess(id);
-      openVisitorAccessModal(handleVisitorAccess);
     }
   };
 
@@ -212,7 +86,7 @@ export default function SharePage({ params }) {
         setResidentName(meetingData.name || "");
         setResidentAddress(meetingData.address || "");
         setPostCode(meetingData.post_code || "");
-        setRef(meetingData.ref || meetingData.post_code || "");
+        setRef(meetingData.reference || meetingData.ref || meetingData.post_code || "");
         setRepairDetails(meetingData.repair_detail || "");
         setTargetTime(meetingData.target_time || "Emergency 24 Hours");
         
@@ -388,23 +262,12 @@ export default function SharePage({ params }) {
   useEffect(() => {
     if (!id) return;
     
-    // Clean up expired cache entries on component mount
-    cleanupExpiredCache();
-    
     // Extract landlord info from URL first
     extractLandlordInfoFromUrl();
     
-    // ============ ENHANCED ACCESS CONTROL ============
-    // Check for cached access to THIS specific meeting
-    const cachedAccess = checkMeetingAccess(id);
-    
-    if (cachedAccess) {
-      console.log(`🔄 Found cached access for meeting ${id}, attempting to restore...`);
-      restoreCachedAccess(cachedAccess);
-    } else {
-      console.log(`🔐 No valid cached access for meeting ${id}, showing access modal...`);
-      openVisitorAccessModal(handleVisitorAccess);
-    }
+    // ============ NO CACHE - ALWAYS SHOW MODAL ============
+    console.log(`🔐 Always showing visitor access modal for meeting ${id}...`);
+    openVisitorAccessModal(handleVisitorAccess);
     
     // Simulate profile loading
     setTimeout(() => {
@@ -516,10 +379,6 @@ export default function SharePage({ params }) {
                 "Profile"
               )}
             </div>
-          </div>
-          
-          {/* Show connection status */}
-          <div className="mt-3 text-sm text-gray-600">
           </div>
         </div>
 

@@ -600,16 +600,13 @@ export const getMeetingForShare = catchAsyncError(async (req, res, next) => {
     });
 });
 
-// New function to record visitor access
-// New function to record visitor access with meeting-specific tracking
 export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
-    const { visitor_name, visitor_email, from_storage = false } = req.body;
+    const { visitor_name, visitor_email } = req.body;
     const meetingId = req.params.id;
     
     console.log(`👤 Recording visitor access for meeting: ${meetingId}`, {
         visitor_name,
-        visitor_email,
-        from_storage
+        visitor_email
     });
 
     // Validate required fields
@@ -636,69 +633,13 @@ export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
                       (req.connection.socket ? req.connection.socket.remoteAddress : null);
     const user_agent = req.get('User-Agent') || 'Unknown';
 
-    // ============ ENHANCED MEETING-SPECIFIC ACCESS CONTROL ============
-    
-    // Reduced time limit to 10 minutes for better security
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes instead of 1 hour
-    
-    // Check if this visitor already accessed THIS SPECIFIC MEETING recently
-    if (!from_storage) {
-        const recentAccess = meeting.access_history?.find(access => 
-            access.visitor_email === visitor_email.toLowerCase() && 
-            access.access_time > tenMinutesAgo
-        );
-
-        if (recentAccess) {
-            console.log(`🔄 Visitor already accessed meeting ${meetingId} recently, updating access time`);
-            recentAccess.access_time = new Date();
-            recentAccess.ip_address = ip_address; // Update IP for tracking
-            recentAccess.user_agent = user_agent; // Update user agent
-            await meeting.save();
-            
-            return res.status(200).json({
-                success: true,
-                message: "Welcome back! Your access has been refreshed.",
-                access_count: meeting.total_access_count,
-                visitor_info: {
-                    name: visitor_name,
-                    email: visitor_email,
-                    access_time: recentAccess.access_time,
-                    returning_visitor: true,
-                    session_expires: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
-                }
-            });
-        }
-    }
-
-    // ============ SECURITY ENHANCEMENT ============
-    // Check if visitor is trying to access multiple meetings rapidly (potential abuse)
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    
-    // Find all meetings this visitor has accessed in the last 5 minutes
-    const recentMeetingAccess = await MeetingModel.countDocuments({
-        'access_history': {
-            $elemMatch: {
-                visitor_email: visitor_email.toLowerCase(),
-                access_time: { $gt: fiveMinutesAgo }
-            }
-        }
-    });
-    
-    // Limit to 3 different meetings per 5 minutes to prevent abuse
-    if (recentMeetingAccess >= 3 && !from_storage) {
-        console.log(`⚠️ Rate limit exceeded for visitor: ${visitor_email} (${recentMeetingAccess} meetings in 5 minutes)`);
-        return next(new ErrorHandler("Too many meeting access attempts. Please wait a few minutes before accessing another meeting.", 429));
-    }
-
-    // Create new visitor access record with enhanced tracking
+    // Create visitor access record - NO CACHE CHECKS
     const visitorAccess = {
         visitor_name: visitor_name.trim(),
         visitor_email: visitor_email.trim().toLowerCase(),
         access_time: new Date(),
         ip_address: ip_address,
-        user_agent: user_agent,
-        from_storage: from_storage || false,
-        meeting_specific_session_id: `${meetingId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` // Unique session per meeting
+        user_agent: user_agent
     };
 
     // Add to access history
@@ -722,28 +663,17 @@ export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
         meeting_id: meetingId,
         visitor: visitor_name,
         email: visitor_email,
-        total_access: meeting.total_access_count,
-        from_storage,
-        session_expires: '10 minutes'
+        total_access: meeting.total_access_count
     });
 
     res.status(200).json({
         success: true,
-        message: from_storage ? 
-            "Access restored from saved session" : 
-            "Visitor access recorded successfully",
+        message: "Visitor access recorded successfully",
         access_count: meeting.total_access_count,
         visitor_info: {
             name: visitor_name,
             email: visitor_email,
-            access_time: visitorAccess.access_time,
-            session_expires: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
-            meeting_session_id: visitorAccess.meeting_specific_session_id
-        },
-        security_info: {
-            session_duration: '10 minutes',
-            meeting_specific: true,
-            rate_limit_remaining: Math.max(0, 3 - recentMeetingAccess)
+            access_time: visitorAccess.access_time
         }
     });
 });
