@@ -966,6 +966,11 @@ export default function Page({ params }) {
     try {
       setSavingRecordingId(recording.id);
       console.log('💾 Saving individual recording...');
+      
+      // Show loading toast
+      toast.loading("Saving recording...", {
+        id: `save-recording-${recording.id}`
+      });
 
       const base64Data = await blobToBase64(recording.blob);
       const recordingsData = [{
@@ -997,11 +1002,16 @@ export default function Page({ params }) {
           : r
       ));
 
-      toast.success("Recording saved successfully!");
+      // Show success toast
+      toast.success("Recording saved successfully!", {
+        id: `save-recording-${recording.id}`
+      });
 
     } catch (error) {
       console.error('❌ Save recording failed:', error);
-      toast.error("Failed to save recording");
+      toast.error("Failed to save recording", {
+        id: `save-recording-${recording.id}`
+      });
     } finally {
       setSavingRecordingId(null);
       processedItemsRef.current.delete(itemKey);
@@ -1134,6 +1144,11 @@ export default function Page({ params }) {
       setSavingScreenshotIds(prev => new Set(prev).add(screenshotId));
       
       console.log('💾 Saving individual ULTRA HIGH QUALITY screenshot...', index, 'ID:', screenshotId);
+      
+      // Show loading toast
+      toast.loading("Saving screenshot...", {
+        id: `save-screenshot-${screenshotId}`
+      });
 
       // FIXED: Use clean screenshot data (remove unique identifiers)
       let finalScreenshotData = screenshotData.split('#')[0]; // Remove timestamp markers
@@ -1222,10 +1237,14 @@ export default function Page({ params }) {
 
         const response = await createRequest(formData);
 
+        // Show success toast
         toast.success(
           screenshotsData[0].hasDrawings 
             ? "Ultra high quality screenshot with drawings saved successfully!" 
-            : "Ultra high quality screenshot saved successfully!"
+            : "Ultra high quality screenshot saved successfully!",
+          {
+            id: `save-screenshot-${screenshotId}`
+          }
         );
 
         // Clear pencil mode and drawing data after successful save
@@ -1266,7 +1285,9 @@ export default function Page({ params }) {
 
     } catch (error) {
       console.error('❌ Save ultra high quality screenshot failed:', error);
-      toast.error("Failed to save ultra high quality screenshot");
+      toast.error("Failed to save ultra high quality screenshot", {
+        id: `save-screenshot-${screenshotId}`
+      });
     } finally {
       // FIXED: Clear both index and ID tracking
       setSavingScreenshotIndex(null);

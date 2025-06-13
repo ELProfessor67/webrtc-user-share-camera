@@ -1,7 +1,7 @@
 "use client"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Loader2, XIcon } from "lucide-react"
+import { Loader2, XIcon, Move } from "lucide-react"
 import { toast } from "sonner"
 import axios from "axios"
 import Link from "next/link"
@@ -24,10 +24,17 @@ export default function VideoLinkSender({ isOpen, onClose, onSuccess }) {
   const [linkAccepted, setLinkAccepted] = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
 
+  // Drag and drop states
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
+
   const phoneInputRef = useRef(null);
   const emailInputRef = useRef(null);
   const typingTimerRef = useRef(null);
   const socketRef = useRef(null);
+  const modalRef = useRef(null);
+  const dragHandleRef = useRef(null);
 
   // Socket connection for real-time updates
   useEffect(() => {
@@ -103,6 +110,72 @@ export default function VideoLinkSender({ isOpen, onClose, onSuccess }) {
       }
     };
   }, [isOpen, isTyping, lastTypingTime, contactMethod, isManualSelection]);
+
+  // Reset modal position when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setModalPosition({ x: 0, y: 0 });
+    }
+  }, [isOpen]);
+
+  // Drag functionality
+  const handleMouseDown = (e) => {
+    if (!modalRef.current) return;
+    
+    setIsDragging(true);
+    const rect = modalRef.current.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+    
+    // Prevent text selection while dragging
+    document.body.style.userSelect = 'none';
+  };
+
+  // Handle mouse move for dragging
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging || !modalRef.current) return;
+
+      const viewport = {
+        width: window.innerWidth,
+        height: window.innerHeight
+      };
+
+      const modalRect = modalRef.current.getBoundingClientRect();
+      
+      // Calculate new position
+      let newX = e.clientX - dragOffset.x - viewport.width / 2 + modalRect.width / 2;
+      let newY = e.clientY - dragOffset.y - viewport.height / 2 + modalRect.height / 2;
+
+      // Boundary constraints
+      const maxX = viewport.width / 2 - 100; // Keep at least 100px visible
+      const minX = -viewport.width / 2 + 100;
+      const maxY = viewport.height / 2 - 100;
+      const minY = -viewport.height / 2 + 100;
+
+      newX = Math.max(minX, Math.min(maxX, newX));
+      newY = Math.max(minY, Math.min(maxY, newY));
+
+      setModalPosition({ x: newX, y: newY });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      document.body.style.userSelect = '';
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, dragOffset]);
 
   const handleInputChange = (value, type) => {
     setIsTyping(true);
@@ -251,6 +324,7 @@ export default function VideoLinkSender({ isOpen, onClose, onSuccess }) {
     setPhone('');
     setEmail('');
     setIsManualSelection(false);
+    setModalPosition({ x: 0, y: 0 });
     onClose();
   };
 
@@ -269,61 +343,87 @@ export default function VideoLinkSender({ isOpen, onClose, onSuccess }) {
     <>
       {/* Form Modal */}
       <div className="h-screen w-screen bg-black/10 absolute top-0 left-0 right-0 bottom-0 px-16 flex items-center justify-center z-50">
-        <div className="mx-auto bg-white rounded-xl shadow-md p-8 relative overflow-hidden">
-          <h3 className="text-xl font-semibold mb-6 text-center">
-            Enter your customer's mobile number or email address below to send an instant video link
-          </h3>
-
-          <button
-            onClick={handleClose}
-            aria-label="Close"
-            className="text-gray-500 hover:text-gray-800 absolute top-3 right-3 cursor-pointer"
+        <div 
+          ref={modalRef}
+          className={`mx-auto bg-white rounded-xl shadow-lg p-8 relative overflow-hidden transition-shadow duration-200 ${
+            isDragging ? 'shadow-2xl cursor-grabbing' : 'cursor-default'
+          }`}
+          style={{
+            transform: `translate(${modalPosition.x}px, ${modalPosition.y}px)`,
+            transition: isDragging ? 'none' : 'transform 0.2s ease-out'
+          }}
+        >
+          {/* Drag Handle Header */}
+          <div 
+            ref={dragHandleRef}
+            className={`absolute top-0 left-0 right-0 h-12 bg-gradient-to-r from-amber-50 to-amber-100 rounded-t-xl flex items-center justify-between px-4 ${
+              isDragging ? 'cursor-grabbing' : 'cursor-grab'
+            } border-b border-amber-200`}
+            onMouseDown={handleMouseDown}
           >
-            <XIcon className="w-4 h-4" />
-          </button>
-
-          <form onSubmit={handleSubmit} className="flex flex-col md:flex-row items-center gap-4">
-            <div className="flex-1 w-full">
-              <input
-                ref={phoneInputRef}
-                type="text"
-                placeholder="Enter customer mobile number"
-                className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${contactMethod === 'phone' ? 'bg-white' : 'bg-gray-100'}`}
-                value={phone}
-                onChange={(e) => handleInputChange(e.target.value, 'phone')}
-                onClick={() => {
-                  setContactMethod('phone');
-                  setIsManualSelection(true);
-                }}
-              />
+            <div className="flex items-center gap-2 text-amber-700">
+              <Move className="w-4 h-4" />
+              <span className="text-sm font-medium">Drag to move</span>
             </div>
-
-            <div className="self-center">
-              <span className="text-gray-500">or</span>
-            </div>
-
-            <div className="flex-1 w-full">
-              <input
-                ref={emailInputRef}
-                type="email"
-                placeholder="Enter customer email address"
-                className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${contactMethod === 'email' ? 'bg-white' : 'bg-gray-100'}`}
-                value={email}
-                onChange={(e) => handleInputChange(e.target.value, 'email')}
-                onClick={() => {
-                  setContactMethod('email');
-                  setIsManualSelection(true);
-                }}
-              />
-            </div>
-
             <button
-              type="submit"
-              className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition-colors"
+              onClick={handleClose}
+              aria-label="Close"
+              className="text-amber-600 hover:text-amber-800 cursor-pointer transition-colors"
             >
-              {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : <>Send<br />video link</>}
+              <XIcon className="w-4 h-4" />
             </button>
-          </form>
+          </div>
+
+          {/* Modal Content */}
+          <div className="pt-8">
+            <h3 className="text-xl font-semibold mb-6 text-center">
+              Enter your customer's mobile number or email address below to send an instant video link
+            </h3>
+
+            <form onSubmit={handleSubmit} className="flex flex-col md:flex-row items-center gap-4">
+              <div className="flex-1 w-full">
+                <input
+                  ref={phoneInputRef}
+                  type="text"
+                  placeholder="Enter customer mobile number"
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${contactMethod === 'phone' ? 'bg-white' : 'bg-gray-100'}`}
+                  value={phone}
+                  onChange={(e) => handleInputChange(e.target.value, 'phone')}
+                  onClick={() => {
+                    setContactMethod('phone');
+                    setIsManualSelection(true);
+                  }}
+                />
+              </div>
+
+              <div className="self-center">
+                <span className="text-gray-500">or</span>
+              </div>
+
+              <div className="flex-1 w-full">
+                <input
+                  ref={emailInputRef}
+                  type="email"
+                  placeholder="Enter customer email address"
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${contactMethod === 'email' ? 'bg-white' : 'bg-gray-100'}`}
+                  value={email}
+                  onChange={(e) => handleInputChange(e.target.value, 'email')}
+                  onClick={() => {
+                    setContactMethod('email');
+                    setIsManualSelection(true);
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                disabled={isDragging}
+              >
+                {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : <>Send<br />video link</>}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
 
@@ -338,7 +438,7 @@ export default function VideoLinkSender({ isOpen, onClose, onSuccess }) {
                 <h2 className="text-2xl font-bold text-left">
                   Link sent successfully
                 </h2>
-                <p>Please wait a second for user to open and accept link...</p>
+                <p>Please wait a second for user to open and accept link...</p>
               </div>
             </div>
             

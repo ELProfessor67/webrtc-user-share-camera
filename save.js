@@ -10,7 +10,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
+  DropdownMenuLabel,  
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -31,6 +31,7 @@ export default function Page({ params }) {
   const [residentName, setResidentName] = useState("")
   const [residentAddress, setResidentAddress] = useState("")
   const [postCode, setPostCode] = useState("")
+  const [actualPostCode, setActualPostCode] = useState("") // Add new state for the actual postcode field
   const [repairDetails, setRepairDetails] = useState("")
   const [callDuration, setCallDuration] = useState(0);
 
@@ -129,7 +130,8 @@ export default function Page({ params }) {
           // Pre-populate form fields with existing data
           setResidentName(meetingData.name || "");
           setResidentAddress(meetingData.address || "");
-          setPostCode(meetingData.post_code || "");
+          setPostCode(meetingData.reference || ""); // This is for the "Ref:" field
+          setActualPostCode(meetingData.post_code || ""); // This is for the "Post code:" field
           setRepairDetails(meetingData.repair_detail || "");
           setTargetTime(meetingData.target_time || "Emergency 24 Hours");
 
@@ -341,7 +343,8 @@ export default function Page({ params }) {
       meeting_id: id,
       name: residentName,
       address: residentAddress,
-      post_code: postCode,
+      post_code: actualPostCode, // Save the actual postcode
+      reference: postCode, // Save the reference field
       repair_detail: repairDetails,
       target_time: targetTime,
       recordings: recordingsData,
@@ -426,7 +429,7 @@ export default function Page({ params }) {
     return { recordingsData, screenshotsData };
   }, [
     recordings, screenshots, drawingData, mergeWithBackground, deleteScreenshot,
-    id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData
+    id, residentName, residentAddress, actualPostCode, postCode, repairDetails, targetTime, existingMeetingData
   ]);
 
   const handleZoomIn = () => {
@@ -976,7 +979,8 @@ export default function Page({ params }) {
         meeting_id: id,
         name: residentName,
         address: residentAddress,
-        post_code: postCode,
+        post_code: actualPostCode,
+        reference: postCode,
         repair_detail: repairDetails,
         target_time: targetTime,
         recordings: recordingsData,
@@ -1002,7 +1006,7 @@ export default function Page({ params }) {
       setSavingRecordingId(null);
       processedItemsRef.current.delete(itemKey);
     }
-  }, [id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData]);
+  }, [id, residentName, residentAddress, actualPostCode, postCode, repairDetails, targetTime, existingMeetingData]);
 
   // Updated delete recording function
   const deleteRecording = async (recording) => {
@@ -1160,7 +1164,7 @@ export default function Page({ params }) {
       // ENHANCED: Additional quality check - ensure PNG format for maximum quality
       if (!finalScreenshotData.startsWith('data:image/png')) {
         console.log('🔄 Converting to PNG for maximum quality...');
-        
+
         return new Promise((resolve) => {
           const img = new Image();
           img.onload = () => {
@@ -1201,7 +1205,8 @@ export default function Page({ params }) {
           meeting_id: id,
           name: residentName,
           address: residentAddress,
-          post_code: postCode,
+          post_code: actualPostCode,
+          reference: postCode,
           repair_detail: repairDetails,
           target_time: targetTime,
           recordings: [],
@@ -1272,7 +1277,7 @@ export default function Page({ params }) {
       });
       processedItemsRef.current.delete(itemKey);
     }
-  }, [id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData, drawingData, mergeWithBackground, deleteScreenshot, savingScreenshotIds]);
+  }, [id, residentName, residentAddress, actualPostCode, postCode, repairDetails, targetTime, existingMeetingData, drawingData, mergeWithBackground, deleteScreenshot, savingScreenshotIds]);
 
   // Maximize handlers - Memoize these functions
   const maximizeVideo = useCallback((recording) => {
@@ -1423,20 +1428,7 @@ export default function Page({ params }) {
   // Enhanced loading guard to prevent hydration mismatch
   if (!isClient || isLoadingMeetingData) {
     return (
-      <div className="max-w-6xl mx-auto p-4 py-10 font-sans">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-gray-600">
-              {!isClient ? "Loading..." : "Loading meeting data..."}
-            </p>
-            {isLoadingMeetingData && (
-              <p className="text-sm text-gray-500">
-                Fetching existing recordings and screenshots...
-              </p>
-            )}
-          </div>
-        </div>
+      <div>
       </div>
     );
   }
@@ -2239,6 +2231,8 @@ export default function Page({ params }) {
             <div className="mb-6">
               <textarea
                 placeholder="Post code:"
+                value={actualPostCode}
+                onChange={(e) => setActualPostCode(e.target.value)}
                 className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-300"
                 rows={1}
               />

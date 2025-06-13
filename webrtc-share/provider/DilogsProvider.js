@@ -2092,7 +2092,7 @@ ${senderName}`;
                 </div>
 
                 {/* Use landlord logo for profile section */}
-                <div className="ml-4 mt-2">
+                <div className="ml-0 mt-2">
                   <label className="text-black font-semibold flex items-center gap-2">
                     <input
                       type="checkbox"
