@@ -355,20 +355,22 @@ export default function VideoLinkSender({ isOpen, onClose, onSuccess }) {
         >
           {/* Drag Handle Header */}
           <div 
-            ref={dragHandleRef}
-            className={`absolute top-0 left-0 right-0 h-12 bg-gradient-to-r from-amber-50 to-amber-100 rounded-t-xl flex items-center justify-between px-4 ${
-              isDragging ? 'cursor-grabbing' : 'cursor-grab'
-            } border-b border-amber-200`}
-            onMouseDown={handleMouseDown}
+            className="absolute top-0 left-0 right-0 h-12 bg-white rounded-t-xl flex items-center justify-between px-4"
           >
-            <div className="flex items-center gap-2 text-amber-700">
-              <Move className="w-4 h-4" />
-              <span className="text-sm font-medium">Drag to move</span>
+            <div 
+              ref={dragHandleRef}
+              className={`flex items-center gap-1 bg-purple-600 text-white px-2 py-0.5 rounded-md ${
+                isDragging ? 'cursor-grabbing' : 'cursor-grab'
+              }`}
+              onMouseDown={handleMouseDown}
+            >
+              <Move className="w-3 h-3" />
+              <span className="text-xs p-1 font-medium">Drag to move</span>
             </div>
             <button
               onClick={handleClose}
               aria-label="Close"
-              className="text-amber-600 hover:text-amber-800 cursor-pointer transition-colors"
+              className="text-gray-600 hover:text-gray-800 cursor-pointer transition-colors"
             >
               <XIcon className="w-4 h-4" />
             </button>

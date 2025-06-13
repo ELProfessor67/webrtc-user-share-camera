@@ -699,7 +699,11 @@ export default function Page() {
                           </button>
                         </td>
                         <td className="px-4 py-3 w-1/6">
-                          <span className="font-mono" style={{ whiteSpace: 'pre' }}>{time}</span> <span className="font-mono">{date}</span>
+                          <div className="flex items-center">
+                            <span className="font-mono" style={{ whiteSpace: 'pre' }}>{time}</span>
+                            <span className="mx-2"></span>
+                            <span className="font-mono">{date}</span>
+                          </div>
                         </td>
                         <td className="px-4 py-3 w-1/6">
                           <div className="flex justify-start gap-3">
