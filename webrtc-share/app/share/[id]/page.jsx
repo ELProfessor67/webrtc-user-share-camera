@@ -48,15 +48,15 @@ export default function SharePage({ params }) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Function to handle visitor access
+  // Function to handle visitor access - NO CACHE
   const handleVisitorAccess = async (visitorData) => {
     try {
-      console.log('🔐 Recording visitor access for meeting:', id);
+      console.log(`🔐 Recording visitor access for meeting: ${id}`);
       const response = await recordVisitorAccessRequest(id, visitorData);
       
       if (response.success) {
         setAccessGranted(true);
-        console.log('✅ Visitor access recorded successfully');
+        console.log(`✅ Visitor access recorded successfully for meeting: ${id}`);
         
         // Now fetch meeting data
         await fetchMeetingData();
@@ -75,7 +75,7 @@ export default function SharePage({ params }) {
     
     setIsLoadingMeetingData(true);
     try {
-      console.log('🔍 Fetching meeting data for share ID:', id);
+      console.log(`🔍 Fetching meeting data for share ID: ${id}`);
       const response = await getMeetingByMeetingId(id);
       
       if (response.data.success && response.data.meeting) {
@@ -86,7 +86,7 @@ export default function SharePage({ params }) {
         setResidentName(meetingData.name || "");
         setResidentAddress(meetingData.address || "");
         setPostCode(meetingData.post_code || "");
-        setRef(meetingData.ref || meetingData.post_code || "");
+        setRef(meetingData.reference || meetingData.ref || meetingData.post_code || "");
         setRepairDetails(meetingData.repair_detail || "");
         setTargetTime(meetingData.target_time || "Emergency 24 Hours");
         
@@ -265,19 +265,15 @@ export default function SharePage({ params }) {
     // Extract landlord info from URL first
     extractLandlordInfoFromUrl();
     
-    // Check if access has been granted, if not show visitor modal
-    if (!accessGranted) {
-      console.log('🔐 Access not granted, showing visitor modal...');
-      openVisitorAccessModal(handleVisitorAccess);
-    } else {
-      fetchMeetingData();
-    }
+    // ============ NO CACHE - ALWAYS SHOW MODAL ============
+    console.log(`🔐 Always showing visitor access modal for meeting ${id}...`);
+    openVisitorAccessModal(handleVisitorAccess);
     
     // Simulate profile loading
     setTimeout(() => {
       setIsLoadingProfile(false);
     }, 1500);
-  }, [id, accessGranted]);
+  }, [id]);
 
   // Show loading while waiting for access or loading data
   if (!accessGranted || isLoadingMeetingData) {
@@ -384,10 +380,6 @@ export default function SharePage({ params }) {
               )}
             </div>
           </div>
-          
-          {/* Show connection status */}
-          <div className="mt-3 text-sm text-gray-600">
-          </div>
         </div>
 
         {/* Enhanced Main Content Card */}
@@ -453,7 +445,7 @@ export default function SharePage({ params }) {
           </div>
         </div>
 
-        {/* FIXED: Enhanced Video & Image Section */}
+        {/* Enhanced Video & Image Section */}
         <div className="bg-white rounded-3xl shadow-xl p-8 border-2 border-gray-200">
           {/* Videos Section */}
           {recordings.length > 0 && (
@@ -463,7 +455,7 @@ export default function SharePage({ params }) {
                 <h2 className="text-xl font-bold text-gray-800 uppercase tracking-wide">Videos</h2>
               </div>
               
-              {/* Fixed: Better container for videos */}
+              {/* Better container for videos */}
               <div className="w-full">
                 <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   {recordings.map((recording) => {
@@ -542,7 +534,7 @@ export default function SharePage({ params }) {
                 <h2 className="text-xl font-bold text-gray-800 uppercase tracking-wide">SCREENSHOT(S)</h2>
               </div>
               
-              {/* Fixed: Better container for screenshots */}
+              {/* Better container for screenshots */}
               <div className="w-full">
                 <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   {screenshots.map((screenshot, index) => (

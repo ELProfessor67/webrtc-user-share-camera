@@ -643,15 +643,13 @@ export const getMeetingForShare = catchAsyncError(async (req, res, next) => {
     });
 });
 
-// New function to record visitor access
 export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
-    const { visitor_name, visitor_email, from_storage = false } = req.body;
+    const { visitor_name, visitor_email } = req.body;
     const meetingId = req.params.id;
     
     console.log(`👤 Recording visitor access for meeting: ${meetingId}`, {
         visitor_name,
-        visitor_email,
-        from_storage
+        visitor_email
     });
 
     // Validate required fields
@@ -678,41 +676,13 @@ export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
                       (req.connection.socket ? req.connection.socket.remoteAddress : null);
     const user_agent = req.get('User-Agent') || 'Unknown';
 
-    // Check if this visitor already accessed recently (within last hour)
-    if (!from_storage) {
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-        const recentAccess = meeting.access_history?.find(access => 
-            access.visitor_email === visitor_email.toLowerCase() && 
-            access.access_time > oneHourAgo
-        );
-
-        if (recentAccess) {
-            console.log('🔄 Visitor already accessed recently, updating last access time');
-            recentAccess.access_time = new Date();
-            await meeting.save();
-            
-            return res.status(200).json({
-                success: true,
-                message: "Welcome back! Your access has been refreshed.",
-                access_count: meeting.total_access_count,
-                visitor_info: {
-                    name: visitor_name,
-                    email: visitor_email,
-                    access_time: recentAccess.access_time,
-                    returning_visitor: true
-                }
-            });
-        }
-    }
-
-    // Create new visitor access record
+    // Create visitor access record - NO CACHE CHECKS
     const visitorAccess = {
         visitor_name: visitor_name.trim(),
         visitor_email: visitor_email.trim().toLowerCase(),
         access_time: new Date(),
         ip_address: ip_address,
-        user_agent: user_agent,
-        from_storage: from_storage || false
+        user_agent: user_agent
     };
 
     // Add to access history
@@ -723,27 +693,30 @@ export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
     meeting.access_history.push(visitorAccess);
     meeting.total_access_count = (meeting.total_access_count || 0) + 1;
 
+    // ============ CLEANUP OLD ACCESS RECORDS ============
+    // Remove access records older than 24 hours to keep database clean
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    meeting.access_history = meeting.access_history.filter(access => 
+        access.access_time > twentyFourHoursAgo
+    );
+
     await meeting.save();
 
     console.log(`✅ Visitor access recorded successfully:`, {
         meeting_id: meetingId,
         visitor: visitor_name,
         email: visitor_email,
-        total_access: meeting.total_access_count,
-        from_storage
+        total_access: meeting.total_access_count
     });
 
     res.status(200).json({
         success: true,
-        message: from_storage ? 
-            "Access restored from saved session" : 
-            "Visitor access recorded successfully",
+        message: "Visitor access recorded successfully",
         access_count: meeting.total_access_count,
         visitor_info: {
             name: visitor_name,
             email: visitor_email,
-            access_time: visitorAccess.access_time,
-            session_expires: new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
+            access_time: visitorAccess.access_time
         }
     });
 });
