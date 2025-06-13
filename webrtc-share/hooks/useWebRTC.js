@@ -723,11 +723,15 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             }
             
             const settings = videoTrack.getSettings();
+            const timestamp = Date.now();
+            const uniqueId = Math.random().toString(36).substring(2, 15);
+            
             console.log('📸 Taking ULTRA HIGH QUALITY screenshot from stream:', {
                 width: settings.width,
                 height: settings.height,
                 frameRate: settings.frameRate,
-                timestamp: new Date().toISOString()
+                timestamp: new Date(timestamp).toISOString(),
+                uniqueId: uniqueId
             });
             
             // Use the actual video element for capturing
@@ -741,7 +745,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                 try {
                     // FIXED: Force video to current time to ensure fresh frame
                     const currentTime = sourceVideo.currentTime;
-                    console.log('📸 Capturing frame at video time:', currentTime);
+                    console.log('📸 Capturing frame at video time:', currentTime, 'with unique ID:', uniqueId);
                     
                     // Get the actual video dimensions - ENHANCED for ultra high resolution
                     const videoWidth = sourceVideo.videoWidth || settings.width || 3840;
@@ -752,11 +756,14 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                         videoHeight,
                         readyState: sourceVideo.readyState,
                         currentTime: currentTime,
-                        paused: sourceVideo.paused
+                        paused: sourceVideo.paused,
+                        timestamp: timestamp,
+                        uniqueId: uniqueId
                     });
                     
-                    // ENHANCED: Create ULTRA high-resolution canvas
+                    // ENHANCED: Create ULTRA high-resolution canvas with unique ID
                     const canvas = document.createElement('canvas');
+                    canvas.id = `screenshot-canvas-${timestamp}-${uniqueId}`;
                     const scale = 4; // 4x resolution for ultra crispy images
                     canvas.width = videoWidth * scale;
                     canvas.height = videoHeight * scale;
@@ -796,6 +803,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                         
                         // Method 2: Alternative capture with video refresh
                         ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.scale(scale, scale); // Re-apply scale after clear
                         
                         // Force video refresh by seeking to current time
                         const originalTime = sourceVideo.currentTime;
@@ -804,38 +812,66 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                         setTimeout(() => {
                             ctx.drawImage(sourceVideo, 0, 0, videoWidth, videoHeight);
                             
-                            // Generate screenshot
+                            // Generate screenshot with COMPLETELY unique identifier
                             const screenshot = canvas.toDataURL('image/png', 1.0);
+                            const completelyUniqueScreenshot = {
+                                id: `screenshot-${timestamp}-${uniqueId}`,
+                                data: screenshot,
+                                timestamp: timestamp,
+                                uniqueId: uniqueId,
+                                captureTime: currentTime,
+                                url: `${screenshot}#unique-${timestamp}-${uniqueId}`
+                            };
                             
-                            // FIXED: Add simple timestamp for uniqueness without breaking canvas
-                            setScreenshots((prev) => [screenshot, ...prev]);
+                            // FIXED: Add completely unique screenshot as object
+                            setScreenshots((prev) => {
+                                // Add to the end of array for chronological order (oldest first, newest last)
+                                return [...prev, completelyUniqueScreenshot];
+                            });
+                            
                             console.log('✅ ULTRA HIGH QUALITY screenshot captured (alternative method):', {
                                 resolution: `${canvas.width}x${canvas.height}`,
                                 scale: `${scale}x`,
                                 size: `${Math.round(screenshot.length / 1024)}KB`,
                                 format: 'PNG (Maximum Quality)',
-                                timestamp: new Date().toISOString()
+                                timestamp: new Date(timestamp).toISOString(),
+                                uniqueId: uniqueId,
+                                screenshotId: completelyUniqueScreenshot.id
                             });
                             
                             // Restore original time
                             sourceVideo.currentTime = originalTime;
+                            
+                            // FIXED: Clean up canvas
+                            canvas.remove();
                         }, 50);
                         
                         return;
                     }
                     
-                    // ENHANCED: Generate ultra high quality PNG
+                    // ENHANCED: Generate ultra high quality PNG with COMPLETELY unique identifier
                     const screenshot = canvas.toDataURL('image/png', 1.0);
+                    const completelyUniqueScreenshot = {
+                        id: `screenshot-${timestamp}-${uniqueId}`,
+                        data: screenshot,
+                        timestamp: timestamp,
+                        uniqueId: uniqueId,
+                        captureTime: currentTime,
+                        url: `${screenshot}#unique-${timestamp}-${uniqueId}`
+                    };
                     
-                    // FIXED: Simple array addition without unique identifiers that break canvas
-                    setScreenshots((prev) => [screenshot, ...prev]);
+                    // FIXED: Add completely unique screenshot as object with proper structure
+                    // Change to add at end of array to preserve chronological order
+                    setScreenshots((prev) => [...prev, completelyUniqueScreenshot]);
                     console.log('✅ ULTRA HIGH QUALITY screenshot captured:', {
                         resolution: `${canvas.width}x${canvas.height}`,
                         scale: `${scale}x`,
                         size: `${Math.round(screenshot.length / 1024)}KB`,
                         format: 'PNG (Maximum Quality)',
-                        timestamp: new Date().toISOString(),
-                        videoTime: currentTime
+                        timestamp: new Date(timestamp).toISOString(),
+                        videoTime: currentTime,
+                        uniqueId: uniqueId,
+                        screenshotId: completelyUniqueScreenshot.id
                     });
                     
                     // FIXED: Clean up canvas
@@ -846,13 +882,18 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                 }
             };
             
-            // FIXED: Simplified capture strategy
+            // FIXED: Simplified capture strategy with better timing
             if (sourceVideo.readyState >= 2) { // HAVE_CURRENT_DATA
-                captureFrame();
+                // Add small delay to ensure frame is fresh
+                setTimeout(() => {
+                    captureFrame();
+                }, 100);
             } else {
                 // Wait for video to be ready
                 const handleLoadedData = () => {
-                    captureFrame();
+                    setTimeout(() => {
+                        captureFrame();
+                    }, 100);
                     sourceVideo.removeEventListener('loadeddata', handleLoadedData);
                 };
                 sourceVideo.addEventListener('loadeddata', handleLoadedData);
@@ -861,7 +902,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                 setTimeout(() => {
                     sourceVideo.removeEventListener('loadeddata', handleLoadedData);
                     captureFrame();
-                }, 1000);
+                }, 1500);
             }
             
         } catch (error) {

@@ -138,7 +138,7 @@ export default function Page({ params }) {
     );
   }, [isConnected, recordings.length, screenshots.length, isSaving, isEndingSave, saveInProgress]);
 
-  // NEW: Extract common save logic
+  // NEW: Extract common save logic - FIXED to properly handle drawings
   const performSave = useCallback(async (options = {}) => {
     const { disconnectVideo = false } = options;
     
@@ -177,13 +177,23 @@ export default function Page({ params }) {
       }
     }
 
-    // Process screenshots with duplicate prevention
+    // Process screenshots with duplicate prevention AND drawings merge
     const screenshotsData = [];
     const processedScreenshots = new Set();
     
     for (let i = 0; i < screenshots.length; i++) {
       const screenshot = screenshots[i];
-      const screenshotKey = `screenshot-${i}-${screenshot.substring(0, 50)}`;
+      // FIXED: Handle different screenshot formats (object or string)
+      let screenshotIdentifier;
+      if (typeof screenshot === 'object' && screenshot !== null) {
+        screenshotIdentifier = screenshot.id || screenshot.data?.substring(0, 50) || i;
+      } else if (typeof screenshot === 'string') {
+        screenshotIdentifier = screenshot.substring(0, 50);
+      } else {
+        screenshotIdentifier = `screenshot-${i}`;
+      }
+      
+      const screenshotKey = `screenshot-${i}-${screenshotIdentifier}`;
       
       if (processedScreenshots.has(screenshotKey)) {
         console.log('⚠️ Skipping duplicate screenshot:', screenshotKey);
@@ -193,27 +203,55 @@ export default function Page({ params }) {
       processedScreenshots.add(screenshotKey);
       
       try {
-        let finalScreenshotData = screenshot;
+        let finalScreenshotData = typeof screenshot === 'object' ? screenshot.data || screenshot : screenshot;
+        if (typeof finalScreenshotData === 'string') {
+          finalScreenshotData = finalScreenshotData.split('#')[0]; // Clean URL
+        }
+        
         const canvasId = `new-${i}`;
 
-        if (drawingData[canvasId]) {
-          console.log(`🎨 Merging drawings for screenshot ${i + 1}...`);
-          finalScreenshotData = await mergeWithBackground(screenshot, canvasId);
-          console.log(`✅ Drawing merge completed for screenshot ${i + 1}`);
+        console.log(`🎨 Checking for drawings in canvas ${canvasId} for screenshot ${i + 1}`);
+        console.log('📊 Available drawing data keys:', Object.keys(drawingData));
+
+        // FIXED: Check for drawings and merge them
+        if (drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0) {
+          console.log(`🎨 Found ${drawingData[canvasId].strokes.length} strokes for screenshot ${i + 1}. Merging drawings...`);
+          try {
+            finalScreenshotData = await mergeWithBackground(finalScreenshotData, canvasId);
+            console.log(`✅ Drawing merge completed for screenshot ${i + 1}`);
+          } catch (mergeError) {
+            console.error(`❌ Error merging drawings for screenshot ${i + 1}:`, mergeError);
+          }
+        } else {
+          console.log(`ℹ️ No drawings found for screenshot ${i + 1} (canvas: ${canvasId})`);
         }
 
         screenshotsData.push({
           data: finalScreenshotData,
           timestamp: new Date().toISOString(),
-          size: finalScreenshotData.length
+          size: finalScreenshotData.length,
+          hasDrawings: drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0
         });
-        console.log(`✅ NEW screenshot ${i + 1} processed successfully`);
+        console.log(`✅ NEW screenshot ${i + 1} processed successfully with drawings: ${screenshotsData[screenshotsData.length - 1].hasDrawings}`);
       } catch (error) {
         console.error(`❌ Error processing screenshot ${i + 1}:`, error);
+        // Fallback handling for invalid screenshot data
+        let fallbackData;
+        try {
+          fallbackData = typeof screenshot === 'object' ? screenshot.data || JSON.stringify(screenshot) : String(screenshot);
+          if (typeof fallbackData === 'string' && fallbackData.indexOf('#') > 0) {
+            fallbackData = fallbackData.split('#')[0];
+          }
+        } catch (fallbackError) {
+          console.error('Failed to create fallback screenshot data:', fallbackError);
+          fallbackData = `fallback-screenshot-${i}`;
+        }
+        
         screenshotsData.push({
-          data: screenshot,
+          data: fallbackData,
           timestamp: new Date().toISOString(),
-          size: screenshot.length
+          size: typeof fallbackData === 'string' ? fallbackData.length : 0,
+          hasDrawings: false
         });
       }
     }
@@ -236,6 +274,7 @@ export default function Page({ params }) {
       update_mode: formData.update_mode,
       new_recordings_count: recordingsData.length,
       new_screenshots_count: screenshotsData.length,
+      screenshots_with_drawings: screenshotsData.filter(s => s.hasDrawings).length,
       existing_recordings_count: existingRecordings.length,
       total_recordings_after_save: existingRecordings.length + recordingsData.length
     });
@@ -245,6 +284,14 @@ export default function Page({ params }) {
 
     // Reset pencil mode and clear all drawing data
     setActivePencilScreenshot(null);
+
+    // Clear all drawing data after successful save
+    Object.keys(drawingData).forEach(canvasId => {
+      if (canvasId.startsWith('new-')) {
+        console.log('🧹 Clearing drawing data for:', canvasId);
+        delete drawingData[canvasId];
+      }
+    });
 
     // Update recordings state to mark all recordings as existing/saved - ATOMIC UPDATE
     setRecordings(prev => prev.map(rec => ({
@@ -258,7 +305,8 @@ export default function Page({ params }) {
         id: `saved-${Date.now()}-${index}-${Math.random()}`, // Add random to ensure uniqueness
         url: screenshot.data,
         timestamp: new Date(screenshot.timestamp).toLocaleString(),
-        isExisting: true
+        isExisting: true,
+        hasDrawings: screenshot.hasDrawings
       }));
 
       setExistingScreenshots(prev => {
@@ -270,6 +318,7 @@ export default function Page({ params }) {
           console.log('⚠️ Filtered out duplicate screenshots');
         }
         
+        // Add to the end of the array instead of beginning for chronological order
         return [...prev, ...uniqueNewScreenshots];
       });
 
@@ -881,8 +930,17 @@ export default function Page({ params }) {
   };
 
   // Local screenshot delete function (for new screenshots from useWebRTC)
-  const deleteNewScreenshot = (screenshotIndex) => {
+  const deleteNewScreenshot = (screenshotIndex, screenshotId) => {
     try {
+      console.log('🗑️ Deleting screenshot:', { index: screenshotIndex, id: screenshotId });
+      
+      // Clean up any associated drawing data before deleting
+      const canvasId = screenshotId || `new-${screenshotIndex}`;
+      if (drawingData[canvasId]) {
+        console.log('🧹 Cleaning up drawing data for:', canvasId);
+        delete drawingData[canvasId];
+      }
+      
       // Use the deleteScreenshot function from useWebRTC hook
       deleteScreenshot(screenshotIndex);
       toast.success("Screenshot removed!");
@@ -893,213 +951,29 @@ export default function Page({ params }) {
   };
 
 
-  // Updated clear canvas function
-  const clearCanvas = useCallback((canvasId) => {
-    console.log('Clearing canvas:', canvasId);
-    clearDrawingCanvas(canvasId);
-    toast.info("Canvas cleared");
-  }, [clearDrawingCanvas]);
-
-  // Add effect to close dropdown when clicking outside (updated)
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showPencilDropdown &&
-        !event.target.closest('.pencil-dropdown-container') &&
-        !event.target.closest('[data-canvas-id]')) {
-        console.log('Clicking outside, closing dropdown');
-        setShowPencilDropdown(null);
-        setActivePencilScreenshot(null);
-      }
-    };
-
-    if (showPencilDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showPencilDropdown]);
-
-  // FIXED: Pencil tool functions with better state management
-  const handlePencilClick = useCallback((canvasId) => {
-    console.log('🖋️ Pencil button clicked for canvas:', canvasId);
+  // Update the handlePencilClick function to use screenshot ID instead of canvas index
+  const handlePencilClick = useCallback((canvasId, screenshotId) => {
+    console.log('🖋️ Pencil button clicked for canvas:', canvasId, 'screenshot ID:', screenshotId);
     console.log('Current state - active:', activePencilScreenshot, 'dropdown:', showPencilDropdown);
 
-    if (showPencilDropdown === canvasId) {
+    // Use the screenshot ID as the identifier
+    const activeId = screenshotId || canvasId;
+
+    if (showPencilDropdown === activeId) {
       // If dropdown is already open for this canvas, close it
-      console.log('Closing dropdown for:', canvasId);
+      console.log('Closing dropdown for:', activeId);
       setShowPencilDropdown(null);
     } else {
       // Open dropdown for this canvas
-      console.log('Opening dropdown for:', canvasId);
-      setActivePencilScreenshot(canvasId);  // Set active for drawing
-      setShowPencilDropdown(canvasId);     // Show dropdown
+      console.log('Opening dropdown for:', activeId);
+      setActivePencilScreenshot(activeId);  // Set active for drawing
+      setShowPencilDropdown(activeId);     // Show dropdown
     }
   }, [activePencilScreenshot, showPencilDropdown]);
 
-  const handleColorSelect = useCallback((color) => {
-    setSelectedColor(color);
-
-    // Immediate visual feedback - update any active canvas context
-    if (contextRef?.current) {
-      contextRef.current.strokeStyle = color;
-    }
-
-    console.log('Color changed to:', color); // Debug log
-  }, [setSelectedColor]);
-
-  const handleToolSelect = useCallback((tool) => {
-    setSelectedTool(tool);
-    console.log('Tool changed to:', tool); // Debug log
-  }, [setSelectedTool]);
-
-  // Add effect to close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showPencilDropdown &&
-        !event.target.closest('.pencil-dropdown-container')) {
-        setShowPencilDropdown(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showPencilDropdown]);
-
-  // Add effect to fetch existing meeting data when component mounts
-  useEffect(() => {
-    if (!isClient || !id) return;
-
-    const fetchExistingMeetingData = async () => {
-      setIsLoadingMeetingData(true);
-      try {
-        console.log('🔍 Fetching existing meeting data for ID:', id);
-        const response = await getMeetingByMeetingId(id);
-
-        if (response.data.success && response.data.meeting) {
-          const meetingData = response.data.meeting;
-          console.log('✅ Found existing meeting data:', meetingData);
-
-          // Pre-populate form fields with existing data
-          setResidentName(meetingData.name || "");
-          setResidentAddress(meetingData.address || "");
-          setPostCode(meetingData.post_code || "");
-          setRepairDetails(meetingData.repair_detail || "");
-          setTargetTime(meetingData.target_time || "Emergency 24 Hours");
-
-          // Store existing recordings
-          if (meetingData.recordings && meetingData.recordings.length > 0) {
-            const existingRecordings = meetingData.recordings.map(rec => ({
-              id: rec._id || Date.now() + Math.random(),
-              url: rec.url,
-              blob: null,
-              timestamp: new Date(rec.timestamp).toLocaleString(),
-              duration: rec.duration || 0,
-              isExisting: true
-            }));
-            setRecordings(existingRecordings);
-          }
-
-          // Store existing screenshots
-          if (meetingData.screenshots && meetingData.screenshots.length > 0) {
-            const existingScreenshotsData = meetingData.screenshots.map(screenshot => ({
-              id: screenshot._id || Date.now() + Math.random(),
-              url: screenshot.url,
-              timestamp: new Date(screenshot.timestamp).toLocaleString(),
-              isExisting: true
-            }));
-            setExistingScreenshots(existingScreenshotsData);
-            console.log('📸 Loaded existing screenshots:', existingScreenshotsData.length);
-          }
-
-          setExistingMeetingData(meetingData);
-
-          toast.success("Meeting data loaded successfully!", {
-            description: `Found ${meetingData.recordings?.length || 0} recordings and ${meetingData.screenshots?.length || 0} screenshots`
-          });
-        }
-      } catch (error) {
-        // Handle different types of errors gracefully
-        if (error.code === 'ERR_NETWORK') {
-          console.log('ℹ️ Cannot connect to server - this is normal if server is starting up');
-        } else if (error?.response?.status === 404) {
-          console.log('ℹ️ No existing meeting data found for ID:', id, '(This is normal for new meetings)');
-        } else if (error?.response?.status === 500) {
-          console.log('ℹ️ Server error while fetching meeting data - this may be temporary');
-        } else if (error.code === 'ECONNABORTED') {
-          console.log('ℹ️ Request timeout while fetching meeting data');
-        } else {
-          console.log('ℹ️ Error fetching meeting data:', error.message);
-        }
-      } finally {
-        setIsLoadingMeetingData(false);
-      }
-    };
-
-    fetchExistingMeetingData();
-  }, [id, isClient]);
-
-  // ENHANCED: Add individual save functions with ultra high quality processing
-  const saveIndividualRecording = useCallback(async (recording) => {
-    if (recording.isExisting) {
-      toast.info("Recording already saved");
-      return;
-    }
-
-    const itemKey = `recording-${recording.id}`;
-    
-    // Prevent duplicate processing
-    if (processedItemsRef.current.has(itemKey)) {
-      console.log('⚠️ Recording already being processed:', itemKey);
-      return;
-    }
-    
-    processedItemsRef.current.add(itemKey);
-
-    try {
-      setSavingRecordingId(recording.id);
-      console.log('💾 Saving individual recording...');
-
-      const base64Data = await blobToBase64(recording.blob);
-      const recordingsData = [{
-        data: base64Data,
-        timestamp: recording.timestamp,
-        duration: recording.duration,
-        size: recording.blob.size
-      }];
-
-      const formData = {
-        meeting_id: id,
-        name: residentName,
-        address: residentAddress,
-        post_code: postCode,
-        repair_detail: repairDetails,
-        target_time: targetTime,
-        recordings: recordingsData,
-        screenshots: [],
-        update_mode: existingMeetingData ? 'update' : 'create'
-      };
-
-      const response = await createRequest(formData);
-
-      // Update the recording to mark it as existing - ATOMIC UPDATE
-      setRecordings(prev => prev.map(r =>
-        r.id === recording.id
-          ? { ...r, isExisting: true }
-          : r
-      ));
-
-      toast.success("Recording saved successfully!");
-
-    } catch (error) {
-      console.error('❌ Save recording failed:', error);
-      toast.error("Failed to save recording");
-    } finally {
-      setSavingRecordingId(null);
-      processedItemsRef.current.delete(itemKey);
-    }
-  }, [id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData]);
-
-  const saveIndividualScreenshot = useCallback(async (screenshotData, index) => {
-    const itemKey = `screenshot-${index}`;
+  // Update the save individual screenshot function to use screenshot ID
+  const saveIndividualScreenshot = useCallback(async (screenshotData, index, screenshotId) => {
+    const itemKey = `screenshot-${screenshotId || index}`;
     
     // Prevent duplicate processing
     if (processedItemsRef.current.has(itemKey)) {
@@ -1111,17 +985,32 @@ export default function Page({ params }) {
 
     try {
       setSavingScreenshotIndex(index);
-      console.log('💾 Saving individual ULTRA HIGH QUALITY screenshot...', index);
+      console.log('💾 Saving individual ULTRA HIGH QUALITY screenshot...', index, 'ID:', screenshotId);
 
       // FIXED: Use clean screenshot data (remove unique identifiers)
       let finalScreenshotData = screenshotData.split('#')[0]; // Remove timestamp markers
-      const canvasId = `new-${index}`;
+      
+      // Use screenshot ID to track drawing data instead of index-based canvasId
+      const canvasId = screenshotId || `new-${index}`;
+
+      console.log('🎨 Checking for drawings in canvas:', canvasId);
+      console.log('📊 Available drawing data:', Object.keys(drawingData));
 
       // ENHANCED: Check if this screenshot has drawings and merge them at ULTRA HIGH resolution
-      if (drawingData[canvasId]) {
-        console.log('🎨 Merging drawings with screenshot at ULTRA HIGH resolution...');
-        finalScreenshotData = await mergeWithBackground(finalScreenshotData, canvasId);
-        console.log('✅ ULTRA HIGH quality drawing merge completed');
+      if (drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0) {
+        console.log('🎨 Found drawings for canvas:', canvasId, 'Strokes:', drawingData[canvasId].strokes.length);
+        console.log('🖼️ Merging drawings with screenshot at ULTRA HIGH resolution...');
+        
+        try {
+          finalScreenshotData = await mergeWithBackground(finalScreenshotData, canvasId);
+          console.log('✅ ULTRA HIGH quality drawing merge completed successfully');
+        } catch (mergeError) {
+          console.error('❌ Error merging drawings:', mergeError);
+          console.log('📷 Proceeding with original screenshot without drawings');
+        }
+      } else {
+        console.log('ℹ️ No drawings found for canvas:', canvasId);
+        console.log('📋 Canvas data structure:', drawingData[canvasId]);
       }
 
       // ENHANCED: Additional quality check - ensure PNG format for maximum quality
@@ -1160,7 +1049,8 @@ export default function Page({ params }) {
           timestamp: new Date().toISOString(),
           size: imageData.length,
           quality: 'ultra_high',
-          index: index // Add index for tracking
+          index: index, // Add index for tracking
+          hasDrawings: drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0
         }];
 
         const formData = {
@@ -1175,11 +1065,21 @@ export default function Page({ params }) {
           update_mode: existingMeetingData ? 'update' : 'create'
         };
 
+        console.log('📤 Sending screenshot data to server:', {
+          hasDrawings: screenshotsData[0].hasDrawings,
+          dataSize: Math.round(imageData.length / 1024) + 'KB',
+          canvasId: canvasId
+        });
+
         const response = await createRequest(formData);
 
-        toast.success("Ultra high quality screenshot saved successfully!");
+        toast.success(
+          screenshotsData[0].hasDrawings 
+            ? "Ultra high quality screenshot with drawings saved successfully!" 
+            : "Ultra high quality screenshot saved successfully!"
+        );
 
-        // Clear pencil mode and drawing data
+        // Clear pencil mode and drawing data after successful save
         setActivePencilScreenshot(null);
         setShowPencilDropdown(null);
 
@@ -1189,7 +1089,8 @@ export default function Page({ params }) {
           url: imageData,
           timestamp: new Date().toLocaleString(),
           isExisting: true,
-          quality: 'ultra_high'
+          quality: 'ultra_high',
+          hasDrawings: screenshotsData[0].hasDrawings
         };
 
         setExistingScreenshots(prev => {
@@ -1199,12 +1100,19 @@ export default function Page({ params }) {
             console.log('⚠️ Screenshot already in existing array, skipping add');
             return prev;
           }
+          // Add to the end of the array instead of beginning for chronological order
           return [...prev, newSavedScreenshot];
         });
 
         // Remove the screenshot from new screenshots array
         deleteScreenshot(index);
         console.log(`🧹 Removed ultra high quality screenshot at index ${index} from new screenshots array`);
+        
+        // Clear the drawing data for this canvas after successful save
+        if (drawingData[canvasId]) {
+          console.log('🧹 Clearing drawing data for canvas:', canvasId);
+          delete drawingData[canvasId];
+        }
       }
 
     } catch (error) {
@@ -1872,7 +1780,9 @@ export default function Page({ params }) {
                           disabled={recording.isExisting || savingRecordingId === recording.id}
                         >
                           {savingRecordingId === recording.id ? (
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <div className="w-4 h-4 flex items-center justify-center">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            </div>
                           ) : (
                             <Save className="w-4 h-4" />
                           )}
@@ -1925,61 +1835,79 @@ export default function Page({ params }) {
                   <h1>No screenshots</h1>
                 )}
 
-                {/* Render existing screenshots first */}
-                {existingScreenshots.map((screenshot, index) => (
-                  <div key={`existing-${screenshot.id}`}>
-                    <img src="/icons/ci_label.svg" className="mb-2" />
-                    <div className="aspect-square bg-gray-200 rounded-md overflow-hidden flex items-center justify-center relative">
-                      <div className="absolute top-2 right-2 flex flex-row gap-1 z-10">
-                        <button className="p-1 hover:bg-black/20 rounded text-white">
-                          <Minimize2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          className="p-1 hover:bg-black/20 rounded text-white"
-                          onClick={() => maximizeScreenshot(screenshot, index, true)}
-                        >
-                          <Expand className="w-4 h-4" />
-                        </button>
-                      </div>
+                {/* Sort existing screenshots to ensure chronological order (oldest first) */}
+                {existingScreenshots
+                  .sort((a, b) => {
+                    // Convert timestamp strings to Date objects for proper comparison
+                    const dateA = new Date(a.timestamp);
+                    const dateB = new Date(b.timestamp);
+                    return dateA - dateB; // Ascending order (oldest first)
+                  })
+                  .map((screenshot, index) => (
+                    <div key={`existing-${screenshot.id}`}>
+                      <img src="/icons/ci_label.svg" className="mb-2" />
+                      <div className="aspect-square bg-gray-200 rounded-md overflow-hidden flex items-center justify-center relative">
+                        <div className="absolute top-2 right-2 flex flex-row gap-1 z-10">
+                          <button className="p-1 hover:bg-black/20 rounded text-white">
+                            <Minimize2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            className="p-1 hover:bg-black/20 rounded text-white"
+                            onClick={() => maximizeScreenshot(screenshot, index, true)}
+                          >
+                            <Expand className="w-4 h-4" />
+                          </button>
+                        </div>
 
-                      {/* Action icons for existing screenshots */}
-                      <div className="absolute bottom-2 right-2 flex flex-col gap-1 z-10">
-                        <button className="p-1 hover:bg-black/20 rounded text-white opacity-50" disabled>
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 hover:bg-black/20 rounded text-white opacity-50" disabled title="Already saved">
-                          <Save className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => deleteExistingScreenshot(screenshot)}
-                          className="p-1 hover:bg-black/20 rounded text-white"
-                          title="Delete screenshot"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                        {/* Action icons for existing screenshots */}
+                        <div className="absolute bottom-2 right-2 flex flex-col gap-1 z-10">
+                          <button className="p-1 hover:bg-black/20 rounded text-white opacity-50" disabled>
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button className="p-1 hover:bg-black/20 rounded text-white opacity-50" disabled title="Already saved">
+                            <Save className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteExistingScreenshot(screenshot)}
+                            className="p-1 hover:bg-black/20 rounded text-white"
+                            title="Delete screenshot"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
 
-                      {/* Existing Screenshot Image */}
-                      <img
-                        src={screenshot.url}
-                        alt="existing screenshot"
-                        className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
-                      />
+                        {/* Existing Screenshot Image */}
+                        <img
+                          src={screenshot.url}
+                          alt="existing screenshot"
+                          className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
-                {/* Render new screenshots from useWebRTC with RIGHT DROPDOWN */}
-                {screenshots.map((screenshot, index) => {
-                  const canvasId = `new-${index}`;
+                {/* Render new screenshots in chronological order (as they were taken) */}
+                {[...screenshots].map((screenshot, index) => {
+                  // ENHANCED: Handle both object and string screenshot formats
+                  const screenshotData = typeof screenshot === 'object' ? screenshot.data : screenshot;
+                  // FIXED: Use more reliable unique ID for each screenshot
+                  const screenshotId = typeof screenshot === 'object' ? 
+                    (screenshot.id || `screenshot-${screenshot.timestamp || Date.now()}-${Math.random()}`) : 
+                    `screenshot-${index}-${Date.now()}-${Math.random()}`;
+                  const screenshotUniqueId = typeof screenshot === 'object' ? screenshot.uniqueId : `${index}`;
+                  
+                  // FIXED: Use screenshot ID as canvasId to keep drawings attached to the correct screenshot
+                  const canvasId = screenshotId;
                   const isActive = activePencilScreenshot === canvasId;
                   const shouldShowDropdown = showPencilDropdown === canvasId;
                   
-                  // FIXED: Use clean screenshot URL without breaking drawing functionality
-                  const cleanScreenshotUrl = screenshot.split('#')[0];
+                  // FIXED: Use clean screenshot URL without excessive unique identifiers
+                  const cleanScreenshotUrl = screenshotData.split('#')[0];
+
+                  console.log(`🖼️ Rendering screenshot ${index}:`, { canvasId, screenshotId });
 
                   return (
-                    <div key={`screenshot-container-${index}`} className="relative pencil-dropdown-container">
+                    <div key={`screenshot-container-${screenshotId}`} className="relative pencil-dropdown-container">
                       <img src="/icons/ci_label.svg" className="mb-2" />
                       <div className="aspect-square bg-gray-200 rounded-md overflow-visible flex items-center justify-center relative">
                         {/* Minimize/Maximize icons */}
@@ -1989,7 +1917,10 @@ export default function Page({ params }) {
                           </button>
                           <button
                             className="p-1 hover:bg-black/20 rounded text-white"
-                            onClick={() => maximizeScreenshot(cleanScreenshotUrl, index, false)}
+                            onClick={() => {
+                              console.log('🔍 Maximizing screenshot:', { index, cleanScreenshotUrl });
+                              maximizeScreenshot(cleanScreenshotUrl, index, false);
+                            }}
                           >
                             <Expand className="w-4 h-4" />
                           </button>
@@ -2001,30 +1932,39 @@ export default function Page({ params }) {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              console.log('🖋️ Pencil clicked for:', canvasId);
-                              handlePencilClick(canvasId);
+                              console.log('🖋️ Pencil clicked for canvas:', canvasId);
+                              handlePencilClick(canvasId, screenshotId);
                             }}
-                            className={`p-1 hover:bg-black/20 rounded text-white transition-colors border-2 ${isActive ? 'bg-blue-500 border-blue-300' : 'bg-black/10 border-transparent'
-                              }`}
+                            className={`p-1 hover:bg-black/20 rounded text-white transition-colors border-2 ${
+                              isActive ? 'bg-blue-500 border-blue-300' : 'bg-black/10 border-transparent'
+                            }`}
                             title="Drawing tools"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
 
                           <button
-                            onClick={() => saveIndividualScreenshot(cleanScreenshotUrl, index)}
+                            onClick={() => {
+                              console.log('💾 Saving individual screenshot:', { index, cleanScreenshotUrl, id: screenshotId });
+                              saveIndividualScreenshot(cleanScreenshotUrl, index, screenshotId);
+                            }}
                             className={`p-1 hover:bg-black/20 rounded text-white ${savingScreenshotIndex === index ? 'opacity-80' : ''}`}
                             title="Save screenshot"
                             disabled={savingScreenshotIndex === index}
                           >
                             {savingScreenshotIndex === index ? (
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <div className="w-4 h-4 flex items-center justify-center">
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              </div>
                             ) : (
                               <Save className="w-4 h-4" />
                             )}
                           </button>
-                                                                                                     <button
-                            onClick={() => deleteNewScreenshot(index)}
+                          <button
+                            onClick={() => {
+                              console.log('🗑️ Deleting screenshot:', { index, id: screenshotId });
+                              deleteNewScreenshot(index, screenshotId);
+                            }}
                             className="p-1 hover:bg-black/20 rounded text-white"
                             title="Delete screenshot"
                           >
@@ -2032,46 +1972,47 @@ export default function Page({ params }) {
                           </button>
                         </div>
 
-                        {/* FIXED: Screenshot Image with proper loading */}
+                        {/* FIXED: Screenshot Image with stable loading and NO LOOPS */}
                         <img
-                          key={`screenshot-img-${index}`}
+                          key={`screenshot-img-${screenshotId}`}
                           src={cleanScreenshotUrl}
                           alt={`screenshot ${index + 1}`}
                           className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
                           onLoad={(e) => {
                             console.log(`📸 Screenshot ${index + 1} loaded successfully`);
-                            // FIXED: Initialize canvas after image loads
+                            
+                            // CRITICAL: Only initialize canvas ONCE per screenshot
                             const canvas = e.target.parentElement.querySelector(`canvas[data-canvas-id="${canvasId}"]`);
                             if (canvas) {
-                              console.log(`🎨 Re-initializing canvas for ${canvasId} after image load`);
+                              console.log(`🎨 Found canvas for initialization: ${canvasId}`);
+                              // FIXED: Only initialize if not already initialized
                               initializeCanvas(canvas, cleanScreenshotUrl, canvasId);
+                            } else {
+                              console.warn(`❌ Canvas not found for canvasId: ${canvasId}`);
                             }
                           }}
+                          onError={(e) => {
+                            console.error(`❌ Error loading screenshot ${index + 1}:`, e);
+                          }}
+                          data-screenshot-id={screenshotId} // Store ID on the element
                         />
 
-                        {/* FIXED: Canvas for drawings with proper event handling */}
+                        {/* FIXED: Canvas for drawings with STABLE event handling */}
                         <canvas
-                          key={`canvas-${index}`}
+                          key={`canvas-${screenshotId}`}
                           data-canvas-id={canvasId}
-                          ref={(canvas) => {
-                            if (canvas && cleanScreenshotUrl) {
-                              console.log(`🎨 Setting up canvas for ${canvasId}`);
-                              canvas.setAttribute('data-background', cleanScreenshotUrl);
-                              canvas.setAttribute('data-screenshot-index', index);
-                              
-                              // Initialize canvas immediately
-                              initializeCanvas(canvas, cleanScreenshotUrl, canvasId);
-                            }
-                          }}
+                          data-screenshot-id={screenshotId}
+                          data-screenshot-index={index}
                           className={`absolute top-0 left-0 w-full h-full z-10 rounded-md transition-all ${
                             isActive 
                               ? 'cursor-crosshair pointer-events-auto' 
                               : 'pointer-events-none'
                           }`}
                           style={{
-                            // FIXED: Ensure canvas is properly positioned and visible
                             pointerEvents: isActive ? 'auto' : 'none',
-                            touchAction: isActive ? 'none' : 'auto'
+                            touchAction: isActive ? 'none' : 'auto',
+                            zIndex: isActive ? 15 : 10,
+                            border: isActive ? '2px solid #3b82f6' : 'none'
                           }}
                           onMouseDown={(e) => {
                             if (isActive) {
@@ -2106,7 +2047,6 @@ export default function Page({ params }) {
                               e.stopPropagation();
                               console.log('👆 Touch start on canvas:', canvasId);
                               const touch = e.touches[0];
-                              const rect = e.target.getBoundingClientRect();
                               const mouseEvent = {
                                 ...e,
                                 clientX: touch.clientX,
@@ -2147,14 +2087,17 @@ export default function Page({ params }) {
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="space-y-3">
-                              {/* Header with Clear and Close buttons */}
                               <div className="flex items-center justify-between pb-2 border-b border-gray-200">
-                                <h3 className="text-sm font-semibold text-gray-800">Drawing Tools</h3>
+                                <h3 className="text-sm font-semibold text-gray-800">
+                                  Drawing Tools
+                                  <span className="text-xs text-gray-500 block">Canvas: {canvasId.substring(0, 10)}...</span>
+                                </h3>
                                 <div className="flex items-center gap-1">
                                   <button
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
+                                      console.log('🧹 Clearing canvas:', canvasId);
                                       clearCanvas(canvasId);
                                     }}
                                     className="p-1 hover:bg-red-50 rounded text-red-600 transition-colors"
@@ -2166,6 +2109,7 @@ export default function Page({ params }) {
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
+                                      console.log('❌ Closing dropdown for:', canvasId);
                                       setShowPencilDropdown(null);
                                       setActivePencilScreenshot(null);
                                     }}
@@ -2187,6 +2131,7 @@ export default function Page({ params }) {
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
+                                        console.log('🔧 Tool selected:', tool.name, 'for canvas:', canvasId);
                                         setSelectedTool(tool.name);
                                       }}
                                       className={`p-2 text-xs border rounded hover:scale-105 transition-all duration-200 flex flex-col items-center gap-1 ${
@@ -2212,6 +2157,7 @@ export default function Page({ params }) {
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
+                                        console.log('🎨 Color selected:', color, 'for canvas:', canvasId);
                                         setSelectedColor(color);
                                       }}
                                       className={`w-6 h-6 rounded border-2 transition-all duration-200 hover:scale-110 ${
@@ -2236,7 +2182,9 @@ export default function Page({ params }) {
                                   value={lineWidth}
                                   onChange={(e) => {
                                     e.stopPropagation();
-                                    setLineWidth(parseInt(e.target.value));
+                                    const newWidth = parseInt(e.target.value);
+                                    console.log('📏 Line width changed:', newWidth, 'for canvas:', canvasId);
+                                    setLineWidth(newWidth);
                                   }}
                                   className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                                   style={{
@@ -2476,7 +2424,7 @@ export default function Page({ params }) {
             >
               {isEndingSave ? (
                 <div className="flex flex-col items-center gap-1">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mb-1" />
                   <span className="text-xs">Ending & Saving...</span>
                 </div>
               ) : (

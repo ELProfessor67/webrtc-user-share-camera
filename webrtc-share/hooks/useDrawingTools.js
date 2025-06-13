@@ -106,81 +106,260 @@ const tools = [
     });
   }, []);
 
-  // IMPROVED Initialize canvas with better scaling
+  // FIXED Initialize canvas with loop prevention
   const initializeCanvas = useCallback((canvas, backgroundImage, canvasId) => {
-    if (!canvas || !backgroundImage) return;
-
-    // If already initialized, just redraw
-    if (initializedCanvases.current.has(canvasId)) {
-      redrawCanvas(canvasId);
+    console.log('🎨 initializeCanvas called:', { canvasId, hasCanvas: !!canvas, hasImage: !!backgroundImage });
+    
+    if (!canvas || !backgroundImage || !canvasId) {
+      console.error('❌ Missing required parameters for canvas initialization');
       return;
     }
 
+    // CRITICAL: Prevent re-initialization loops
+    if (initializedCanvases.current.has(canvasId)) {
+      console.log('⚠️ Canvas already initialized, skipping:', canvasId);
+      return;
+    }
+
+    console.log('🚀 Starting fresh initialization for:', canvasId);
+
+    // FIXED: Clear any existing references first
+    if (canvasRefs.current[canvasId]) {
+      console.log('🧹 Cleaning up existing canvas reference for:', canvasId);
+      delete canvasRefs.current[canvasId];
+      delete contextRefs.current[canvasId];
+      delete drawingData.current[canvasId];
+      delete backgroundImages.current[canvasId];
+    }
+
     const rect = canvas.getBoundingClientRect();
+    console.log('📐 Canvas dimensions:', { width: rect.width, height: rect.height, canvasId });
     
-    // Simplified canvas sizing - no complex DPR scaling
-    canvas.width = rect.width;
-    canvas.height = rect.height;
+    // FIXED: Ensure minimum canvas size
+    const canvasWidth = Math.max(rect.width, 100);
+    const canvasHeight = Math.max(rect.height, 100);
     
-    canvas.style.width = rect.width + 'px';
-    canvas.style.height = rect.height + 'px';
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+    canvas.style.width = canvasWidth + 'px';
+    canvas.style.height = canvasHeight + 'px';
     
     const ctx = canvas.getContext('2d');
     
-    // Simplified context setup
+    // FIXED: Clear any existing content first
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Enhanced context setup
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
+    console.log('✅ Canvas context created successfully for:', canvasId);
+    
     canvasRefs.current[canvasId] = canvas;
     contextRefs.current[canvasId] = ctx;
     
-    // Initialize drawing data if not exists
-    if (!drawingData.current[canvasId]) {
-      drawingData.current[canvasId] = {
-        strokes: [],
-        backgroundImage: backgroundImage,
-        originalWidth: 0,
-        originalHeight: 0,
-        displayWidth: rect.width,
-        displayHeight: rect.height
-      };
-    }
+    // FIXED: Create fresh drawing data with complete structure
+    drawingData.current[canvasId] = {
+      strokes: [],
+      backgroundImage: backgroundImage,
+      originalWidth: 0,
+      originalHeight: 0,
+      displayWidth: canvasWidth,
+      displayHeight: canvasHeight,
+      canvasId: canvasId,
+      initialized: true
+    };
 
-    // Load and cache background image
-    if (!backgroundImages.current[canvasId]) {
-      const img = new Image();
-      img.onload = () => {
-        backgroundImages.current[canvasId] = img;
-        drawingData.current[canvasId].originalWidth = img.naturalWidth;
-        drawingData.current[canvasId].originalHeight = img.naturalHeight;
-        
-        // Draw background without flash
-        requestAnimationFrame(() => {
-          ctx.drawImage(img, 0, 0, rect.width, rect.height);
-          
-          // If there are existing strokes, redraw them
-          if (drawingData.current[canvasId].strokes.length > 0) {
-            redrawCanvas(canvasId);
-          }
-        });
-      };
-      img.src = backgroundImage;
-    } else {
-      // Background already cached, draw immediately
-      const img = backgroundImages.current[canvasId];
-      requestAnimationFrame(() => {
-        ctx.drawImage(img, 0, 0, rect.width, rect.height);
-        if (drawingData.current[canvasId].strokes.length > 0) {
-          redrawCanvas(canvasId);
-        }
-      });
-    }
+    console.log('📊 Drawing data initialized for:', canvasId);
 
+    // CRITICAL: Mark as initialized BEFORE loading image to prevent loops
     initializedCanvases.current.add(canvasId);
-    console.log('Canvas initialized for:', canvasId);
-  }, [redrawCanvas]);
+
+    // Create a colored background while image loads
+    ctx.fillStyle = '#f0f0f0';  // Light gray background
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // FIX: Clean and validate the URL
+    let imageUrl;
+    try {
+      // Handle both data URLs and regular URLs
+      if (typeof backgroundImage === 'string') {
+        if (backgroundImage.startsWith('data:')) {
+          // For data URLs, split at the first # to remove any unique IDs
+          imageUrl = backgroundImage.split('#')[0];
+        } else {
+          // For HTTP URLs, create a proper URL object to validate/clean it
+          const url = new URL(backgroundImage);
+          imageUrl = url.toString();
+        }
+      } else {
+        console.error('❌ Invalid background image format for canvas:', canvasId);
+        // Create a fallback colored background
+        createFallbackBackground(ctx, canvasWidth, canvasHeight, canvasId);
+        return;
+      }
+    } catch (urlError) {
+      console.error('❌ URL parsing error for canvas:', canvasId, urlError);
+      // Create a fallback colored background
+      createFallbackBackground(ctx, canvasWidth, canvasHeight, canvasId);
+      return;
+    }
+
+    // FIX: Enhanced image loading with better error handling and retry
+    let retryCount = 0;
+    const maxRetries = 2;
+
+    const loadImage = () => {
+      const img = new Image();
+      
+      // FIX: Set crossOrigin to anonymous to avoid CORS issues
+      if (!imageUrl.startsWith('data:')) {
+        img.crossOrigin = "anonymous";
+      }
+      
+      // FIX: Handle successful image load
+      img.onload = () => {
+        console.log('🖼️ Background image loaded successfully for:', canvasId);
+        
+        // FIXED: Double-check canvas still exists and matches
+        if (canvasRefs.current[canvasId] === canvas && 
+            drawingData.current[canvasId]?.backgroundImage === backgroundImage &&
+            initializedCanvases.current.has(canvasId)) {
+          
+          backgroundImages.current[canvasId] = img;
+          drawingData.current[canvasId].originalWidth = img.naturalWidth;
+          drawingData.current[canvasId].originalHeight = img.naturalHeight;
+          
+          console.log('📸 Image dimensions:', {
+            natural: { width: img.naturalWidth, height: img.naturalHeight },
+            display: { width: canvasWidth, height: canvasHeight },
+            canvasId: canvasId
+          });
+          
+          // Draw background with proper error handling
+          requestAnimationFrame(() => {
+            const currentCtx = contextRefs.current[canvasId];
+            const currentCanvas = canvasRefs.current[canvasId];
+            
+            if (currentCtx && currentCanvas === canvas && initializedCanvases.current.has(canvasId)) {
+              try {
+                currentCtx.clearRect(0, 0, canvas.width, canvas.height);
+                currentCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+                console.log(`✅ Background drawn successfully for canvas: ${canvasId}`);
+                
+                // Mark as fully initialized
+                drawingData.current[canvasId].fullyInitialized = true;
+                
+              } catch (drawError) {
+                console.error('❌ Error drawing background for canvas:', canvasId, drawError);
+                // Create a fallback colored background
+                createFallbackBackground(ctx, canvasWidth, canvasHeight, canvasId);
+              }
+            } else {
+              console.warn('⚠️ Canvas context mismatch during background draw for:', canvasId);
+            }
+          });
+        } else {
+          console.warn('⚠️ Canvas reference changed during image load for:', canvasId);
+        }
+      };
+      
+      // FIX: Enhanced error handling for image loading
+      img.onerror = (error) => {
+        console.error('❌ Error loading background image for canvas:', canvasId, {
+          error: error,
+          url: imageUrl.substring(0, 100) + (imageUrl.length > 100 ? '...' : ''),
+          isDataUrl: imageUrl.startsWith('data:'),
+          urlLength: imageUrl.length,
+          retryCount: retryCount
+        });
+
+        // Retry logic
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`🔄 Retrying image load (${retryCount}/${maxRetries}) for canvas:`, canvasId);
+          
+          // Add a small delay before retry
+          setTimeout(loadImage, 500);
+        } else {
+          console.log('❌ All retries failed for canvas:', canvasId);
+          // Create a fallback colored background
+          createFallbackBackground(ctx, canvasWidth, canvasHeight, canvasId);
+        }
+      };
+      
+      // FIX: Add a timeout to handle stalled image loads
+      const timeout = setTimeout(() => {
+        if (!backgroundImages.current[canvasId]) {
+          console.log('⏰ Image load timeout for canvas:', canvasId);
+          img.src = '';  // Cancel current load
+          
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`🔄 Retrying after timeout (${retryCount}/${maxRetries}) for canvas:`, canvasId);
+            loadImage();
+          } else {
+            // Create a fallback colored background
+            createFallbackBackground(ctx, canvasWidth, canvasHeight, canvasId);
+          }
+        }
+      }, 5000);  // 5 second timeout
+      
+      // FIX: Start image loading with clean URL
+      console.log('🔗 Loading background image for:', canvasId);
+      img.src = imageUrl;
+      
+      // FIX: Handle immediate errors
+      if (img.complete && img.naturalWidth === 0) {
+        clearTimeout(timeout);
+        console.error('❌ Immediate image load failure for canvas:', canvasId);
+        createFallbackBackground(ctx, canvasWidth, canvasHeight, canvasId);
+      }
+    };
+    
+    // Start the image loading process
+    loadImage();
+
+    console.log('🎨 Canvas initialization completed for:', canvasId);
+  }, []);
+
+  // FIX: Add fallback background creation function
+  const createFallbackBackground = (ctx, width, height, canvasId) => {
+    console.log('🎨 Creating fallback background for canvas:', canvasId);
+    
+    // Create a gradient background
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, '#f8f9fa');
+    gradient.addColorStop(1, '#e9ecef');
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    
+    // Add some text to indicate it's a fallback
+    ctx.fillStyle = '#6c757d';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Drawing canvas', width/2, height/2);
+    
+    // Create a dummy image object for the background
+    const dummyImage = new Image();
+    dummyImage.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    dummyImage.naturalWidth = width;
+    dummyImage.naturalHeight = height;
+    
+    // Store the dummy image
+    backgroundImages.current[canvasId] = dummyImage;
+    
+    // Mark as fully initialized
+    if (drawingData.current[canvasId]) {
+      drawingData.current[canvasId].fullyInitialized = true;
+      drawingData.current[canvasId].originalWidth = width;
+      drawingData.current[canvasId].originalHeight = height;
+      drawingData.current[canvasId].useFallback = true;
+    }
+  };
 
   const updateCanvasContext = useCallback((canvasId) => {
     const ctx = contextRefs.current[canvasId];
@@ -391,7 +570,7 @@ const tools = [
     // Clear strokes data
     data.strokes = [];
     
-    // Clear canvas and redraw background without flash
+    // FIXED: Force complete refresh
     requestAnimationFrame(() => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
@@ -418,124 +597,227 @@ const tools = [
     setLineWidth(width);
   }, []);
 
-  // IMPROVED Merge with background - better scaling
+  // IMPROVED Merge with background - better scaling and debugging
   const mergeWithBackground = useCallback(async (backgroundImage, canvasId) => {
-    return new Promise((resolve) => {
+    console.log('🔀 Starting merge process for canvas:', canvasId);
+    console.log('📊 Available drawing data:', Object.keys(drawingData.current));
+    console.log('🎨 Canvas data:', drawingData.current[canvasId]);
+
+    return new Promise((resolve, reject) => {
       const bgImage = backgroundImages.current[canvasId];
-      if (bgImage) {
-        // Use cached image
+      const data = drawingData.current[canvasId];
+
+      if (!data) {
+        console.warn('⚠️ No drawing data found for canvas:', canvasId);
+        // Return original image if no drawing data
+        resolve(backgroundImage);
+        return;
+      }
+
+      if (!data.strokes || data.strokes.length === 0) {
+        console.log('ℹ️ No strokes found for canvas:', canvasId);
+        // Return original image if no strokes
+        resolve(backgroundImage);
+        return;
+      }
+
+      console.log(`🎨 Found ${data.strokes.length} strokes to merge for canvas:`, canvasId);
+
+      // FIX: Handle both cached and non-cached scenarios more robustly
+      try {
+        // Create merged canvas
         const mergeCanvas = document.createElement('canvas');
         const mergeCtx = mergeCanvas.getContext('2d');
         
-        mergeCanvas.width = bgImage.naturalWidth;
-        mergeCanvas.height = bgImage.naturalHeight;
+        // Set up canvas with proper dimensions
+        let canvasWidth, canvasHeight;
+        
+        if (bgImage && !data.useFallback) {
+          console.log('🖼️ Using cached background image for merge');
+          canvasWidth = bgImage.naturalWidth || 1920;
+          canvasHeight = bgImage.naturalHeight || 1080;
+        } else {
+          console.log('🔄 No cached image, using fallback dimensions');
+          canvasWidth = 1920; // Default high-res width
+          canvasHeight = 1080; // Default high-res height
+        }
+        
+        mergeCanvas.width = canvasWidth;
+        mergeCanvas.height = canvasHeight;
         
         mergeCtx.imageSmoothingEnabled = true;
         mergeCtx.imageSmoothingQuality = 'high';
         
-        mergeCtx.drawImage(bgImage, 0, 0, bgImage.naturalWidth, bgImage.naturalHeight);
-        
-        const data = drawingData.current[canvasId];
-        if (data && data.strokes && data.strokes.length > 0) {
-          // FIXED scaling calculation
-          const scaleX = bgImage.naturalWidth / data.displayWidth;
-          const scaleY = bgImage.naturalHeight / data.displayHeight;
+        // Draw background image - either from cache or load it fresh
+        if (bgImage && !data.useFallback) {
+          // Use cached image
+          mergeCtx.drawImage(bgImage, 0, 0, canvasWidth, canvasHeight);
+        } else {
+          // Load image fresh
+          console.log('🔄 Loading background image for merge...');
+          const img = new Image();
           
-          data.strokes.forEach(stroke => {
-            mergeCtx.strokeStyle = stroke.color;
-            mergeCtx.lineWidth = stroke.lineWidth * Math.min(scaleX, scaleY);
-            mergeCtx.lineCap = 'round';
-            mergeCtx.lineJoin = 'round';
-            mergeCtx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
+          // Set proper onload handler before setting src
+          img.onload = () => {
+            // Draw the background
+            mergeCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
             
-            if (stroke.type === 'path' && stroke.points) {
-              mergeCtx.beginPath();
-              stroke.points.forEach((point, index) => {
-                const scaledX = point.x * scaleX;
-                const scaledY = point.y * scaleY;
-                
-                if (index === 0) {
-                  mergeCtx.moveTo(scaledX, scaledY);
-                } else {
-                  mergeCtx.lineTo(scaledX, scaledY);
-                }
-              });
-              mergeCtx.stroke();
-            } else if (stroke.type === 'shape') {
-              const startX = stroke.startPos.x * scaleX;
-              const startY = stroke.startPos.y * scaleY;
-              const endX = stroke.endPos.x * scaleX;
-              const endY = stroke.endPos.y * scaleY;
-              
-              mergeCtx.beginPath();
-              
-              switch (stroke.tool) {
-                case 'line':
-                  mergeCtx.moveTo(startX, startY);
-                  mergeCtx.lineTo(endX, endY);
-                  break;
-                  
-                case 'rectangle':
-                  const width = endX - startX;
-                  const height = endY - startY;
-                  mergeCtx.rect(startX, startY, width, height);
-                  break;
-                  
-                case 'circle':
-                  const radius = Math.sqrt(
-                    Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2)
-                  );
-                  mergeCtx.arc(startX, startY, radius, 0, 2 * Math.PI);
-                  break;
-                  
-                case 'arrow':
-                  const headLength = 15 * Math.min(scaleX, scaleY);
-                  const angle = Math.atan2(endY - startY, endX - startX);
-                  
-                  mergeCtx.moveTo(startX, startY);
-                  mergeCtx.lineTo(endX, endY);
-                  
-                  mergeCtx.lineTo(
-                    endX - headLength * Math.cos(angle - Math.PI / 6),
-                    endY - headLength * Math.sin(angle - Math.PI / 6)
-                  );
-                  mergeCtx.moveTo(endX, endY);
-                  mergeCtx.lineTo(
-                    endX - headLength * Math.cos(angle + Math.PI / 6),
-                    endY - headLength * Math.sin(angle + Math.PI / 6)
-                  );
-                  break;
+            // Draw strokes
+            drawStrokesOnContext(mergeCtx, data, canvasWidth, canvasHeight);
+            
+            // Generate output and resolve
+            const dataURL = mergeCanvas.toDataURL('image/png', 1.0);
+            console.log('✅ Merge completed successfully with fresh image');
+            resolve(dataURL);
+          };
+          
+          img.onerror = (error) => {
+            console.error('❌ Error loading image for merge:', error);
+            
+            // Create a fallback gradient background
+            const gradient = mergeCtx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
+            gradient.addColorStop(0, '#f8f9fa');
+            gradient.addColorStop(1, '#e9ecef');
+            
+            mergeCtx.fillStyle = gradient;
+            mergeCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+            
+            // Still try to draw strokes
+            drawStrokesOnContext(mergeCtx, data, canvasWidth, canvasHeight);
+            
+            const dataURL = mergeCanvas.toDataURL('image/png', 1.0);
+            console.log('✅ Merge completed with fallback background');
+            resolve(dataURL);
+          };
+          
+          // FIX: Handle both data URLs and regular URLs safely
+          if (typeof backgroundImage === 'string') {
+            if (backgroundImage.startsWith('data:')) {
+              img.src = backgroundImage.split('#')[0]; // Clean URL
+            } else {
+              try {
+                const url = new URL(backgroundImage);
+                img.crossOrigin = "anonymous";
+                img.src = url.toString();
+              } catch (urlError) {
+                console.error('❌ Invalid URL for merge:', urlError);
+                // Still create a fallback image
+                img.onerror(new Error('Invalid URL'));
               }
-              
-              mergeCtx.stroke();
             }
-          });
+          } else {
+            console.error('❌ Invalid background image format for merge');
+            img.onerror(new Error('Invalid image format'));
+          }
+          
+          return; // Return here as we're handling async in the onload/onerror
         }
         
+        // If we got here, we have a cached image and already drew the background
+        // Now draw all the strokes
+        drawStrokesOnContext(mergeCtx, data, canvasWidth, canvasHeight);
+        
+        // Generate output and resolve
         const dataURL = mergeCanvas.toDataURL('image/png', 1.0);
+        console.log('✅ Merge completed successfully with cached image');
         resolve(dataURL);
-      } else {
-        // Fallback to original image loading
-        const img = new Image();
-        img.onload = () => {
-          const mergeCanvas = document.createElement('canvas');
-          const mergeCtx = mergeCanvas.getContext('2d');
-          
-          mergeCanvas.width = img.naturalWidth;
-          mergeCanvas.height = img.naturalHeight;
-          
-          mergeCtx.imageSmoothingEnabled = true;
-          mergeCtx.imageSmoothingQuality = 'high';
-          
-          mergeCtx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight);
-          
-          const dataURL = mergeCanvas.toDataURL('image/png', 1.0);
-          resolve(dataURL);
-        };
-        img.src = backgroundImage;
+        
+      } catch (error) {
+        console.error('❌ Error during merge process:', error);
+        // Return original image on error
+        resolve(backgroundImage);
       }
     });
   }, []);
+
+  // FIX: Extract stroke drawing to reusable function
+  const drawStrokesOnContext = (ctx, data, canvasWidth, canvasHeight) => {
+    if (!data || !data.strokes || !data.strokes.length) return;
+    
+    // Calculate scaling factors
+    const scaleX = canvasWidth / (data.displayWidth || canvasWidth);
+    const scaleY = canvasHeight / (data.displayHeight || canvasHeight);
+    
+    console.log('📐 Scale factors:', { 
+      scaleX, 
+      scaleY, 
+      originalSize: { width: canvasWidth, height: canvasHeight }, 
+      displaySize: { width: data.displayWidth, height: data.displayHeight } 
+    });
+    
+    // Draw all strokes
+    data.strokes.forEach((stroke, index) => {
+      console.log(`🖌️ Drawing stroke ${index + 1}/${data.strokes.length}:`, stroke.tool, stroke.color);
+      
+      ctx.strokeStyle = stroke.color;
+      ctx.lineWidth = stroke.lineWidth * Math.min(scaleX, scaleY);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
+      
+      if (stroke.type === 'path' && stroke.points) {
+        ctx.beginPath();
+        stroke.points.forEach((point, pointIndex) => {
+          const scaledX = point.x * scaleX;
+          const scaledY = point.y * scaleY;
+          
+          if (pointIndex === 0) {
+            ctx.moveTo(scaledX, scaledY);
+          } else {
+            ctx.lineTo(scaledX, scaledY);
+          }
+        });
+        ctx.stroke();
+      } else if (stroke.type === 'shape') {
+        const startX = stroke.startPos.x * scaleX;
+        const startY = stroke.startPos.y * scaleY;
+        const endX = stroke.endPos.x * scaleX;
+        const endY = stroke.endPos.y * scaleY;
+        
+        ctx.beginPath();
+        
+        switch (stroke.tool) {
+          case 'line':
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            break;
+            
+          case 'rectangle':
+            const width = endX - startX;
+            const height = endY - startY;
+            ctx.rect(startX, startY, width, height);
+            break;
+            
+          case 'circle':
+            const radius = Math.sqrt(
+              Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2)
+            );
+            ctx.arc(startX, startY, radius, 0, 2 * Math.PI);
+            break;
+            
+          case 'arrow':
+            const headLength = 15 * Math.min(scaleX, scaleY);
+            const angle = Math.atan2(endY - startY, endX - startX);
+            
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            
+            ctx.lineTo(
+              endX - headLength * Math.cos(angle - Math.PI / 6),
+              endY - headLength * Math.sin(angle - Math.PI / 6)
+            );
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(
+              endX - headLength * Math.cos(angle + Math.PI / 6),
+              endY - headLength * Math.sin(angle + Math.PI / 6)
+            );
+            break;
+        }
+        
+        ctx.stroke();
+      }
+    });
+  };
 
   return {
     colors,
