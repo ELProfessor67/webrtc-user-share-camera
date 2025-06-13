@@ -10,7 +10,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
+  DropdownMenuLabel,  
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -31,6 +31,7 @@ export default function Page({ params }) {
   const [residentName, setResidentName] = useState("")
   const [residentAddress, setResidentAddress] = useState("")
   const [postCode, setPostCode] = useState("")
+  const [actualPostCode, setActualPostCode] = useState("") // Add new state for the actual postcode field
   const [repairDetails, setRepairDetails] = useState("")
   const [callDuration, setCallDuration] = useState(0);
 
@@ -47,6 +48,8 @@ export default function Page({ params }) {
   const [isEndingSave, setIsEndingSave] = useState(false);
   const [savingRecordingId, setSavingRecordingId] = useState(null);
   const [savingScreenshotIndex, setSavingScreenshotIndex] = useState(null);
+  // NEW: Add individual screenshot saving state with ID tracking
+  const [savingScreenshotIds, setSavingScreenshotIds] = useState(new Set());
 
   // NEW: Add save protection state and refs
   const [saveInProgress, setSaveInProgress] = useState(false);
@@ -87,7 +90,7 @@ export default function Page({ params }) {
     startDrawing,
     draw,
     stopDrawing,
-    clearCanvas: clearDrawingCanvas,
+    clearCanvas,
     mergeWithBackground,
     drawingData
   } = useDrawingTools();
@@ -102,8 +105,88 @@ export default function Page({ params }) {
   const [videoPanY, setVideoPanY] = useState(0);
 
   const { handleDisconnect, isConnected, screenshots, takeScreenshot, startPeerConnection, deleteScreenshot, handleVideoPlay, showVideoPlayError } = useWebRTC(true, id, videoRef);
-  const { setResetOpen, setMessageOpen, setLandlordDialogOpen, setTickerOpen, setFeedbackOpen, setFaqOpen } = useDialog();
+  const { setResetOpen, setMessageOpen, setLandlordDialogOpen, setTickerOpen, setFeedbackOpen, setFaqOpen, setShareLinkOpen } = useDialog();
   const { user, isAuth, setIsAuth, setUser } = useUser();
+
+  // Add effect to handle client-side hydration right after state declarations
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Add effect to fetch existing meeting data when component mounts (FROM SECOND CODE)
+  useEffect(() => {
+    if (!isClient || !id) return;
+
+    const fetchExistingMeetingData = async () => {
+      setIsLoadingMeetingData(true);
+      try {
+        console.log('🔍 Fetching existing meeting data for ID:', id);
+        const response = await getMeetingByMeetingId(id);
+
+        if (response.data.success && response.data.meeting) {
+          const meetingData = response.data.meeting;
+          console.log('✅ Found existing meeting data:', meetingData);
+
+          // Pre-populate form fields with existing data
+          setResidentName(meetingData.name || "");
+          setResidentAddress(meetingData.address || "");
+          setPostCode(meetingData.reference || ""); // This is for the "Ref:" field
+          setActualPostCode(meetingData.post_code || ""); // This is for the "Post code:" field
+          setRepairDetails(meetingData.repair_detail || "");
+          setTargetTime(meetingData.target_time || "Emergency 24 Hours");
+
+          // Store existing recordings
+          if (meetingData.recordings && meetingData.recordings.length > 0) {
+            const existingRecordings = meetingData.recordings.map(rec => ({
+              id: rec._id || Date.now() + Math.random(),
+              url: rec.url,
+              blob: null,
+              timestamp: new Date(rec.timestamp).toLocaleString(),
+              duration: rec.duration || 0,
+              isExisting: true
+            }));
+            setRecordings(existingRecordings);
+          }
+
+          // Store existing screenshots
+          if (meetingData.screenshots && meetingData.screenshots.length > 0) {
+            const existingScreenshotsData = meetingData.screenshots.map(screenshot => ({
+              id: screenshot._id || Date.now() + Math.random(),
+              url: screenshot.url,
+              timestamp: new Date(screenshot.timestamp).toLocaleString(),
+              isExisting: true
+            }));
+            setExistingScreenshots(existingScreenshotsData);
+            console.log('📸 Loaded existing screenshots:', existingScreenshotsData.length);
+          }
+
+          setExistingMeetingData(meetingData);
+
+          toast.success("Meeting data loaded successfully!", {
+            description: `Found ${meetingData.recordings?.length || 0} recordings and ${meetingData.screenshots?.length || 0} screenshots`
+          });
+        }
+      } catch (error) {
+        // Handle different types of errors gracefully
+        if (error.code === 'ERR_NETWORK') {
+          console.log('ℹ️ Cannot connect to server - this is normal if server is starting up');
+        } else if (error?.response?.status === 404) {
+          console.log('ℹ️ No existing meeting data found for ID:', id, '(This is normal for new meetings)');
+        } else if (error?.response?.status === 500) {
+          console.log('ℹ️ Server error while fetching meeting data - this may be temporary');
+        } else if (error.code === 'ECONNABORTED') {
+          console.log('ℹ️ Request timeout while fetching meeting data');
+        } else {
+          console.log('ℹ️ Error fetching meeting data:', error.message);
+        }
+      } finally {
+        setIsLoadingMeetingData(false);
+        setIsLoadingTokenInfo(false);
+      }
+    };
+
+    fetchExistingMeetingData();
+  }, [id, isClient]);
 
   // Helper function to convert blob to base64
   const blobToBase64 = (blob) => {
@@ -138,7 +221,7 @@ export default function Page({ params }) {
     );
   }, [isConnected, recordings.length, screenshots.length, isSaving, isEndingSave, saveInProgress]);
 
-  // NEW: Extract common save logic - FIXED to properly handle drawings
+  // NEW: Extract common save logic - UPDATED to properly handle drawings
   const performSave = useCallback(async (options = {}) => {
     const { disconnectVideo = false } = options;
     
@@ -260,7 +343,8 @@ export default function Page({ params }) {
       meeting_id: id,
       name: residentName,
       address: residentAddress,
-      post_code: postCode,
+      post_code: actualPostCode, // Save the actual postcode
+      reference: postCode, // Save the reference field
       repair_detail: repairDetails,
       target_time: targetTime,
       recordings: recordingsData,
@@ -345,7 +429,7 @@ export default function Page({ params }) {
     return { recordingsData, screenshotsData };
   }, [
     recordings, screenshots, drawingData, mergeWithBackground, deleteScreenshot,
-    id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData
+    id, residentName, residentAddress, actualPostCode, postCode, repairDetails, targetTime, existingMeetingData
   ]);
 
   const handleZoomIn = () => {
@@ -862,6 +946,68 @@ export default function Page({ params }) {
     }
   };
 
+  // Individual save functions from second code
+  const saveIndividualRecording = useCallback(async (recording) => {
+    if (recording.isExisting) {
+      toast.info("Recording already saved");
+      return;
+    }
+
+    const itemKey = `recording-${recording.id}`;
+
+    // Prevent duplicate processing
+    if (processedItemsRef.current.has(itemKey)) {
+      console.log('⚠️ Recording already being processed:', itemKey);
+      return;
+    }
+
+    processedItemsRef.current.add(itemKey);
+
+    try {
+      setSavingRecordingId(recording.id);
+      console.log('💾 Saving individual recording...');
+
+      const base64Data = await blobToBase64(recording.blob);
+      const recordingsData = [{
+        data: base64Data,
+        timestamp: recording.timestamp,
+        duration: recording.duration,
+        size: recording.blob.size
+      }];
+
+      const formData = {
+        meeting_id: id,
+        name: residentName,
+        address: residentAddress,
+        post_code: actualPostCode,
+        reference: postCode,
+        repair_detail: repairDetails,
+        target_time: targetTime,
+        recordings: recordingsData,
+        screenshots: [],
+        update_mode: existingMeetingData ? 'update' : 'create'
+      };
+
+      const response = await createRequest(formData);
+
+      // Update the recording to mark it as existing - ATOMIC UPDATE
+      setRecordings(prev => prev.map(r =>
+        r.id === recording.id
+          ? { ...r, isExisting: true }
+          : r
+      ));
+
+      toast.success("Recording saved successfully!");
+
+    } catch (error) {
+      console.error('❌ Save recording failed:', error);
+      toast.error("Failed to save recording");
+    } finally {
+      setSavingRecordingId(null);
+      processedItemsRef.current.delete(itemKey);
+    }
+  }, [id, residentName, residentAddress, actualPostCode, postCode, repairDetails, targetTime, existingMeetingData]);
+
   // Updated delete recording function
   const deleteRecording = async (recording) => {
     try {
@@ -950,7 +1096,6 @@ export default function Page({ params }) {
     }
   };
 
-
   // Update the handlePencilClick function to use screenshot ID instead of canvas index
   const handlePencilClick = useCallback((canvasId, screenshotId) => {
     console.log('🖋️ Pencil button clicked for canvas:', canvasId, 'screenshot ID:', screenshotId);
@@ -976,7 +1121,7 @@ export default function Page({ params }) {
     const itemKey = `screenshot-${screenshotId || index}`;
     
     // Prevent duplicate processing
-    if (processedItemsRef.current.has(itemKey)) {
+    if (processedItemsRef.current.has(itemKey) || savingScreenshotIds.has(screenshotId)) {
       console.log('⚠️ Screenshot already being processed:', itemKey);
       return;
     }
@@ -984,7 +1129,10 @@ export default function Page({ params }) {
     processedItemsRef.current.add(itemKey);
 
     try {
+      // FIXED: Set both index and ID tracking for proper spinner display
       setSavingScreenshotIndex(index);
+      setSavingScreenshotIds(prev => new Set(prev).add(screenshotId));
+      
       console.log('💾 Saving individual ULTRA HIGH QUALITY screenshot...', index, 'ID:', screenshotId);
 
       // FIXED: Use clean screenshot data (remove unique identifiers)
@@ -1016,7 +1164,7 @@ export default function Page({ params }) {
       // ENHANCED: Additional quality check - ensure PNG format for maximum quality
       if (!finalScreenshotData.startsWith('data:image/png')) {
         console.log('🔄 Converting to PNG for maximum quality...');
-        
+
         return new Promise((resolve) => {
           const img = new Image();
           img.onload = () => {
@@ -1057,7 +1205,8 @@ export default function Page({ params }) {
           meeting_id: id,
           name: residentName,
           address: residentAddress,
-          post_code: postCode,
+          post_code: actualPostCode,
+          reference: postCode,
           repair_detail: repairDetails,
           target_time: targetTime,
           recordings: [],
@@ -1119,10 +1268,16 @@ export default function Page({ params }) {
       console.error('❌ Save ultra high quality screenshot failed:', error);
       toast.error("Failed to save ultra high quality screenshot");
     } finally {
+      // FIXED: Clear both index and ID tracking
       setSavingScreenshotIndex(null);
+      setSavingScreenshotIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(screenshotId);
+        return newSet;
+      });
       processedItemsRef.current.delete(itemKey);
     }
-  }, [id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData, drawingData, mergeWithBackground, deleteScreenshot]);
+  }, [id, residentName, residentAddress, actualPostCode, postCode, repairDetails, targetTime, existingMeetingData, drawingData, mergeWithBackground, deleteScreenshot, savingScreenshotIds]);
 
   // Maximize handlers - Memoize these functions
   const maximizeVideo = useCallback((recording) => {
@@ -1236,9 +1391,6 @@ export default function Page({ params }) {
     return name.charAt(0).toUpperCase();
   };
 
-  // Add useDialog hook to access the share link dialog
-  const { setShareLinkOpen } = useDialog();
-
   // Add function to create and show share link for current meeting
   const handleCreateShareLink = () => {
     if (!id) {
@@ -1263,11 +1415,6 @@ export default function Page({ params }) {
     setShareLinkOpen(true, meetingData);
   };
 
-  // Add effect to handle client-side hydration right after state declarations
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
   // NEW: Add cleanup effect to prevent memory leaks
   useEffect(() => {
     return () => {
@@ -1278,12 +1425,10 @@ export default function Page({ params }) {
     };
   }, []);
 
-  // Add loading guard to prevent hydration mismatch
-  if (!isClient) {
+  // Enhanced loading guard to prevent hydration mismatch
+  if (!isClient || isLoadingMeetingData) {
     return (
-      <div className="max-w-6xl mx-auto p-4 py-10 font-sans">
-        <div className="flex items-center justify-center h-64">
-        </div>
+      <div>
       </div>
     );
   }
@@ -1344,197 +1489,7 @@ export default function Page({ params }) {
                       width: 'auto',
                       height: 'auto'
                     }}
-                    onLoad={(e) => {
-                      console.log('📸 Maximized image loaded for canvas ID:', maximizedItem.id);
-                      // COMMENTED OUT: Drawing functionality in maximize view
-                      /*
-                      // Get the actual image dimensions
-                      const img = e.target;
-                      const naturalWidth = img.naturalWidth;
-                      const naturalHeight = img.naturalHeight;
-                      const containerRect = img.parentElement.getBoundingClientRect();
-
-                      console.log('Image natural size:', naturalWidth, 'x', naturalHeight);
-                      console.log('Container size:', containerRect.width, 'x', containerRect.height);
-
-                      // Calculate the display size (how the image actually appears)
-                      const aspectRatio = naturalWidth / naturalHeight;
-                      const containerAspectRatio = containerRect.width / containerRect.height;
-
-                      let displayWidth, displayHeight;
-
-                      if (aspectRatio > containerAspectRatio) {
-                        // Image is wider - fit to width
-                        displayWidth = Math.min(containerRect.width, naturalWidth);
-                        displayHeight = displayWidth / aspectRatio;
-                      } else {
-                        // Image is taller - fit to height
-                        displayHeight = Math.min(containerRect.height, naturalHeight);
-                        displayWidth = displayHeight * aspectRatio;
-                      }
-
-                      console.log('Calculated display size:', displayWidth, 'x', displayHeight);
-
-                      // Only setup canvas for new screenshots (not existing ones)
-                      if (!maximizedItem.isExisting) {
-                        setTimeout(() => {
-                          const canvas = document.querySelector(`canvas[data-maximized-canvas-id="${maximizedItem.id}"]`);
-
-                          if (!canvas) {
-                            console.log('❌ Maximized canvas not found for ID:', maximizedItem.id);
-                            return;
-                          }
-
-                          console.log('🎨 Setting up maximized canvas drawing transfer');
-
-                          // Set canvas dimensions to match the calculated display size
-                          canvas.width = displayWidth;
-                          canvas.height = displayHeight;
-                          canvas.style.width = displayWidth + 'px';
-                          canvas.style.height = displayHeight + 'px';
-                          canvas.style.position = 'absolute';
-                          canvas.style.top = '50%';
-                          canvas.style.left = '50%';
-                          canvas.style.transform = 'translate(-50%, -50%)';
-
-                          const ctx = canvas.getContext('2d');
-                          ctx.imageSmoothingEnabled = true;
-                          ctx.imageSmoothingQuality = 'high';
-
-                          // Clear the canvas first
-                          ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                          // METHOD 1: Try to copy directly from small canvas
-                          const sourceCanvas = document.querySelector(`canvas[data-canvas-id="${maximizedItem.id}"]`);
-                          if (sourceCanvas) {
-                            console.log('📋 Found source canvas, copying directly');
-
-                            // Draw the source canvas scaled to fit the maximized view
-                            ctx.drawImage(
-                              sourceCanvas,
-                              0, 0, sourceCanvas.width, sourceCanvas.height,
-                              0, 0, canvas.width, canvas.height
-                            );
-                            console.log('✅ Successfully copied drawings from source canvas');
-                            return;
-                          }
-
-                          // METHOD 2: Fallback - reconstruct from drawing data
-                          console.log('📝 Source canvas not found, reconstructing from drawing data');
-                          const strokesData = drawingData[maximizedItem.id];
-
-                          if (strokesData && strokesData.strokes && strokesData.strokes.length > 0) {
-                            console.log('🎨 Found', strokesData.strokes.length, 'strokes to redraw');
-
-                            // Calculate scale factors from original canvas to maximized canvas
-                            const originalCanvas = document.querySelector(`canvas[data-canvas-id="${maximizedItem.id}"]`);
-                            let scaleX = 1;
-                            let scaleY = 1;
-
-                            if (originalCanvas) {
-                              scaleX = canvas.width / originalCanvas.width;
-                              scaleY = canvas.height / originalCanvas.height;
-                              console.log('Scale factors:', scaleX, scaleY);
-                            }
-
-                            // Draw all the strokes with proper scaling
-                            strokesData.strokes.forEach((stroke, index) => {
-                              console.log(`Drawing stroke ${index + 1}:`, stroke.tool, stroke.color);
-
-                              ctx.strokeStyle = stroke.color;
-                              ctx.lineWidth = stroke.lineWidth * Math.min(scaleX, scaleY); // Scale line width
-                              ctx.lineCap = 'round';
-                              ctx.lineJoin = 'round';
-                              ctx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
-
-                              if (stroke.type === 'path' && stroke.points && stroke.points.length > 0) {
-                                ctx.beginPath();
-                                stroke.points.forEach((point, pointIndex) => {
-                                  const x = point.x * scaleX;
-                                  const y = point.y * scaleY;
-
-                                  if (pointIndex === 0) {
-                                    ctx.moveTo(x, y);
-                                  } else {
-                                    ctx.lineTo(x, y);
-                                  }
-                                });
-                                ctx.stroke();
-                              } else if (stroke.type === 'shape' && stroke.startPos && stroke.endPos) {
-                                const startX = stroke.startPos.x * scaleX;
-                                const startY = stroke.startPos.y * scaleY;
-                                const endX = stroke.endPos.x * scaleX;
-                                const endY = stroke.endPos.y * scaleY;
-
-                                ctx.beginPath();
-
-                                switch (stroke.tool) {
-                                  case 'line':
-                                    ctx.moveTo(startX, startY);
-                                    ctx.lineTo(endX, endY);
-                                    break;
-
-                                  case 'rectangle':
-                                    const width = endX - startX;
-                                    const height = endY - startY;
-                                    ctx.rect(startX, startY, width, height);
-                                    break;
-
-                                  case 'circle':
-                                    const radius = Math.sqrt(
-                                      Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2)
-                                    );
-                                    ctx.arc(startX, startY, radius, 0, 2 * Math.PI);
-                                    ctx.stroke();
-                                    break;
-
-                                  case 'arrow':
-                                    const headLength = 15 * Math.min(scaleX, scaleY); // Scale arrow head
-                                    const angle = Math.atan2(endY - startY, endX - startX);
-
-                                    ctx.moveTo(startX, startY);
-                                    ctx.lineTo(endX, endY);
-
-                                    // Arrow head
-                                    ctx.lineTo(
-                                      endX - headLength * Math.cos(angle - Math.PI / 6),
-                                      endY - headLength * Math.sin(angle - Math.PI / 6)
-                                    );
-                                    ctx.moveTo(endX, endY);
-                                    ctx.lineTo(
-                                      endX - headLength * Math.cos(angle + Math.PI / 6),
-                                      endY - headLength * Math.sin(angle + Math.PI / 6)
-                                    );
-                                    ctx.stroke();
-                                    break;
-                                }
-                              }
-                            });
-
-                            console.log('✅ Successfully reconstructed all strokes with scaling');
-                          } else {
-                            console.log('ℹ️ No drawing data found for canvas:', maximizedItem.id);
-                          }
-                        }, 100); // Small delay to ensure DOM is ready
-                      }
-                      */
-                    }}
                   />
-
-                  {/* COMMENTED OUT: Canvas Overlay for Drawings in maximize view */}
-                  {/* 
-                  {!maximizedItem.isExisting && (
-                    <canvas
-                      data-maximized-canvas-id={maximizedItem.id}
-                      className="absolute pointer-events-none"
-                      style={{
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)'
-                      }}
-                    />
-                  )}
-                  */}
                 </div>
               </div>
             )}
@@ -1948,11 +1903,15 @@ export default function Page({ params }) {
                               console.log('💾 Saving individual screenshot:', { index, cleanScreenshotUrl, id: screenshotId });
                               saveIndividualScreenshot(cleanScreenshotUrl, index, screenshotId);
                             }}
-                            className={`p-1 hover:bg-black/20 rounded text-white ${savingScreenshotIndex === index ? 'opacity-80' : ''}`}
-                            title="Save screenshot"
-                            disabled={savingScreenshotIndex === index}
+                            className={`p-1 hover:bg-black/20 rounded text-white transition-all duration-200 ${
+                              savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index 
+                                ? 'opacity-80 cursor-not-allowed bg-gray-600' 
+                                : 'hover:scale-105'
+                            }`}
+                            title={savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index ? "Saving..." : "Save screenshot"}
+                            disabled={savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index}
                           >
-                            {savingScreenshotIndex === index ? (
+                            {(savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index) ? (
                               <div className="w-4 h-4 flex items-center justify-center">
                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                               </div>
@@ -2272,6 +2231,8 @@ export default function Page({ params }) {
             <div className="mb-6">
               <textarea
                 placeholder="Post code:"
+                value={actualPostCode}
+                onChange={(e) => setActualPostCode(e.target.value)}
                 className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-300"
                 rows={1}
               />

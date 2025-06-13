@@ -59,14 +59,18 @@ const uploadToCloudinary = async (data, options, retries = 2) => {
 };
 
 export const create = catchAsyncError(async (req, res, next) => {
-    const { meeting_id, name, address, post_code, repair_detail, target_time, recordings, screenshots, update_mode } = req.body;
+    const { meeting_id, name, address, post_code, reference, repair_detail, target_time, recordings, screenshots, update_mode } = req.body;
     const user_id = req.user._id;
     
     const startTime = Date.now();
     console.log(`🎬 [${new Date().toISOString()}] Starting meeting ${update_mode || 'creation'}...`);
     console.log('👤 User ID:', user_id);
-    console.log('📋 Meeting data:', { meeting_id, name, address, post_code, repair_detail, target_time });
+    console.log('📋 Meeting data:', { meeting_id, name, address, post_code, reference, repair_detail, target_time });
     console.log('📊 NEW media to upload - Recordings:', recordings?.length || 0, 'Screenshots:', screenshots?.length || 0);
+    
+    // 🔍 DEBUG: Log the reference field specifically
+    console.log('🏷️ Reference field value:', reference);
+    console.log('📮 Post code field value:', post_code);
     
     // Validate required fields
     if (!meeting_id) {
@@ -180,12 +184,13 @@ export const create = catchAsyncError(async (req, res, next) => {
         savedRecordings = uploadResults.slice(0, recordingCount).filter(result => result !== null);
         savedScreenshots = uploadResults.slice(recordingCount).filter(result => result !== null);
 
-        // Create meeting with userId tracking
+        // Create meeting with userId tracking - FIXED: Include reference field
         const meeting = await MeetingModel.create({
             meeting_id,
             name,
             address,
-            post_code,
+            post_code, // Actual postcode field
+            reference, // Reference field - THIS WAS MISSING!
             repair_detail,
             target_time,
             owner: user_id,
@@ -201,6 +206,7 @@ export const create = catchAsyncError(async (req, res, next) => {
         const totalTime = Date.now() - startTime;
         console.log(`✅ Meeting created in ${totalTime}ms with ID: ${meeting._id} by user: ${user_id}`);
         console.log(`📊 Success rates - NEW Recordings: ${savedRecordings.length}/${recordingCount}, NEW Screenshots: ${savedScreenshots.length}/${screenshots?.length || 0}`);
+        console.log(`🏷️ Meeting saved with reference: "${reference}" and post_code: "${post_code}"`);
         
         res.status(201).json({
             success: true,
@@ -234,17 +240,22 @@ export const create = catchAsyncError(async (req, res, next) => {
 
 // Helper function to update existing meeting with NEW media only
 const updateMeetingWithNewMediaOnly = async (meeting, data, res, next, user_id, req) => {
-    const { name, address, post_code, repair_detail, target_time, recordings, screenshots } = data;
+    const { name, address, post_code, reference, repair_detail, target_time, recordings, screenshots } = data;
     
     console.log(`🔄 Updating existing meeting with NEW media only for user ${user_id}...`);
     console.log(`📋 Current meeting - Existing recordings: ${meeting.recordings.length}, Existing screenshots: ${meeting.screenshots.length}`);
     console.log(`📤 NEW media to upload - Recordings: ${recordings?.length || 0}, Screenshots: ${screenshots?.length || 0}`);
     
+    // 🔍 DEBUG: Log the fields being updated
+    console.log('🏷️ Updating reference field to:', reference);
+    console.log('📮 Updating post_code field to:', post_code);
+    
     try {
-        // Update basic fields
+        // Update basic fields - FIXED: Include reference field
         if (name) meeting.name = name;
         if (address) meeting.address = address;
-        if (post_code) meeting.post_code = post_code;
+        if (post_code) meeting.post_code = post_code; // Actual postcode
+        if (reference) meeting.reference = reference; // Reference field - THIS WAS MISSING!
         if (repair_detail) meeting.repair_detail = repair_detail;
         if (target_time) meeting.target_time = target_time;
         
@@ -345,6 +356,7 @@ const updateMeetingWithNewMediaOnly = async (meeting, data, res, next, user_id, 
 
         console.log(`💾 Saving meeting with updated totals...`);
         console.log(`📊 Final counts - Total recordings: ${meeting.total_recordings}, Total screenshots: ${meeting.total_screenshots}`);
+        console.log(`🏷️ Final reference value: "${meeting.reference}", post_code: "${meeting.post_code}"`);
         await meeting.save();
         
         console.log(`✅ Meeting updated successfully by user ${user_id}`);
@@ -695,7 +707,9 @@ export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
 
 // Update meeting
 export const updateMeeting = catchAsyncError(async (req, res, next) => {
-    const { name, address, post_code, repair_detail, target_time } = req.body;
+    const { name, address, post_code, reference, repair_detail, target_time } = req.body;
+    
+    console.log('🔄 Updating meeting with fields:', { name, address, post_code, reference, repair_detail, target_time });
     
     const meeting = await MeetingModel.findOne({
         _id: req.params.id,
@@ -710,10 +724,11 @@ export const updateMeeting = catchAsyncError(async (req, res, next) => {
         return next(new ErrorHandler("Meeting not found", 404));
     }
 
-    // Update fields if provided
+    // Update fields if provided - FIXED: Include reference field
     if (name) meeting.name = name;
     if (address) meeting.address = address;
-    if (post_code) meeting.post_code = post_code;
+    if (post_code) meeting.post_code = post_code; // Actual postcode
+    if (reference) meeting.reference = reference; // Reference field - THIS WAS MISSING!
     if (repair_detail) meeting.repair_detail = repair_detail;
     if (target_time) meeting.target_time = target_time;
     
@@ -725,6 +740,8 @@ export const updateMeeting = catchAsyncError(async (req, res, next) => {
     meeting.last_updated_by = req.user._id;
 
     await meeting.save();
+    
+    console.log(`✅ Meeting updated with reference: "${meeting.reference}" and post_code: "${meeting.post_code}"`);
 
     sendResponse(true, 200, "Meeting updated successfully", res);
 });

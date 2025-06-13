@@ -1,18 +1,11 @@
 "use client"
 import { useState, useRef, use, useEffect, useCallback } from "react"
-import { Camera, Trash2, ImageIcon, Plus, Maximize2, VideoIcon, PlayIcon, Save, Edit, Minimize2, Expand, ZoomIn, ZoomOut, Pencil, X, Play } from "lucide-react"
+import { Trash2, Plus, Maximize2, VideoIcon, PlayIcon, Save, Edit, Minimize2, Expand, ZoomIn, ZoomOut, Pencil, X, Play } from "lucide-react"
 import useWebRTC from "@/hooks/useWebRTC"
 import useDrawingTools from "@/hooks/useDrawingTools"
 import { createRequest, getMeetingByMeetingId, deleteRecordingRequest, deleteScreenshotRequest } from "@/http/meetingHttp"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +47,8 @@ export default function Page({ params }) {
   const [isEndingSave, setIsEndingSave] = useState(false);
   const [savingRecordingId, setSavingRecordingId] = useState(null);
   const [savingScreenshotIndex, setSavingScreenshotIndex] = useState(null);
+  // NEW: Add individual screenshot saving state with ID tracking
+  const [savingScreenshotIds, setSavingScreenshotIds] = useState(new Set());
 
   // NEW: Add save protection state and refs
   const [saveInProgress, setSaveInProgress] = useState(false);
@@ -94,7 +89,7 @@ export default function Page({ params }) {
     startDrawing,
     draw,
     stopDrawing,
-    clearCanvas: clearDrawingCanvas,
+    clearCanvas,
     mergeWithBackground,
     drawingData
   } = useDrawingTools();
@@ -109,8 +104,87 @@ export default function Page({ params }) {
   const [videoPanY, setVideoPanY] = useState(0);
 
   const { handleDisconnect, isConnected, screenshots, takeScreenshot, startPeerConnection, deleteScreenshot, handleVideoPlay, showVideoPlayError } = useWebRTC(true, id, videoRef);
-  const { setResetOpen, setMessageOpen, setLandlordDialogOpen, setTickerOpen, setFeedbackOpen, setFaqOpen } = useDialog();
+  const { setResetOpen, setMessageOpen, setLandlordDialogOpen, setTickerOpen, setFeedbackOpen, setFaqOpen, setShareLinkOpen } = useDialog();
   const { user, isAuth, setIsAuth, setUser } = useUser();
+
+  // Add effect to handle client-side hydration right after state declarations
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Add effect to fetch existing meeting data when component mounts (FROM SECOND CODE)
+  useEffect(() => {
+    if (!isClient || !id) return;
+
+    const fetchExistingMeetingData = async () => {
+      setIsLoadingMeetingData(true);
+      try {
+        console.log('🔍 Fetching existing meeting data for ID:', id);
+        const response = await getMeetingByMeetingId(id);
+
+        if (response.data.success && response.data.meeting) {
+          const meetingData = response.data.meeting;
+          console.log('✅ Found existing meeting data:', meetingData);
+
+          // Pre-populate form fields with existing data
+          setResidentName(meetingData.name || "");
+          setResidentAddress(meetingData.address || "");
+          setPostCode(meetingData.post_code || "");
+          setRepairDetails(meetingData.repair_detail || "");
+          setTargetTime(meetingData.target_time || "Emergency 24 Hours");
+
+          // Store existing recordings
+          if (meetingData.recordings && meetingData.recordings.length > 0) {
+            const existingRecordings = meetingData.recordings.map(rec => ({
+              id: rec._id || Date.now() + Math.random(),
+              url: rec.url,
+              blob: null,
+              timestamp: new Date(rec.timestamp).toLocaleString(),
+              duration: rec.duration || 0,
+              isExisting: true
+            }));
+            setRecordings(existingRecordings);
+          }
+
+          // Store existing screenshots
+          if (meetingData.screenshots && meetingData.screenshots.length > 0) {
+            const existingScreenshotsData = meetingData.screenshots.map(screenshot => ({
+              id: screenshot._id || Date.now() + Math.random(),
+              url: screenshot.url,
+              timestamp: new Date(screenshot.timestamp).toLocaleString(),
+              isExisting: true
+            }));
+            setExistingScreenshots(existingScreenshotsData);
+            console.log('📸 Loaded existing screenshots:', existingScreenshotsData.length);
+          }
+
+          setExistingMeetingData(meetingData);
+
+          toast.success("Meeting data loaded successfully!", {
+            description: `Found ${meetingData.recordings?.length || 0} recordings and ${meetingData.screenshots?.length || 0} screenshots`
+          });
+        }
+      } catch (error) {
+        // Handle different types of errors gracefully
+        if (error.code === 'ERR_NETWORK') {
+          console.log('ℹ️ Cannot connect to server - this is normal if server is starting up');
+        } else if (error?.response?.status === 404) {
+          console.log('ℹ️ No existing meeting data found for ID:', id, '(This is normal for new meetings)');
+        } else if (error?.response?.status === 500) {
+          console.log('ℹ️ Server error while fetching meeting data - this may be temporary');
+        } else if (error.code === 'ECONNABORTED') {
+          console.log('ℹ️ Request timeout while fetching meeting data');
+        } else {
+          console.log('ℹ️ Error fetching meeting data:', error.message);
+        }
+      } finally {
+        setIsLoadingMeetingData(false);
+        setIsLoadingTokenInfo(false);
+      }
+    };
+
+    fetchExistingMeetingData();
+  }, [id, isClient]);
 
   // Helper function to convert blob to base64
   const blobToBase64 = (blob) => {
@@ -127,7 +201,7 @@ export default function Page({ params }) {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-
+    
     saveTimeoutRef.current = setTimeout(() => {
       if (!saveInProgress) {
         saveFunction();
@@ -145,12 +219,12 @@ export default function Page({ params }) {
     );
   }, [isConnected, recordings.length, screenshots.length, isSaving, isEndingSave, saveInProgress]);
 
-  // NEW: Extract common save logic
+  // NEW: Extract common save logic - UPDATED to properly handle drawings
   const performSave = useCallback(async (options = {}) => {
     const { disconnectVideo = false } = options;
-
+    
     console.log('💾 Starting save process...');
-
+    
     // Separate new recordings from existing ones
     const newRecordings = recordings.filter(recording => !recording.isExisting && recording.blob);
     const existingRecordings = recordings.filter(recording => recording.isExisting);
@@ -158,18 +232,18 @@ export default function Page({ params }) {
     // Process recordings with duplicate prevention
     const recordingsData = [];
     const processedRecordings = new Set();
-
+    
     for (let i = 0; i < newRecordings.length; i++) {
       const recording = newRecordings[i];
       const recordingKey = `${recording.id}-${recording.timestamp}`;
-
+      
       if (processedRecordings.has(recordingKey)) {
         console.log('⚠️ Skipping duplicate recording:', recordingKey);
         continue;
       }
-
+      
       processedRecordings.add(recordingKey);
-
+      
       try {
         const base64Data = await blobToBase64(recording.blob);
         recordingsData.push({
@@ -184,43 +258,81 @@ export default function Page({ params }) {
       }
     }
 
-    // Process screenshots with duplicate prevention
+    // Process screenshots with duplicate prevention AND drawings merge
     const screenshotsData = [];
     const processedScreenshots = new Set();
-
+    
     for (let i = 0; i < screenshots.length; i++) {
       const screenshot = screenshots[i];
-      const screenshotKey = `screenshot-${i}-${screenshot.substring(0, 50)}`;
-
+      // FIXED: Handle different screenshot formats (object or string)
+      let screenshotIdentifier;
+      if (typeof screenshot === 'object' && screenshot !== null) {
+        screenshotIdentifier = screenshot.id || screenshot.data?.substring(0, 50) || i;
+      } else if (typeof screenshot === 'string') {
+        screenshotIdentifier = screenshot.substring(0, 50);
+      } else {
+        screenshotIdentifier = `screenshot-${i}`;
+      }
+      
+      const screenshotKey = `screenshot-${i}-${screenshotIdentifier}`;
+      
       if (processedScreenshots.has(screenshotKey)) {
         console.log('⚠️ Skipping duplicate screenshot:', screenshotKey);
         continue;
       }
-
+      
       processedScreenshots.add(screenshotKey);
-
+      
       try {
-        let finalScreenshotData = screenshot;
+        let finalScreenshotData = typeof screenshot === 'object' ? screenshot.data || screenshot : screenshot;
+        if (typeof finalScreenshotData === 'string') {
+          finalScreenshotData = finalScreenshotData.split('#')[0]; // Clean URL
+        }
+        
         const canvasId = `new-${i}`;
 
-        if (drawingData[canvasId]) {
-          console.log(`🎨 Merging drawings for screenshot ${i + 1}...`);
-          finalScreenshotData = await mergeWithBackground(screenshot, canvasId);
-          console.log(`✅ Drawing merge completed for screenshot ${i + 1}`);
+        console.log(`🎨 Checking for drawings in canvas ${canvasId} for screenshot ${i + 1}`);
+        console.log('📊 Available drawing data keys:', Object.keys(drawingData));
+
+        // FIXED: Check for drawings and merge them
+        if (drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0) {
+          console.log(`🎨 Found ${drawingData[canvasId].strokes.length} strokes for screenshot ${i + 1}. Merging drawings...`);
+          try {
+            finalScreenshotData = await mergeWithBackground(finalScreenshotData, canvasId);
+            console.log(`✅ Drawing merge completed for screenshot ${i + 1}`);
+          } catch (mergeError) {
+            console.error(`❌ Error merging drawings for screenshot ${i + 1}:`, mergeError);
+          }
+        } else {
+          console.log(`ℹ️ No drawings found for screenshot ${i + 1} (canvas: ${canvasId})`);
         }
 
         screenshotsData.push({
           data: finalScreenshotData,
           timestamp: new Date().toISOString(),
-          size: finalScreenshotData.length
+          size: finalScreenshotData.length,
+          hasDrawings: drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0
         });
-        console.log(`✅ NEW screenshot ${i + 1} processed successfully`);
+        console.log(`✅ NEW screenshot ${i + 1} processed successfully with drawings: ${screenshotsData[screenshotsData.length - 1].hasDrawings}`);
       } catch (error) {
         console.error(`❌ Error processing screenshot ${i + 1}:`, error);
+        // Fallback handling for invalid screenshot data
+        let fallbackData;
+        try {
+          fallbackData = typeof screenshot === 'object' ? screenshot.data || JSON.stringify(screenshot) : String(screenshot);
+          if (typeof fallbackData === 'string' && fallbackData.indexOf('#') > 0) {
+            fallbackData = fallbackData.split('#')[0];
+          }
+        } catch (fallbackError) {
+          console.error('Failed to create fallback screenshot data:', fallbackError);
+          fallbackData = `fallback-screenshot-${i}`;
+        }
+        
         screenshotsData.push({
-          data: screenshot,
+          data: fallbackData,
           timestamp: new Date().toISOString(),
-          size: screenshot.length
+          size: typeof fallbackData === 'string' ? fallbackData.length : 0,
+          hasDrawings: false
         });
       }
     }
@@ -243,6 +355,7 @@ export default function Page({ params }) {
       update_mode: formData.update_mode,
       new_recordings_count: recordingsData.length,
       new_screenshots_count: screenshotsData.length,
+      screenshots_with_drawings: screenshotsData.filter(s => s.hasDrawings).length,
       existing_recordings_count: existingRecordings.length,
       total_recordings_after_save: existingRecordings.length + recordingsData.length
     });
@@ -252,6 +365,14 @@ export default function Page({ params }) {
 
     // Reset pencil mode and clear all drawing data
     setActivePencilScreenshot(null);
+
+    // Clear all drawing data after successful save
+    Object.keys(drawingData).forEach(canvasId => {
+      if (canvasId.startsWith('new-')) {
+        console.log('🧹 Clearing drawing data for:', canvasId);
+        delete drawingData[canvasId];
+      }
+    });
 
     // Update recordings state to mark all recordings as existing/saved - ATOMIC UPDATE
     setRecordings(prev => prev.map(rec => ({
@@ -265,18 +386,20 @@ export default function Page({ params }) {
         id: `saved-${Date.now()}-${index}-${Math.random()}`, // Add random to ensure uniqueness
         url: screenshot.data,
         timestamp: new Date(screenshot.timestamp).toLocaleString(),
-        isExisting: true
+        isExisting: true,
+        hasDrawings: screenshot.hasDrawings
       }));
 
       setExistingScreenshots(prev => {
         // Filter out any potential duplicates based on URL
         const existingUrls = new Set(prev.map(s => s.url));
         const uniqueNewScreenshots = newSavedScreenshots.filter(s => !existingUrls.has(s.url));
-
+        
         if (uniqueNewScreenshots.length !== newSavedScreenshots.length) {
           console.log('⚠️ Filtered out duplicate screenshots');
         }
-
+        
+        // Add to the end of the array instead of beginning for chronological order
         return [...prev, ...uniqueNewScreenshots];
       });
 
@@ -465,7 +588,7 @@ export default function Page({ params }) {
     try {
       setSaveInProgress(true);
       setIsSaving(true);
-
+      
       // Use shared save logic
       const result = await performSave();
 
@@ -487,19 +610,19 @@ export default function Page({ params }) {
   const handleLogout = async () => {
     try {
       const res = await logoutRequest();
-
+      
       // Additional cleanup - clear any localStorage/sessionStorage
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       sessionStorage.clear();
-
+      
       // Clear cookies from frontend side as well
       document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; samesite=none";
-
+      
       toast("Logout Successful", {
         description: res.data.message
       });
-
+      
       setIsAuth(false);
       setUser(null);
       router.push('../');
@@ -508,11 +631,11 @@ export default function Page({ params }) {
       setIsAuth(false);
       setUser(null);
       localStorage.clear();
-
+      
       toast("Logout Unsuccessful", {
         description: error?.response?.data?.message || error.message
       });
-
+      
       router.push('../');
     }
   }
@@ -623,7 +746,7 @@ export default function Page({ params }) {
     };
   }, [isRecording, recordingStartTime]);
 
-  // Screen recording functions
+  // ENHANCED Screen recording functions with ULTRA HIGH QUALITY
   const startScreenRecording = async () => {
     try {
       // Get video stream from the video element instead of screen
@@ -646,20 +769,55 @@ export default function Page({ params }) {
 
       setRecordingStream(stream);
 
-      // Create MediaRecorder with higher quality settings
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 5000000, // Increased to 5 Mbps for higher quality
-        audioBitsPerSecond: 128000   // Add audio bitrate for better audio quality
-      });
+      // ENHANCED: Create MediaRecorder with ULTRA HIGH quality settings
+      const recorderOptions = [
+        {
+          mimeType: 'video/webm;codecs=vp9,opus',
+          videoBitsPerSecond: 150000000, // 150 Mbps for ultra quality
+          audioBitsPerSecond: 256000     // High quality audio
+        },
+        {
+          mimeType: 'video/webm;codecs=vp9',
+          videoBitsPerSecond: 120000000  // 120 Mbps fallback
+        },
+        {
+          mimeType: 'video/webm;codecs=h264,avc1',
+          videoBitsPerSecond: 100000000  // 100 Mbps H.264
+        },
+        {
+          mimeType: 'video/webm;codecs=vp8',
+          videoBitsPerSecond: 80000000   // 80 Mbps VP8 fallback
+        },
+        {
+          mimeType: 'video/webm',
+          videoBitsPerSecond: 60000000   // 60 Mbps basic WebM
+        }
+      ];
+
+      let selectedOption = null;
+      for (const option of recorderOptions) {
+        if (MediaRecorder.isTypeSupported(option.mimeType)) {
+          selectedOption = option;
+          console.log(`✅ Selected ULTRA HIGH recording: ${option.mimeType} @ ${option.videoBitsPerSecond / 1000000}Mbps`);
+          break;
+        }
+      }
+
+      if (!selectedOption) {
+        toast('No high quality recording format supported');
+        return;
+      }
+
+      const recorder = new MediaRecorder(stream, selectedOption);
 
       // Reset chunks
       recordingChunks.current = [];
 
-      // Handle data available event - record in smaller chunks for better quality
+      // ENHANCED: Handle data available event - record in smaller chunks for ultra quality
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           recordingChunks.current.push(event.data);
+          console.log(`📊 Ultra quality chunk: ${(event.data.size / 1024 / 1024).toFixed(2)}MB`);
         }
       };
 
@@ -674,7 +832,7 @@ export default function Page({ params }) {
           videoRef.current.style.pointerEvents = 'auto';
         }
 
-        const blob = new Blob(recordingChunks.current, { type: 'video/webm' });
+        const blob = new Blob(recordingChunks.current, { type: selectedOption.mimeType });
         const videoUrl = URL.createObjectURL(blob);
 
         const newRecording = {
@@ -688,17 +846,23 @@ export default function Page({ params }) {
         setRecordings(prev => [...prev, newRecording]);
         setIsRecording(false);
         setRecordingStartTime(null);
+        
+        console.log('✅ ULTRA HIGH quality recording completed:', {
+          duration: `${duration}s`,
+          size: `${(blob.size / 1024 / 1024).toFixed(2)}MB`,
+          bitrate: `${selectedOption.videoBitsPerSecond / 1000000}Mbps`
+        });
       };
 
       setMediaRecorder(recorder);
-      // Start recording with timeslice for better quality chunks
-      recorder.start(1000); // Record in 1 second chunks
+      // ENHANCED: Start recording with ultra small timeslice for maximum quality
+      recorder.start(50); // Record in 50ms chunks for ultra smooth quality
       setIsRecording(true);
-      toast('Video recording started');
+      toast(`Ultra high quality recording started (${selectedOption.videoBitsPerSecond / 1000000}Mbps)`);
 
     } catch (error) {
-      console.error('Error starting video recording:', error);
-      // Fallback to webm if vp9 not supported
+      console.error('Error starting ultra high quality recording:', error);
+      // ENHANCED: Fallback with still high quality settings
       try {
         const stream = videoRef.current.srcObject;
         const startTime = Date.now();
@@ -706,8 +870,8 @@ export default function Page({ params }) {
 
         const recorder = new MediaRecorder(stream, {
           mimeType: 'video/webm',
-          videoBitsPerSecond: 3000000, // Higher fallback quality
-          audioBitsPerSecond: 128000
+          videoBitsPerSecond: 50000000, // 50 Mbps fallback quality
+          audioBitsPerSecond: 192000
         });
 
         // Hide controls
@@ -750,9 +914,9 @@ export default function Page({ params }) {
         };
 
         setMediaRecorder(recorder);
-        recorder.start(1000);
+        recorder.start(100); // 100ms chunks for fallback
         setIsRecording(true);
-        toast('High quality video recording started');
+        toast('High quality video recording started (50Mbps fallback)');
       } catch (fallbackError) {
         toast('Failed to start video recording');
         setRecordingStartTime(null);
@@ -778,6 +942,67 @@ export default function Page({ params }) {
       startScreenRecording();
     }
   };
+
+  // Individual save functions from second code
+  const saveIndividualRecording = useCallback(async (recording) => {
+    if (recording.isExisting) {
+      toast.info("Recording already saved");
+      return;
+    }
+
+    const itemKey = `recording-${recording.id}`;
+
+    // Prevent duplicate processing
+    if (processedItemsRef.current.has(itemKey)) {
+      console.log('⚠️ Recording already being processed:', itemKey);
+      return;
+    }
+
+    processedItemsRef.current.add(itemKey);
+
+    try {
+      setSavingRecordingId(recording.id);
+      console.log('💾 Saving individual recording...');
+
+      const base64Data = await blobToBase64(recording.blob);
+      const recordingsData = [{
+        data: base64Data,
+        timestamp: recording.timestamp,
+        duration: recording.duration,
+        size: recording.blob.size
+      }];
+
+      const formData = {
+        meeting_id: id,
+        name: residentName,
+        address: residentAddress,
+        post_code: postCode,
+        repair_detail: repairDetails,
+        target_time: targetTime,
+        recordings: recordingsData,
+        screenshots: [],
+        update_mode: existingMeetingData ? 'update' : 'create'
+      };
+
+      const response = await createRequest(formData);
+
+      // Update the recording to mark it as existing - ATOMIC UPDATE
+      setRecordings(prev => prev.map(r =>
+        r.id === recording.id
+          ? { ...r, isExisting: true }
+          : r
+      ));
+
+      toast.success("Recording saved successfully!");
+
+    } catch (error) {
+      console.error('❌ Save recording failed:', error);
+      toast.error("Failed to save recording");
+    } finally {
+      setSavingRecordingId(null);
+      processedItemsRef.current.delete(itemKey);
+    }
+  }, [id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData]);
 
   // Updated delete recording function
   const deleteRecording = async (recording) => {
@@ -847,8 +1072,17 @@ export default function Page({ params }) {
   };
 
   // Local screenshot delete function (for new screenshots from useWebRTC)
-  const deleteNewScreenshot = (screenshotIndex) => {
+  const deleteNewScreenshot = (screenshotIndex, screenshotId) => {
     try {
+      console.log('🗑️ Deleting screenshot:', { index: screenshotIndex, id: screenshotId });
+      
+      // Clean up any associated drawing data before deleting
+      const canvasId = screenshotId || `new-${screenshotIndex}`;
+      if (drawingData[canvasId]) {
+        console.log('🧹 Cleaning up drawing data for:', canvasId);
+        delete drawingData[canvasId];
+      }
+      
       // Use the deleteScreenshot function from useWebRTC hook
       deleteScreenshot(screenshotIndex);
       toast.success("Screenshot removed!");
@@ -858,290 +1092,187 @@ export default function Page({ params }) {
     }
   };
 
-  // Pencil tool functions - Memoize to prevent re-renders
-  // Fixed Pencil tool functions
-  const handlePencilClick = useCallback((canvasId, screenshot, index) => {
-    console.log('🖋️ handlePencilClick called with:', canvasId, index);
+  // Update the handlePencilClick function to use screenshot ID instead of canvas index
+  const handlePencilClick = useCallback((canvasId, screenshotId) => {
+    console.log('🖋️ Pencil button clicked for canvas:', canvasId, 'screenshot ID:', screenshotId);
+    console.log('Current state - active:', activePencilScreenshot, 'dropdown:', showPencilDropdown);
 
-    // Maximize the screenshot with drawing mode enabled
-    setMaximizedItem({
-      type: 'screenshot',
-      id: canvasId,
-      data: screenshot,
-      index: index,
-      isExisting: false,
-      drawingMode: true // Enable drawing mode immediately
-    });
+    // Use the screenshot ID as the identifier
+    const activeId = screenshotId || canvasId;
 
-    // Set drawing state
-    setActivePencilScreenshot(canvasId);
-
-    console.log('✅ Screenshot maximized with drawing mode enabled');
-  }, []);
-  // Add effect to close dropdown when clicking outside (updated)
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (maximizedItem &&
-        !event.target.closest('.drawing-tools-panel') &&
-        !event.target.closest('canvas')) {
-        // Only close if clicking outside the modal content
-        const modalContent = event.target.closest('.fixed.inset-0');
-        if (!modalContent) {
-          closeMaximized();
-        }
-      }
-    };
-
-    if (maximizedItem) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+    if (showPencilDropdown === activeId) {
+      // If dropdown is already open for this canvas, close it
+      console.log('Closing dropdown for:', activeId);
+      setShowPencilDropdown(null);
+    } else {
+      // Open dropdown for this canvas
+      console.log('Opening dropdown for:', activeId);
+      setActivePencilScreenshot(activeId);  // Set active for drawing
+      setShowPencilDropdown(activeId);     // Show dropdown
     }
-  }, [maximizedItem]);
+  }, [activePencilScreenshot, showPencilDropdown]);
 
-  const handleColorSelect = useCallback((color) => {
-    setSelectedColor(color);
-
-    // Immediate visual feedback - update any active canvas context
-    if (contextRef?.current) {
-      contextRef.current.strokeStyle = color;
-    }
-
-    console.log('Color changed to:', color); // Debug log
-  }, [setSelectedColor]);
-
-  const handleToolSelect = useCallback((tool) => {
-    setSelectedTool(tool);
-    console.log('Tool changed to:', tool); // Debug log
-  }, [setSelectedTool]);
-
-  // Add effect to close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showPencilDropdown &&
-        !event.target.closest('.pencil-dropdown-container')) {
-        setShowPencilDropdown(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showPencilDropdown]);
-
-  // Add effect to fetch existing meeting data when component mounts
-  useEffect(() => {
-    if (!isClient || !id) return;
-
-    const fetchExistingMeetingData = async () => {
-      setIsLoadingMeetingData(true);
-      try {
-        console.log('🔍 Fetching existing meeting data for ID:', id);
-        const response = await getMeetingByMeetingId(id);
-
-        if (response.data.success && response.data.meeting) {
-          const meetingData = response.data.meeting;
-          console.log('✅ Found existing meeting data:', meetingData);
-
-          // Pre-populate form fields with existing data
-          setResidentName(meetingData.name || "");
-          setResidentAddress(meetingData.address || "");
-          setPostCode(meetingData.post_code || "");
-          setRepairDetails(meetingData.repair_detail || "");
-          setTargetTime(meetingData.target_time || "Emergency 24 Hours");
-
-          // Store existing recordings
-          if (meetingData.recordings && meetingData.recordings.length > 0) {
-            const existingRecordings = meetingData.recordings.map(rec => ({
-              id: rec._id || Date.now() + Math.random(),
-              url: rec.url,
-              blob: null,
-              timestamp: new Date(rec.timestamp).toLocaleString(),
-              duration: rec.duration || 0,
-              isExisting: true
-            }));
-            setRecordings(existingRecordings);
-          }
-
-          // Store existing screenshots
-          if (meetingData.screenshots && meetingData.screenshots.length > 0) {
-            const existingScreenshotsData = meetingData.screenshots.map(screenshot => ({
-              id: screenshot._id || Date.now() + Math.random(),
-              url: screenshot.url,
-              timestamp: new Date(screenshot.timestamp).toLocaleString(),
-              isExisting: true
-            }));
-            setExistingScreenshots(existingScreenshotsData);
-            console.log('📸 Loaded existing screenshots:', existingScreenshotsData.length);
-          }
-
-          setExistingMeetingData(meetingData);
-
-          toast.success("Meeting data loaded successfully!", {
-            description: `Found ${meetingData.recordings?.length || 0} recordings and ${meetingData.screenshots?.length || 0} screenshots`
-          });
-        }
-      } catch (error) {
-        // Handle different types of errors gracefully
-        if (error.code === 'ERR_NETWORK') {
-          console.log('ℹ️ Cannot connect to server - this is normal if server is starting up');
-        } else if (error?.response?.status === 404) {
-          console.log('ℹ️ No existing meeting data found for ID:', id, '(This is normal for new meetings)');
-        } else if (error?.response?.status === 500) {
-          console.log('ℹ️ Server error while fetching meeting data - this may be temporary');
-        } else if (error.code === 'ECONNABORTED') {
-          console.log('ℹ️ Request timeout while fetching meeting data');
-        } else {
-          console.log('ℹ️ Error fetching meeting data:', error.message);
-        }
-      } finally {
-        setIsLoadingMeetingData(false);
-      }
-    };
-
-    fetchExistingMeetingData();
-  }, [id, isClient]);
-
-  // UPDATED: Add individual save functions with better duplicate protection
-  const saveIndividualRecording = useCallback(async (recording) => {
-    if (recording.isExisting) {
-      toast.info("Recording already saved");
-      return;
-    }
-
-    const itemKey = `recording-${recording.id}`;
-
+  // Update the save individual screenshot function to use screenshot ID
+  const saveIndividualScreenshot = useCallback(async (screenshotData, index, screenshotId) => {
+    const itemKey = `screenshot-${screenshotId || index}`;
+    
     // Prevent duplicate processing
-    if (processedItemsRef.current.has(itemKey)) {
-      console.log('⚠️ Recording already being processed:', itemKey);
-      return;
-    }
-
-    processedItemsRef.current.add(itemKey);
-
-    try {
-      setSavingRecordingId(recording.id);
-      console.log('💾 Saving individual recording...');
-
-      const base64Data = await blobToBase64(recording.blob);
-      const recordingsData = [{
-        data: base64Data,
-        timestamp: recording.timestamp,
-        duration: recording.duration,
-        size: recording.blob.size
-      }];
-
-      const formData = {
-        meeting_id: id,
-        name: residentName,
-        address: residentAddress,
-        post_code: postCode,
-        repair_detail: repairDetails,
-        target_time: targetTime,
-        recordings: recordingsData,
-        screenshots: [],
-        update_mode: existingMeetingData ? 'update' : 'create'
-      };
-
-      const response = await createRequest(formData);
-
-      // Update the recording to mark it as existing - ATOMIC UPDATE
-      setRecordings(prev => prev.map(r =>
-        r.id === recording.id
-          ? { ...r, isExisting: true }
-          : r
-      ));
-
-      toast.success("Recording saved successfully!");
-
-    } catch (error) {
-      console.error('❌ Save recording failed:', error);
-      toast.error("Failed to save recording");
-    } finally {
-      setSavingRecordingId(null);
-      processedItemsRef.current.delete(itemKey);
-    }
-  }, [id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData]);
-
-  const saveIndividualScreenshot = useCallback(async (screenshotData, index) => {
-    const itemKey = `screenshot-${index}`;
-
-    // Prevent duplicate processing
-    if (processedItemsRef.current.has(itemKey)) {
+    if (processedItemsRef.current.has(itemKey) || savingScreenshotIds.has(screenshotId)) {
       console.log('⚠️ Screenshot already being processed:', itemKey);
       return;
     }
-
+    
     processedItemsRef.current.add(itemKey);
 
     try {
+      // FIXED: Set both index and ID tracking for proper spinner display
       setSavingScreenshotIndex(index);
-      console.log('💾 Saving individual screenshot...');
+      setSavingScreenshotIds(prev => new Set(prev).add(screenshotId));
+      
+      console.log('💾 Saving individual ULTRA HIGH QUALITY screenshot...', index, 'ID:', screenshotId);
 
-      let finalScreenshotData = screenshotData;
-      const canvasId = `new-${index}`;
+      // FIXED: Use clean screenshot data (remove unique identifiers)
+      let finalScreenshotData = screenshotData.split('#')[0]; // Remove timestamp markers
+      
+      // Use screenshot ID to track drawing data instead of index-based canvasId
+      const canvasId = screenshotId || `new-${index}`;
 
-      // Check if this screenshot has drawings and merge them at full resolution
-      if (drawingData[canvasId]) {
-        console.log('🎨 Merging drawings with screenshot at full resolution...');
-        finalScreenshotData = await mergeWithBackground(screenshotData, canvasId);
-        console.log('✅ Drawing merge completed');
+      console.log('🎨 Checking for drawings in canvas:', canvasId);
+      console.log('📊 Available drawing data:', Object.keys(drawingData));
+
+      // ENHANCED: Check if this screenshot has drawings and merge them at ULTRA HIGH resolution
+      if (drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0) {
+        console.log('🎨 Found drawings for canvas:', canvasId, 'Strokes:', drawingData[canvasId].strokes.length);
+        console.log('🖼️ Merging drawings with screenshot at ULTRA HIGH resolution...');
+        
+        try {
+          finalScreenshotData = await mergeWithBackground(finalScreenshotData, canvasId);
+          console.log('✅ ULTRA HIGH quality drawing merge completed successfully');
+        } catch (mergeError) {
+          console.error('❌ Error merging drawings:', mergeError);
+          console.log('📷 Proceeding with original screenshot without drawings');
+        }
+      } else {
+        console.log('ℹ️ No drawings found for canvas:', canvasId);
+        console.log('📋 Canvas data structure:', drawingData[canvasId]);
       }
 
-      const screenshotsData = [{
-        data: finalScreenshotData,
-        timestamp: new Date().toISOString(),
-        size: finalScreenshotData.length
-      }];
+      // ENHANCED: Additional quality check - ensure PNG format for maximum quality
+      if (!finalScreenshotData.startsWith('data:image/png')) {
+        console.log('🔄 Converting to PNG for maximum quality...');
+        
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const scale = 2; // Additional scaling for ultra quality
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.scale(scale, scale);
+            ctx.drawImage(img, 0, 0);
+            
+            finalScreenshotData = canvas.toDataURL('image/png', 1.0);
+            console.log('✅ Enhanced to ultra high quality PNG');
+            
+            // Continue with save process
+            processSave(finalScreenshotData);
+          };
+          img.src = finalScreenshotData;
+        });
+      } else {
+        processSave(finalScreenshotData);
+      }
 
-      const formData = {
-        meeting_id: id,
-        name: residentName,
-        address: residentAddress,
-        post_code: postCode,
-        repair_detail: repairDetails,
-        target_time: targetTime,
-        recordings: [],
-        screenshots: screenshotsData,
-        update_mode: existingMeetingData ? 'update' : 'create'
-      };
+      async function processSave(imageData) {
+        const screenshotsData = [{
+          data: imageData,
+          timestamp: new Date().toISOString(),
+          size: imageData.length,
+          quality: 'ultra_high',
+          index: index, // Add index for tracking
+          hasDrawings: drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0
+        }];
 
-      const response = await createRequest(formData);
+        const formData = {
+          meeting_id: id,
+          name: residentName,
+          address: residentAddress,
+          post_code: postCode,
+          repair_detail: repairDetails,
+          target_time: targetTime,
+          recordings: [],
+          screenshots: screenshotsData,
+          update_mode: existingMeetingData ? 'update' : 'create'
+        };
 
-      toast.success("Screenshot saved successfully!");
+        console.log('📤 Sending screenshot data to server:', {
+          hasDrawings: screenshotsData[0].hasDrawings,
+          dataSize: Math.round(imageData.length / 1024) + 'KB',
+          canvasId: canvasId
+        });
 
-      // Clear pencil mode and drawing data
-      setActivePencilScreenshot(null);
-      setShowPencilDropdown(null);
+        const response = await createRequest(formData);
 
-      // Add saved screenshot to existing screenshots with unique ID
-      const newSavedScreenshot = {
-        id: `saved-${Date.now()}-${index}-${Math.random()}`,
-        url: finalScreenshotData,
-        timestamp: new Date().toLocaleString(),
-        isExisting: true
-      };
+        toast.success(
+          screenshotsData[0].hasDrawings 
+            ? "Ultra high quality screenshot with drawings saved successfully!" 
+            : "Ultra high quality screenshot saved successfully!"
+        );
 
-      setExistingScreenshots(prev => {
-        // Check for duplicates
-        const alreadyExists = prev.some(s => s.url === newSavedScreenshot.url);
-        if (alreadyExists) {
-          console.log('⚠️ Screenshot already in existing array, skipping add');
-          return prev;
+        // Clear pencil mode and drawing data after successful save
+        setActivePencilScreenshot(null);
+        setShowPencilDropdown(null);
+
+        // Add saved screenshot to existing screenshots with unique ID
+        const newSavedScreenshot = {
+          id: `saved-${Date.now()}-${index}-${Math.random()}`,
+          url: imageData,
+          timestamp: new Date().toLocaleString(),
+          isExisting: true,
+          quality: 'ultra_high',
+          hasDrawings: screenshotsData[0].hasDrawings
+        };
+
+        setExistingScreenshots(prev => {
+          // Check for duplicates
+          const alreadyExists = prev.some(s => s.url === newSavedScreenshot.url);
+          if (alreadyExists) {
+            console.log('⚠️ Screenshot already in existing array, skipping add');
+            return prev;
+          }
+          // Add to the end of the array instead of beginning for chronological order
+          return [...prev, newSavedScreenshot];
+        });
+
+        // Remove the screenshot from new screenshots array
+        deleteScreenshot(index);
+        console.log(`🧹 Removed ultra high quality screenshot at index ${index} from new screenshots array`);
+        
+        // Clear the drawing data for this canvas after successful save
+        if (drawingData[canvasId]) {
+          console.log('🧹 Clearing drawing data for canvas:', canvasId);
+          delete drawingData[canvasId];
         }
-        return [...prev, newSavedScreenshot];
-      });
-
-      // Remove the screenshot from new screenshots array
-      deleteScreenshot(index);
-      console.log(`🧹 Removed screenshot at index ${index} from new screenshots array`);
+      }
 
     } catch (error) {
-      console.error('❌ Save screenshot failed:', error);
-      toast.error("Failed to save screenshot");
+      console.error('❌ Save ultra high quality screenshot failed:', error);
+      toast.error("Failed to save ultra high quality screenshot");
     } finally {
+      // FIXED: Clear both index and ID tracking
       setSavingScreenshotIndex(null);
+      setSavingScreenshotIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(screenshotId);
+        return newSet;
+      });
       processedItemsRef.current.delete(itemKey);
     }
-  }, [id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData, drawingData, mergeWithBackground, deleteScreenshot]);
+  }, [id, residentName, residentAddress, postCode, repairDetails, targetTime, existingMeetingData, drawingData, mergeWithBackground, deleteScreenshot, savingScreenshotIds]);
 
   // Maximize handlers - Memoize these functions
   const maximizeVideo = useCallback((recording) => {
@@ -1255,9 +1386,6 @@ export default function Page({ params }) {
     return name.charAt(0).toUpperCase();
   };
 
-  // Add useDialog hook to access the share link dialog
-  const { setShareLinkOpen } = useDialog();
-
   // Add function to create and show share link for current meeting
   const handleCreateShareLink = () => {
     if (!id) {
@@ -1282,11 +1410,6 @@ export default function Page({ params }) {
     setShareLinkOpen(true, meetingData);
   };
 
-  // Add effect to handle client-side hydration right after state declarations
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
   // NEW: Add cleanup effect to prevent memory leaks
   useEffect(() => {
     return () => {
@@ -1297,11 +1420,22 @@ export default function Page({ params }) {
     };
   }, []);
 
-  // Add loading guard to prevent hydration mismatch
-  if (!isClient) {
+  // Enhanced loading guard to prevent hydration mismatch
+  if (!isClient || isLoadingMeetingData) {
     return (
       <div className="max-w-6xl mx-auto p-4 py-10 font-sans">
         <div className="flex items-center justify-center h-64">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-600">
+              {!isClient ? "Loading..." : "Loading meeting data..."}
+            </p>
+            {isLoadingMeetingData && (
+              <p className="text-sm text-gray-500">
+                Fetching existing recordings and screenshots...
+              </p>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -1311,328 +1445,66 @@ export default function Page({ params }) {
     <div className="max-w-6xl mx-auto p-4 py-10 font-sans">
       {/* Maximized Item Modal */}
       {maximizedItem && (
-  <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-    <div className="relative w-full h-full flex">
-      
-      {/* Drawing Tools Panel - Show when in drawing mode */}
-      {maximizedItem.drawingMode && (
-        <div className="w-80 bg-white p-4 overflow-y-auto flex-shrink-0 drawing-tools-panel">
-          <div className="space-y-4">
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b">
-              <h2 className="text-lg font-semibold">🎨 Drawing Tools</h2>
-              <button
-                onClick={() => {
-                  // Toggle off drawing mode but keep maximized
-                  setMaximizedItem(prev => ({ ...prev, drawingMode: false }));
-                  setActivePencilScreenshot(null);
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="relative w-full h-full flex items-center justify-center">
+            {/* Close button */}
+            <button
+              onClick={closeMaximized}
+              className="absolute top-4 right-4 z-10 p-2 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-75"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            {/* Maximized Video */}
+            {maximizedItem.type === 'video' && (
+              <video
+                src={maximizedItem.data.url}
+                controls={true}
+                autoPlay={false}
+                muted={false}
+                className="max-w-full max-h-full w-auto h-auto object-contain"
+                style={{
+                  maxWidth: '95vw',
+                  maxHeight: '95vh'
                 }}
-                className="p-1 hover:bg-gray-100 rounded"
-                title="Exit Drawing Mode"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Line Width */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Brush Size: {lineWidth}px</label>
-              <input
-                type="range"
-                min="1"
-                max="20"
-                value={lineWidth}
-                onChange={(e) => setLineWidth(parseInt(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded appearance-none cursor-pointer"
+                onLoadedMetadata={(e) => {
+                  console.log('Video resolution:', e.target.videoWidth, 'x', e.target.videoHeight);
+                }}
               />
-            </div>
+            )}
 
-            {/* Tools */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Tools</label>
-              <div className="grid grid-cols-2 gap-2">
-                {tools.map((tool) => (
-                  <button
-                    key={tool.name}
-                    onClick={() => setSelectedTool(tool.name)}
-                    className={`p-3 text-sm border rounded-lg transition-all hover:scale-105 ${
-                      selectedTool === tool.name
-                        ? 'bg-blue-100 text-blue-700 border-blue-300'
-                        : 'bg-gray-50 border-gray-300 hover:bg-gray-100'
-                    }`}
-                    title={tool.title}
-                  >
-                    <div className="text-lg mb-1">{tool.icon}</div>
-                    <div className="text-xs capitalize">{tool.name}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Colors */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Colors</label>
-              <div className="grid grid-cols-6 gap-2">
-                {colors.map((color) => (
-                  <button
-                    key={color}
-                    onClick={() => setSelectedColor(color)}
-                    className={`w-10 h-10 rounded-lg transition-transform border-2 hover:scale-110 ${
-                      selectedColor === color 
-                        ? 'border-gray-800 scale-110 shadow-lg' 
-                        : 'border-gray-300'
-                    }`}
-                    style={{ backgroundColor: color }}
-                    title={`Select ${color}`}
+            {/* Maximized Screenshot */}
+            {maximizedItem.type === 'screenshot' && (
+              <div className="relative w-full h-full flex items-center justify-center p-4">
+                <div
+                  className="relative flex items-center justify-center w-full h-full"
+                  style={{
+                    maxWidth: 'calc(100vw - 2rem)',
+                    maxHeight: 'calc(100vh - 2rem)',
+                    minWidth: '300px',
+                    minHeight: '300px'
+                  }}
+                >
+                  {/* Original Screenshot as Background */}
+                  <img
+                    id={`maximized-img-${maximizedItem.id}`}
+                    src={maximizedItem.isExisting ? maximizedItem.data.url : maximizedItem.data}
+                    alt="Maximized screenshot"
+                    className="w-full h-full object-contain"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      width: 'auto',
+                      height: 'auto'
+                    }}
                   />
-                ))}
-              </div>
-            </div>
-
-            {/* Current Settings */}
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <h4 className="font-medium mb-2">Current Settings</h4>
-              <div className="space-y-1 text-sm">
-                <div>Tool: <strong>{tools.find(t => t.name === selectedTool)?.title || selectedTool}</strong></div>
-                <div className="flex items-center gap-2">
-                  Color: 
-                  <div 
-                    className="w-4 h-4 rounded border border-gray-400" 
-                    style={{ backgroundColor: selectedColor }}
-                  ></div>
-                  <strong>{selectedColor}</strong>
                 </div>
-                <div>Size: <strong>{lineWidth}px</strong></div>
               </div>
-            </div>
+            )}
 
-            {/* Action Buttons */}
-            <div className="space-y-2 pt-4 border-t">
-              <button
-                onClick={() => clearCanvas(maximizedItem.id)}
-                className="w-full py-2 px-4 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-              >
-                🗑️ Clear All Drawings
-              </button>
-              
-              <button
-                onClick={closeMaximized}
-                className="w-full py-2 px-4 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
-              >
-                ✅ Done Editing
-              </button>
-            </div>
           </div>
         </div>
       )}
-
-      {/* Image Area */}
-      <div className="flex-1 flex items-center justify-center relative">
-        {/* Close button - always visible */}
-        <button
-          onClick={closeMaximized}
-          className="absolute top-4 right-4 z-20 p-2 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-75"
-        >
-          <X className="w-6 h-6" />
-        </button>
-
-        {/* Toggle Drawing Mode Button - Only for new screenshots */}
-        {maximizedItem.type === 'screenshot' && !maximizedItem.isExisting && (
-          <button
-            onClick={() => {
-              const newDrawingMode = !maximizedItem.drawingMode;
-              console.log('🎨 Toggling drawing mode to:', newDrawingMode);
-              setMaximizedItem(prev => ({ ...prev, drawingMode: newDrawingMode }));
-              if (newDrawingMode) {
-                setActivePencilScreenshot(maximizedItem.id);
-              } else {
-                setActivePencilScreenshot(null);
-              }
-            }}
-            className={`absolute top-4 left-4 z-20 p-2 rounded-full transition-colors ${
-              maximizedItem.drawingMode 
-                ? 'bg-blue-500 text-white' 
-                : 'bg-black bg-opacity-50 text-white hover:bg-opacity-75'
-            }`}
-            title={maximizedItem.drawingMode ? "Exit Drawing Mode" : "Enter Drawing Mode"}
-          >
-            <Pencil className="w-6 h-6" />
-          </button>
-        )}
-
-        {/* Maximized Screenshot with Drawing Canvas */}
-        {maximizedItem.type === 'screenshot' && (
-          <div className="relative w-full h-full flex items-center justify-center p-8">
-            <div 
-              className="relative flex items-center justify-center"
-              style={{
-                maxWidth: '80vw',
-                maxHeight: '80vh',
-                width: '100%',
-                height: '100%'
-              }}
-            >
-              {/* Original Screenshot */}
-              <img
-                id={`maximized-img-${maximizedItem.id}`}
-                src={maximizedItem.isExisting ? maximizedItem.data.url : maximizedItem.data}
-                alt="Maximized screenshot"
-                className="max-w-full max-h-full object-contain"
-                onLoad={(e) => {
-                  console.log('📸 Maximized image loaded');
-                  
-                  if (!maximizedItem.isExisting && maximizedItem.drawingMode) {
-                    const img = e.target;
-                    const rect = img.getBoundingClientRect();
-                    
-                    console.log('🎨 Setting up drawing canvas, image rect:', rect);
-                    
-                    setTimeout(() => {
-                      const canvas = document.querySelector(`canvas[data-maximized-canvas-id="${maximizedItem.id}"]`);
-                      if (canvas) {
-                        console.log('✅ Found maximized canvas, initializing...');
-                        
-                        // Set canvas size to match displayed image
-                        canvas.width = rect.width;
-                        canvas.height = rect.height;
-                        canvas.style.width = rect.width + 'px';
-                        canvas.style.height = rect.height + 'px';
-                        canvas.style.position = 'absolute';
-                        canvas.style.top = '50%';
-                        canvas.style.left = '50%';
-                        canvas.style.transform = 'translate(-50%, -50%)';
-                        canvas.style.pointerEvents = 'auto';
-                        
-                        // Initialize drawing canvas
-                        initializeCanvas(canvas, maximizedItem.data, maximizedItem.id);
-                        
-                        console.log('✅ Maximized drawing canvas initialized');
-                        
-                        // Copy existing drawings if any
-                        const sourceCanvas = document.querySelector(`canvas[data-canvas-id="${maximizedItem.id}"]`);
-                        if (sourceCanvas && drawingData[maximizedItem.id]?.strokes?.length > 0) {
-                          console.log('🔄 Copying existing drawings to maximized canvas');
-                          
-                          const ctx = canvas.getContext('2d');
-                          const scaleX = canvas.width / sourceCanvas.width;
-                          const scaleY = canvas.height / sourceCanvas.height;
-                          
-                          drawingData[maximizedItem.id].strokes.forEach(stroke => {
-                            ctx.strokeStyle = stroke.color;
-                            ctx.lineWidth = stroke.lineWidth * Math.min(scaleX, scaleY);
-                            ctx.lineCap = 'round';
-                            ctx.lineJoin = 'round';
-                            ctx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
-                            
-                            if (stroke.type === 'path' && stroke.points) {
-                              ctx.beginPath();
-                              stroke.points.forEach((point, index) => {
-                                const x = point.x * scaleX;
-                                const y = point.y * scaleY;
-                                if (index === 0) {
-                                  ctx.moveTo(x, y);
-                                } else {
-                                  ctx.lineTo(x, y);
-                                }
-                              });
-                              ctx.stroke();
-                            }
-                          });
-                          
-                          console.log('✅ Existing drawings copied');
-                        }
-                      } else {
-                        console.error('❌ Maximized canvas not found!');
-                      }
-                    }, 100);
-                  }
-                }}
-              />
-
-              {/* Interactive Drawing Canvas - Only for new screenshots in drawing mode */}
-              {!maximizedItem.isExisting && maximizedItem.drawingMode && (
-                <canvas
-                  data-maximized-canvas-id={maximizedItem.id}
-                  className="absolute cursor-crosshair"
-                  style={{
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    pointerEvents: 'auto',
-                    zIndex: 10
-                  }}
-                  onMouseDown={(e) => {
-                    console.log('🖱️ Mouse down on maximized canvas');
-                    e.preventDefault();
-                    // Update canvas ID attribute for drawing tools
-                    e.target.setAttribute('data-canvas-id', maximizedItem.id);
-                    startDrawing(e);
-                  }}
-                  onMouseMove={(e) => {
-                    e.preventDefault();
-                    e.target.setAttribute('data-canvas-id', maximizedItem.id);
-                    draw(e);
-                  }}
-                  onMouseUp={(e) => {
-                    e.preventDefault();
-                    e.target.setAttribute('data-canvas-id', maximizedItem.id);
-                    stopDrawing(e);
-                  }}
-                  onMouseLeave={(e) => {
-                    e.preventDefault();
-                    e.target.setAttribute('data-canvas-id', maximizedItem.id);
-                    stopDrawing(e);
-                  }}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    const touch = e.touches[0];
-                    const mouseEvent = new MouseEvent('mousedown', {
-                      clientX: touch.clientX,
-                      clientY: touch.clientY
-                    });
-                    e.target.setAttribute('data-canvas-id', maximizedItem.id);
-                    startDrawing(mouseEvent);
-                  }}
-                  onTouchMove={(e) => {
-                    e.preventDefault();
-                    const touch = e.touches[0];
-                    const mouseEvent = new MouseEvent('mousemove', {
-                      clientX: touch.clientX,
-                      clientY: touch.clientY
-                    });
-                    e.target.setAttribute('data-canvas-id', maximizedItem.id);
-                    draw(mouseEvent);
-                  }}
-                  onTouchEnd={(e) => {
-                    e.preventDefault();
-                    const mouseEvent = new MouseEvent('mouseup', {});
-                    e.target.setAttribute('data-canvas-id', maximizedItem.id);
-                    stopDrawing(mouseEvent);
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Maximized Video (unchanged) */}
-        {maximizedItem.type === 'video' && (
-          <video
-            src={maximizedItem.data.url}
-            controls={true}
-            autoPlay={false}
-            muted={false}
-            className="max-w-full max-h-full w-auto h-auto object-contain"
-            style={{
-              maxWidth: '95vw',
-              maxHeight: '95vh'
-            }}
-          />
-        )}
-      </div>
-    </div>
-  </div>
-)}
 
       <div className="gap-6" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr' }}>
         {/* Left Column */}
@@ -1871,7 +1743,9 @@ export default function Page({ params }) {
                           disabled={recording.isExisting || savingRecordingId === recording.id}
                         >
                           {savingRecordingId === recording.id ? (
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <div className="w-4 h-4 flex items-center justify-center">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            </div>
                           ) : (
                             <Save className="w-4 h-4" />
                           )}
@@ -1924,58 +1798,79 @@ export default function Page({ params }) {
                   <h1>No screenshots</h1>
                 )}
 
-                {/* Render existing screenshots first */}
-                {existingScreenshots.map((screenshot, index) => (
-                  <div key={`existing-${screenshot.id}`}>
-                    <img src="/icons/ci_label.svg" className="mb-2" />
-                    <div className="aspect-square bg-gray-200 rounded-md overflow-hidden flex items-center justify-center relative">
-                      <div className="absolute top-2 right-2 flex flex-row gap-1 z-10">
-                        <button className="p-1 hover:bg-black/20 rounded text-white">
-                          <Minimize2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          className="p-1 hover:bg-black/20 rounded text-white"
-                          onClick={() => maximizeScreenshot(screenshot, index, true)}
-                        >
-                          <Expand className="w-4 h-4" />
-                        </button>
-                      </div>
+                {/* Sort existing screenshots to ensure chronological order (oldest first) */}
+                {existingScreenshots
+                  .sort((a, b) => {
+                    // Convert timestamp strings to Date objects for proper comparison
+                    const dateA = new Date(a.timestamp);
+                    const dateB = new Date(b.timestamp);
+                    return dateA - dateB; // Ascending order (oldest first)
+                  })
+                  .map((screenshot, index) => (
+                    <div key={`existing-${screenshot.id}`}>
+                      <img src="/icons/ci_label.svg" className="mb-2" />
+                      <div className="aspect-square bg-gray-200 rounded-md overflow-hidden flex items-center justify-center relative">
+                        <div className="absolute top-2 right-2 flex flex-row gap-1 z-10">
+                          <button className="p-1 hover:bg-black/20 rounded text-white">
+                            <Minimize2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            className="p-1 hover:bg-black/20 rounded text-white"
+                            onClick={() => maximizeScreenshot(screenshot, index, true)}
+                          >
+                            <Expand className="w-4 h-4" />
+                          </button>
+                        </div>
 
-                      {/* Action icons for existing screenshots */}
-                      <div className="absolute bottom-2 right-2 flex flex-col gap-1 z-10">
-                        <button className="p-1 hover:bg-black/20 rounded text-white opacity-50" disabled>
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 hover:bg-black/20 rounded text-white opacity-50" disabled title="Already saved">
-                          <Save className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => deleteExistingScreenshot(screenshot)}
-                          className="p-1 hover:bg-black/20 rounded text-white"
-                          title="Delete screenshot"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                        {/* Action icons for existing screenshots */}
+                        <div className="absolute bottom-2 right-2 flex flex-col gap-1 z-10">
+                          <button className="p-1 hover:bg-black/20 rounded text-white opacity-50" disabled>
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button className="p-1 hover:bg-black/20 rounded text-white opacity-50" disabled title="Already saved">
+                            <Save className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteExistingScreenshot(screenshot)}
+                            className="p-1 hover:bg-black/20 rounded text-white"
+                            title="Delete screenshot"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
 
-                      {/* Existing Screenshot Image */}
-                      <img
-                        src={screenshot.url}
-                        alt="existing screenshot"
-                        className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
-                      />
+                        {/* Existing Screenshot Image */}
+                        <img
+                          src={screenshot.url}
+                          alt="existing screenshot"
+                          className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
-                {/* Render new screenshots from useWebRTC with RIGHT DROPDOWN */}
-                {screenshots.map((screenshot, index) => {
-                  const canvasId = `new-${index}`;
+                {/* Render new screenshots in chronological order (as they were taken) */}
+                {[...screenshots].map((screenshot, index) => {
+                  // ENHANCED: Handle both object and string screenshot formats
+                  const screenshotData = typeof screenshot === 'object' ? screenshot.data : screenshot;
+                  // FIXED: Use more reliable unique ID for each screenshot
+                  const screenshotId = typeof screenshot === 'object' ? 
+                    (screenshot.id || `screenshot-${screenshot.timestamp || Date.now()}-${Math.random()}`) : 
+                    `screenshot-${index}-${Date.now()}-${Math.random()}`;
+                  const screenshotUniqueId = typeof screenshot === 'object' ? screenshot.uniqueId : `${index}`;
+                  
+                  // FIXED: Use screenshot ID as canvasId to keep drawings attached to the correct screenshot
+                  const canvasId = screenshotId;
                   const isActive = activePencilScreenshot === canvasId;
                   const shouldShowDropdown = showPencilDropdown === canvasId;
+                  
+                  // FIXED: Use clean screenshot URL without excessive unique identifiers
+                  const cleanScreenshotUrl = screenshotData.split('#')[0];
+
+                  console.log(`🖼️ Rendering screenshot ${index}:`, { canvasId, screenshotId });
 
                   return (
-                    <div key={canvasId} className="relative pencil-dropdown-container">
+                    <div key={`screenshot-container-${screenshotId}`} className="relative pencil-dropdown-container">
                       <img src="/icons/ci_label.svg" className="mb-2" />
                       <div className="aspect-square bg-gray-200 rounded-md overflow-visible flex items-center justify-center relative">
                         {/* Minimize/Maximize icons */}
@@ -1985,7 +1880,10 @@ export default function Page({ params }) {
                           </button>
                           <button
                             className="p-1 hover:bg-black/20 rounded text-white"
-                            onClick={() => maximizeScreenshot(screenshot, index, false)}
+                            onClick={() => {
+                              console.log('🔍 Maximizing screenshot:', { index, cleanScreenshotUrl });
+                              maximizeScreenshot(cleanScreenshotUrl, index, false);
+                            }}
                           >
                             <Expand className="w-4 h-4" />
                           </button>
@@ -1997,30 +1895,43 @@ export default function Page({ params }) {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              console.log('🖋️ Pencil clicked for:', canvasId);
-                              // Call handlePencilClick with correct parameters
-                              handlePencilClick(canvasId, screenshot, index);
+                              console.log('🖋️ Pencil clicked for canvas:', canvasId);
+                              handlePencilClick(canvasId, screenshotId);
                             }}
-                            className="p-1 hover:bg-black/20 rounded text-white transition-colors"
-                            title="Edit in full screen"
+                            className={`p-1 hover:bg-black/20 rounded text-white transition-colors border-2 ${
+                              isActive ? 'bg-blue-500 border-blue-300' : 'bg-black/10 border-transparent'
+                            }`}
+                            title="Drawing tools"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
 
                           <button
-                            onClick={() => saveIndividualScreenshot(screenshot, index)}
-                            className={`p-1 hover:bg-black/20 rounded text-white ${savingScreenshotIndex === index ? 'opacity-80' : ''}`}
-                            title="Save screenshot"
-                            disabled={savingScreenshotIndex === index}
+                            onClick={() => {
+                              console.log('💾 Saving individual screenshot:', { index, cleanScreenshotUrl, id: screenshotId });
+                              saveIndividualScreenshot(cleanScreenshotUrl, index, screenshotId);
+                            }}
+                            className={`p-1 hover:bg-black/20 rounded text-white transition-all duration-200 ${
+                              savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index 
+                                ? 'opacity-80 cursor-not-allowed bg-gray-600' 
+                                : 'hover:scale-105'
+                            }`}
+                            title={savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index ? "Saving..." : "Save screenshot"}
+                            disabled={savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index}
                           >
-                            {savingScreenshotIndex === index ? (
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            {(savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index) ? (
+                              <div className="w-4 h-4 flex items-center justify-center">
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              </div>
                             ) : (
                               <Save className="w-4 h-4" />
                             )}
                           </button>
                           <button
-                            onClick={() => deleteNewScreenshot(index)}
+                            onClick={() => {
+                              console.log('🗑️ Deleting screenshot:', { index, id: screenshotId });
+                              deleteNewScreenshot(index, screenshotId);
+                            }}
                             className="p-1 hover:bg-black/20 rounded text-white"
                             title="Delete screenshot"
                           >
@@ -2028,27 +1939,53 @@ export default function Page({ params }) {
                           </button>
                         </div>
 
-                        {/* Screenshot Image */}
+                        {/* FIXED: Screenshot Image with stable loading and NO LOOPS */}
                         <img
-                          src={screenshot}
-                          alt="new screenshot"
+                          key={`screenshot-img-${screenshotId}`}
+                          src={cleanScreenshotUrl}
+                          alt={`screenshot ${index + 1}`}
                           className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
-                        />
-
-                        {/* ALWAYS VISIBLE Canvas for drawings */}
-                        <canvas
-                          data-canvas-id={canvasId}
-                          ref={(canvas) => {
+                          onLoad={(e) => {
+                            console.log(`📸 Screenshot ${index + 1} loaded successfully`);
+                            
+                            // CRITICAL: Only initialize canvas ONCE per screenshot
+                            const canvas = e.target.parentElement.querySelector(`canvas[data-canvas-id="${canvasId}"]`);
                             if (canvas) {
-                              canvas.setAttribute('data-background', screenshot);
-                              initializeCanvas(canvas, screenshot, canvasId);
+                              console.log(`🎨 Found canvas for initialization: ${canvasId}`);
+                              // FIXED: Only initialize if not already initialized
+                              initializeCanvas(canvas, cleanScreenshotUrl, canvasId);
+                            } else {
+                              console.warn(`❌ Canvas not found for canvasId: ${canvasId}`);
                             }
                           }}
-                          className={`absolute top-0 left-0 w-full h-full z-10 rounded-md ${isActive ? 'cursor-crosshair' : 'pointer-events-none'
-                            }`}
+                          onError={(e) => {
+                            console.error(`❌ Error loading screenshot ${index + 1}:`, e);
+                          }}
+                          data-screenshot-id={screenshotId} // Store ID on the element
+                        />
+
+                        {/* FIXED: Canvas for drawings with STABLE event handling */}
+                        <canvas
+                          key={`canvas-${screenshotId}`}
+                          data-canvas-id={canvasId}
+                          data-screenshot-id={screenshotId}
+                          data-screenshot-index={index}
+                          className={`absolute top-0 left-0 w-full h-full z-10 rounded-md transition-all ${
+                            isActive 
+                              ? 'cursor-crosshair pointer-events-auto' 
+                              : 'pointer-events-none'
+                          }`}
+                          style={{
+                            pointerEvents: isActive ? 'auto' : 'none',
+                            touchAction: isActive ? 'none' : 'auto',
+                            zIndex: isActive ? 15 : 10,
+                            border: isActive ? '2px solid #3b82f6' : 'none'
+                          }}
                           onMouseDown={(e) => {
                             if (isActive) {
                               e.preventDefault();
+                              e.stopPropagation();
+                              console.log('🖱️ Mouse down on canvas:', canvasId);
                               startDrawing(e);
                             }
                           }}
@@ -2061,6 +1998,7 @@ export default function Page({ params }) {
                           onMouseUp={(e) => {
                             if (isActive) {
                               e.preventDefault();
+                              console.log('🖱️ Mouse up on canvas:', canvasId);
                               stopDrawing(e);
                             }
                           }}
@@ -2073,11 +2011,16 @@ export default function Page({ params }) {
                           onTouchStart={(e) => {
                             if (isActive) {
                               e.preventDefault();
+                              e.stopPropagation();
+                              console.log('👆 Touch start on canvas:', canvasId);
                               const touch = e.touches[0];
-                              const mouseEvent = new MouseEvent('mousedown', {
+                              const mouseEvent = {
+                                ...e,
                                 clientX: touch.clientX,
-                                clientY: touch.clientY
-                              });
+                                clientY: touch.clientY,
+                                target: e.target,
+                                currentTarget: e.currentTarget
+                              };
                               startDrawing(mouseEvent);
                             }
                           }}
@@ -2085,89 +2028,84 @@ export default function Page({ params }) {
                             if (isActive) {
                               e.preventDefault();
                               const touch = e.touches[0];
-                              const mouseEvent = new MouseEvent('mousemove', {
+                              const mouseEvent = {
+                                ...e,
                                 clientX: touch.clientX,
-                                clientY: touch.clientY
-                              });
+                                clientY: touch.clientY,
+                                target: e.target,
+                                currentTarget: e.currentTarget
+                              };
                               draw(mouseEvent);
                             }
                           }}
                           onTouchEnd={(e) => {
                             if (isActive) {
                               e.preventDefault();
-                              const mouseEvent = new MouseEvent('mouseup', {});
-                              stopDrawing(mouseEvent);
+                              console.log('👆 Touch end on canvas:', canvasId);
+                              stopDrawing(e);
                             }
                           }}
                         />
 
-                        {/* RIGHT SIDE DROPDOWN - Compact Version */}
+                        {/* Drawing Tools Dropdown Modal */}
                         {shouldShowDropdown && (
-                          <div className="absolute left-full top-0 ml-2 bg-white border border-gray-300 rounded-md shadow-lg p-2 min-w-[200px] z-50 max-h-[350px] overflow-y-auto">
-                            <div className="space-y-2">
-                              {/* Header with Close Button */}
+                          <div 
+                            className="absolute left-full top-0 ml-2 bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[240px] z-50 max-h-[400px] overflow-y-auto"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="space-y-3">
                               <div className="flex items-center justify-between pb-2 border-b border-gray-200">
-                                <h3 className="text-xs font-medium text-gray-800">🎨 Tools</h3>
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    console.log('🖋️ Closing dropdown via X button');
-                                    setShowPencilDropdown(null);
-                                    setActivePencilScreenshot(null);
-                                  }}
-                                  className="p-0.5 hover:bg-gray-100 rounded transition-colors"
-                                  title="Close"
-                                >
-                                  <X className="w-3 h-3 text-gray-600" />
-                                </button>
+                                <h3 className="text-sm font-semibold text-gray-800">
+                                  Drawing Tools
+                                  <span className="text-xs text-gray-500 block">Canvas: {canvasId.substring(0, 10)}...</span>
+                                </h3>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      console.log('🧹 Clearing canvas:', canvasId);
+                                      clearCanvas(canvasId);
+                                    }}
+                                    className="p-1 hover:bg-red-50 rounded text-red-600 transition-colors"
+                                    title="Clear Canvas"
+                                  >
+                                    🗑️
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      console.log('❌ Closing dropdown for:', canvasId);
+                                      setShowPencilDropdown(null);
+                                      setActivePencilScreenshot(null);
+                                    }}
+                                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                                    title="Close"
+                                  >
+                                    <X className="w-4 h-4 text-gray-600" />
+                                  </button>
+                                </div>
                               </div>
-
-                              {/* Line Width */}
-                              <div>
-                                <p className="text-xs font-medium text-gray-700 mb-1">Size:</p>
-                                <input
-                                  type="range"
-                                  min="1"
-                                  max="15"
-                                  value={lineWidth}
-                                  onChange={(e) => setLineWidth(parseInt(e.target.value))}
-                                  className="w-full h-1 bg-gray-200 rounded appearance-none cursor-pointer"
-                                />
-                                <div className="text-xs text-gray-500 text-center">{lineWidth}px</div>
-                              </div>
-
-                              {/* Action Buttons */}
-                              <div className="pb-2 border-b border-gray-200">
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    console.log('🖋️ Clear button clicked for:', canvasId);
-                                    clearCanvas(canvasId);
-                                  }}
-                                  className="px-2 py-1 text-xs bg-red-50 text-red-600 rounded border hover:bg-red-100 transition-colors w-full"
-                                  title="Clear all drawings"
-                                >
-                                  🗑️ Clear
-                                </button>
-                              </div>
-
+                              
                               {/* Tools Section */}
                               <div>
-                                <p className="text-xs font-medium text-gray-700 mb-1">Tools:</p>
-                                <div className="grid grid-cols-3 gap-1">
+                                <p className="text-xs font-medium text-gray-700 mb-2">Tools:</p>
+                                <div className="grid grid-cols-5 gap-1">
                                   {tools.map((tool) => (
                                     <button
                                       key={tool.name}
                                       onClick={(e) => {
                                         e.preventDefault();
-                                        console.log('🖋️ Tool selected:', tool.name);
+                                        e.stopPropagation();
+                                        console.log('🔧 Tool selected:', tool.name, 'for canvas:', canvasId);
                                         setSelectedTool(tool.name);
                                       }}
-                                      className={`w-full h-7 flex items-center justify-center text-xs border rounded transition-all hover:scale-105 ${selectedTool === tool.name
-                                        ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                        : 'bg-gray-50 border-gray-300 hover:bg-gray-100'
-                                        }`}
+                                      className={`p-2 text-xs border rounded hover:scale-105 transition-all duration-200 flex flex-col items-center gap-1 ${
+                                        selectedTool === tool.name
+                                          ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                          : 'bg-gray-50 border-gray-300 hover:bg-gray-100'
+                                      }`}
                                       title={tool.title}
                                     >
                                       <span className="text-sm">{tool.icon}</span>
@@ -2178,18 +2116,22 @@ export default function Page({ params }) {
 
                               {/* Colors Section */}
                               <div>
-                                <p className="text-xs font-medium text-gray-700 mb-1">Colors:</p>
+                                <p className="text-xs font-medium text-gray-700 mb-2">Colors:</p>
                                 <div className="grid grid-cols-6 gap-1">
                                   {colors.map((color) => (
                                     <button
                                       key={color}
                                       onClick={(e) => {
                                         e.preventDefault();
-                                        console.log('🖋️ Color selected:', color);
+                                        e.stopPropagation();
+                                        console.log('🎨 Color selected:', color, 'for canvas:', canvasId);
                                         setSelectedColor(color);
                                       }}
-                                      className={`w-6 h-6 rounded-full transition-transform border hover:scale-110 ${selectedColor === color ? 'border-gray-800 scale-110 shadow-md' : 'border-gray-300'
-                                        }`}
+                                      className={`w-6 h-6 rounded border-2 transition-all duration-200 hover:scale-110 ${
+                                        selectedColor === color 
+                                          ? 'border-gray-800 scale-110 ring-2 ring-gray-300' 
+                                          : 'border-gray-300 hover:border-gray-500'
+                                      }`}
                                       style={{ backgroundColor: color }}
                                       title={`Select ${color}`}
                                     />
@@ -2197,39 +2139,48 @@ export default function Page({ params }) {
                                 </div>
                               </div>
 
+                              {/* Line Width Section */}
+                              <div>
+                                <p className="text-xs font-medium text-gray-700 mb-2">Size: {lineWidth}px</p>
+                                <input
+                                  type="range"
+                                  min="1"
+                                  max="20"
+                                  value={lineWidth}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    const newWidth = parseInt(e.target.value);
+                                    console.log('📏 Line width changed:', newWidth, 'for canvas:', canvasId);
+                                    setLineWidth(newWidth);
+                                  }}
+                                  className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                  style={{
+                                    background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(lineWidth / 20) * 100}%, #e5e7eb ${(lineWidth / 20) * 100}%, #e5e7eb 100%)`
+                                  }}
+                                />
+                              </div>
+
                               {/* Current Settings Display */}
-                              <div className="pt-2 border-t border-gray-200">
-                                <p className="text-xs text-gray-600 bg-gray-50 p-1.5 rounded text-center">
-                                  <strong>{tools.find(t => t.name === selectedTool)?.title}</strong>
+                              <div className="bg-gray-50 p-2 rounded border text-center">
+                                <p className="text-xs text-gray-600">
+                                  <span className="font-medium text-gray-800">
+                                    {tools.find(t => t.name === selectedTool)?.icon} {selectedTool}
+                                  </span>
                                   {selectedTool !== 'eraser' && (
                                     <>
                                       {' '}- <span
-                                        className="inline-block w-2 h-2 rounded-full border border-gray-400 align-middle mx-0.5"
+                                        className="inline-block w-3 h-3 rounded border align-middle mx-1"
                                         style={{ backgroundColor: selectedColor }}
                                       ></span>
-                                      {' '}- {lineWidth}px
+                                      {lineWidth}px
                                     </>
                                   )}
                                 </p>
                               </div>
-
-                              {/* Start Drawing Button */}
-                              <div>
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    console.log('🖋️ Start Drawing clicked for:', canvasId);
-                                    setShowPencilDropdown(null);
-                                    // Keep activePencilScreenshot active for drawing
-                                  }}
-                                  className="w-full py-1.5 px-3 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors"
-                                >
-                                  ✏️ Draw
-                                </button>
-                              </div>
                             </div>
                           </div>
                         )}
+
                       </div>
                     </div>
                   );
@@ -2440,7 +2391,7 @@ export default function Page({ params }) {
             >
               {isEndingSave ? (
                 <div className="flex flex-col items-center gap-1">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mb-1" />
                   <span className="text-xs">Ending & Saving...</span>
                 </div>
               ) : (

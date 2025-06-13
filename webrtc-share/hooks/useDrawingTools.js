@@ -561,27 +561,47 @@ const tools = [
   }, [isDrawing, selectedTool, selectedColor, lineWidth]);
 
   const clearCanvas = useCallback((canvasId) => {
+    console.log('🧹 Clearing canvas:', canvasId);
+    
     const canvas = canvasRefs.current[canvasId];
     const ctx = contextRefs.current[canvasId];
     const data = drawingData.current[canvasId];
     
-    if (!canvas || !ctx || !data) return;
+    if (!canvas || !ctx || !data) {
+      console.warn('⚠️ Canvas, context, or data not found for:', canvasId);
+      return;
+    }
 
     // Clear strokes data
     data.strokes = [];
     
-    // FIXED: Force complete refresh
-    requestAnimationFrame(() => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      const bgImage = backgroundImages.current[canvasId];
-      if (bgImage) {
-        const rect = canvas.getBoundingClientRect();
-        ctx.drawImage(bgImage, 0, 0, rect.width, rect.height);
-      }
-    });
+    // FIXED: Force complete refresh with better error handling
+    try {
+      requestAnimationFrame(() => {
+        if (canvasRefs.current[canvasId] === canvas) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          
+          const bgImage = backgroundImages.current[canvasId];
+          if (bgImage && bgImage.complete && bgImage.naturalWidth > 0) {
+            try {
+              const rect = canvas.getBoundingClientRect();
+              ctx.drawImage(bgImage, 0, 0, rect.width, rect.height);
+              console.log('✅ Canvas cleared and background restored for:', canvasId);
+            } catch (drawError) {
+              console.error('❌ Error redrawing background after clear:', drawError);
+              // Create fallback background
+              createFallbackBackground(ctx, canvas.width, canvas.height, canvasId);
+            }
+          } else {
+            console.log('ℹ️ No background image available, canvas cleared to transparent');
+          }
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error during canvas clear:', error);
+    }
 
-    console.log('Canvas cleared for:', canvasId);
+    console.log('✅ Canvas cleared for:', canvasId);
   }, []);
 
   // Custom setters

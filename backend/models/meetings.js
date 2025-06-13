@@ -3,13 +3,14 @@ import mongoose from 'mongoose';
 
 // Define the Meeting schema
 const meetingSchema = new mongoose.Schema({
-    meeting_id: {type: String,required: true,unique: true},
+    meeting_id: {type: String, required: true, unique: true},
     name: {type: String},
     address: {type: String},
-    post_code: {type: String},
+    post_code: {type: String, trim: true}, // Actual postcode field
+    reference: {type: String, trim: true}, // Reference field (what was previously stored in post_code)
     repair_detail: {type: String},
     target_time: {type: String},
-    owner: {type: mongoose.Schema.ObjectId,ref: "User"},
+    owner: {type: mongoose.Schema.ObjectId, ref: "User"},
     userId: {type: mongoose.Schema.ObjectId, ref: "User", required: true}, // Added userId field
     // New fields for media storage
     recordings: [{
@@ -55,7 +56,7 @@ const meetingSchema = new mongoose.Schema({
         ref: 'User',
         default: null
     }
-},{timestamps: true});
+}, {timestamps: true});
 
 
 
