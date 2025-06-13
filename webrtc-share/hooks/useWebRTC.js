@@ -368,308 +368,174 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
 
     const createDummyVideoTrack = () => {
         const canvas = document.createElement("canvas");
-        canvas.width = 1920;  // Higher resolution dummy
-        canvas.height = 1080;
-    
+        canvas.width = 640;
+        canvas.height = 480;
+
         const context = canvas.getContext("2d");
-        context.fillStyle = "#1a1a1a";
+        context.fillStyle = "black";
         context.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Add some visual content to dummy track
-        context.fillStyle = "white";
-        context.font = "48px Arial";
-        context.textAlign = "center";
-        context.fillText("Waiting for connection...", canvas.width/2, canvas.height/2);
-        
-        // Add a subtle pattern to make it more interesting
-        context.fillStyle = "#333";
-        for (let i = 0; i < canvas.width; i += 100) {
-            for (let j = 0; j < canvas.height; j += 100) {
-                context.fillRect(i, j, 1, 1);
-            }
-        }
-    
+
         const stream = canvas.captureStream(30); // 30 FPS
         return stream;
     };
 
     const createRTCPeerConnection = () => {
-        if(peerConnectionRef.current) {
+        if (peerConnectionRef.current) {
             try {
                 peerConnectionRef.current.close();
             } catch (error) {
-                console.error('Error closing existing peer connection:', error);
+                console.error('Error closing peer connection:', error);
             }
         }
 
         const peerConnection = new RTCPeerConnection(peerConfig);
 
-        // Configure for maximum quality
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
                 socketConnection.current.emit('ice-candidate', event.candidate, roomId);
-                console.log('📡 ICE candidate sent');
             }
         }
 
-        if(!isAdmin) {
-            // Add tracks with ULTRA HIGH quality settings
-            if (localStreamRef.current) {
-                localStreamRef.current.getTracks().forEach(track => {
-                    const sender = peerConnection.addTrack(track, localStreamRef.current);
-                    
-                    // Apply ULTRA HIGH quality parameters for video tracks
-                    if (track.kind === 'video') {
-                        const params = sender.getParameters();
-                        if (params.encodings && params.encodings.length > 0) {
-                            // ENHANCED: Ultra high bitrate for maximum quality
-                            params.encodings[0].maxBitrate = 50000000; // 50 Mbps for ultra quality
-                            params.encodings[0].maxFramerate = 60; // 60 FPS
-                            params.encodings[0].scaleResolutionDownBy = 1; // No downscaling
-                            params.encodings[0].adaptivePtime = false; // Disable adaptive timing
-                            params.encodings[0].priority = 'high'; // High priority
-                            
-                            sender.setParameters(params).then(() => {
-                                console.log('✅ Ultra high quality video parameters applied - 50 Mbps @ 60fps');
-                            }).catch(console.error);
-                        }
-                    }
-                });
-            }
+        if (!isAdmin) {
+            localStreamRef.current.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStreamRef.current);
+            });
         } else {
-            // ENHANCED: High quality dummy stream for admin
             const stream = createDummyVideoTrack();
             stream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, stream);
             });
         }
-        
+
         peerConnection.ontrack = (event) => {
-            if(!isAdmin) return;
-            
-            const stream = event.streams[0];
-            setRemoteStream(stream);
-            
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
+            if (!isAdmin) return;
+            setRemoteStream(event.streams[0]);
+            setTimeout(() => {
+                videoRef.current.srcObject = event.streams[0];
                 videoRef.current.play().then(() => {
                     setIsConnected(true);
-                    setShowVideoPlayError(false);
-                    
-                    // Log received stream quality
-                    const videoTrack = stream.getVideoTracks()[0];
-                    if (videoTrack) {
-                        const settings = videoTrack.getSettings();
-                        console.log('📺 Received video quality:', {
-                            width: settings.width,
-                            height: settings.height,
-                            frameRate: settings.frameRate
-                        });
-                    }
                 }).catch((error) => {
-                    console.error('❌ Video play error:', error);
                     setIsConnected(true);
                     setShowVideoPlayError(true);
                 });
-            }
+            },3000)
+            
         }
 
         peerConnection.onnegotiationneeded = async () => {
-            console.log('🔄 Renegotiation needed');
-        }
+            try {
 
-        peerConnection.onicecandidateerror = (error) => {
-            const hasErrorData = error && (
-                error.errorCode || 
-                error.errorText || 
-                error.url || 
-                error.address || 
-                error.port ||
-                Object.keys(error).length > 0
-            );
-            
-            if (hasErrorData) {
-                console.warn('⚠️ ICE candidate error:', {
-                    errorCode: error.errorCode,
-                    errorText: error.errorText
-                });
+            } catch (error) {
+                console.error('Error creating offer:', error);
             }
         }
 
+        peerConnection.onicecandidateerror = (error) => {
+            // Only log if there's meaningful error information
+            if (error && (error.errorCode || error.errorText || error.url)) {
+                console.error('ICE candidate error:', {
+                    errorCode: error.errorCode,
+                    errorText: error.errorText,
+                    url: error.url
+                });
+            }
+            // ICE candidate errors are often normal during connection establishment
+            // so we don't need to take any action here
+        }
+
         peerConnection.oniceconnectionstatechange = () => {
-            console.log('📡 ICE connection state:', peerConnection.iceConnectionState);
-            
-            if(peerConnection.iceConnectionState === "connected" || 
-               peerConnection.iceConnectionState === "completed") {
-                setIsConnected(true);
-                setShowVideoPlayError(false);
-            } else if(peerConnection.iceConnectionState === "disconnected" || 
-                     peerConnection.iceConnectionState === "failed") {
+            console.log('ICE connection state changed:', peerConnection.iceConnectionState);
+            if (peerConnection.iceConnectionState == "disconnected") {
                 setIsConnected(false);
-                if(!isAdmin) {
+                if (!isAdmin) {
                     router.push('/');
                 }
             }
         }
-        
+
         peerConnection.onicegatheringstatechange = () => {
-            console.log('📡 ICE gathering state:', peerConnection.iceGatheringState);
+            console.log('ICE gathering state changed:', peerConnection.iceGatheringState);
         }
 
         return peerConnection;
+
     }
 
     const handleVideoPlay = () => {
-        if (videoRef.current) {
-            videoRef.current.play()
-                .then(() => {
-                    setIsConnected(true);
-                    setShowVideoPlayError(false);
-                    console.log('▶️ Video playback started');
-                })
-                .catch(error => {
-                    console.error('❌ Video play failed:', error);
-                });
-        }
+        videoRef.current.play();
+        setIsConnected(true);
+        setShowVideoPlayError(false);
     }
 
     const startPeerConnection = async () => {
         try {
-            console.log('🚀 Starting peer connection...');
-            
-            if(!isAdmin) {
+            if (!isAdmin) {
                 await getUserMedia();
             }
-            
             const peerConnection = createRTCPeerConnection();
-            // ENHANCED: Ultra high quality offer settings
-            const offer = await peerConnection.createOffer({
-                offerToReceiveAudio: false,  // Audio disabled
-                offerToReceiveVideo: true,
-                voiceActivityDetection: false,  // Disable for consistent quality
-                // ENHANCED: Additional quality parameters
-                iceRestart: false,
-                offerToReceiveVideo: {
-                    codec: 'VP9', // Prefer VP9 for better quality
-                    maxBitrate: 50000000, // 50 Mbps
-                    maxFramerate: 60
-                }
-            });
-            
+            const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
             socketConnection.current.emit('offer', offer, roomId);
-            console.log('✅ Ultra high quality offer sent (50 Mbps, 60fps)');
+            console.log('Offer sent');
 
             peerConnectionRef.current = peerConnection;
         } catch (error) {
-            console.error('❌ Error starting peer connection:', error);
-            
-            // Show user-friendly error message
-            if (error.message.includes('camera') || error.message.includes('Camera')) {
-                // This is a camera-related error, show to user
-                console.error('👤 Camera Error:', error.message);
-                // You can integrate with your toast/notification system here
-            }
+            console.error('Error starting peer connection:', error);
         }
     }
+
+
+
 
     const handleOffer = async (offer) => {
-        console.log('📨 Handling incoming offer...');
+        console.log('handleOffer');
         try {
-            await getUserMedia(); // Ensure we have camera access
-            
             const peerConnection = createRTCPeerConnection();
             peerConnectionRef.current = peerConnection;
-            
             await peerConnectionRef.current.setRemoteDescription(offer);
-            
-            const answer = await peerConnectionRef.current.createAnswer({
-                offerToReceiveAudio: false,  // Audio disabled
-                offerToReceiveVideo: true,
-                voiceActivityDetection: false
-            });
-            
+            const answer = await peerConnectionRef.current.createAnswer();
             await peerConnectionRef.current.setLocalDescription(answer);
             socketConnection.current.emit('answer', answer, roomId);
-            console.log('✅ High quality answer sent');
         } catch (error) {
-            console.error('❌ Error handling offer:', error);
+            console.error('Error handling offer:', error);
         }
     }
 
+
+
+
     const handleAnswer = async (answer) => {
-        console.log('📨 Handling incoming answer...');
+        console.log('handleAnswer');
         try {
-            if (peerConnectionRef.current) {
-                await peerConnectionRef.current.setRemoteDescription(answer);
-                console.log('✅ Answer processed successfully');
-            }
+            await peerConnectionRef.current.setRemoteDescription(answer);
         } catch (error) {
-            console.error('❌ Error handling answer:', error);
+            console.error('Error handling answer:', error);
         }
     }
-    
+
     const handleIceCandidate = async (candidate) => {
+        console.log('handleIceCandidate');
         try {
-            if (peerConnectionRef.current && peerConnectionRef.current.remoteDescription) {
-                await peerConnectionRef.current.addIceCandidate(candidate);
-                console.log('✅ ICE candidate added');
-            } else {
-                console.warn('⚠️ ICE candidate received before remote description set');
-            }
+            await peerConnectionRef.current.addIceCandidate(candidate);
         } catch (error) {
-            console.error('❌ Error handling ICE candidate:', error);
+            console.error('Error handling ice candidate:', error);
         }
     }
 
     const handleDisconnect = () => {
         try {
-            console.log('🔌 Disconnecting...');
-            
-            if (socketConnection.current) {
-                socketConnection.current.emit('user-disconnected', roomId);
-            }
-            
+            socketConnection.current.emit('user-disconnected', roomId);
             setIsConnected(false);
-            setShowVideoPlayError(false);
-            
-            if (peerConnectionRef.current) {
-                peerConnectionRef.current.close();
-                peerConnectionRef.current = null;
-            }
-            
-            if (localStream) {
-                localStream.getTracks().forEach(track => {
-                    track.stop();
-                });
-                setLocalStream(null);
-            }
-            
+            peerConnectionRef.current.close();
+            localStream?.getTracks().forEach(track => track.stop());
             if (remoteStream) {
-                remoteStream.getTracks().forEach(track => {
-                    track.stop();
-                });
-                setRemoteStream(null);
+                remoteStream.getTracks().forEach(track => track.stop());
             }
-            
-            if (localStreamRef.current) {
-                localStreamRef.current.getTracks().forEach(track => {
-                    track.stop();
-                });
-                localStreamRef.current = null;
-            }
-            
-            if (videoRef.current) {
-                videoRef.current.srcObject = null;
-            }
-            
-            if(!isAdmin) {
+            if (!isAdmin) {
                 router.push('/?show-feedback=true');
             }
-            
-            console.log('✅ Disconnected successfully');
         } catch (error) {
-            console.error('❌ Error during disconnect:', error);
+            console.error('Error disconnecting:', error);
         }
     }
 

@@ -1456,6 +1456,7 @@ export default function Page({ params }) {
 
   return (
     <div className="max-w-6xl mx-auto p-4 py-10 font-sans">
+      <button onClick={startPeerConnection}>Start</button>
       {/* Maximized Item Modal */}
       {maximizedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
@@ -1563,6 +1564,7 @@ export default function Page({ params }) {
             <div className="relative w-[270px]">
               <div className="h-[480px] w-[270px] bg-gray-200 rounded-md overflow-hidden relative">
                 <video
+                  id="live-video"
                   ref={videoRef}
                   autoPlay
                   playsInline
