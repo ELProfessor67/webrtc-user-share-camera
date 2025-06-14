@@ -305,7 +305,7 @@ export default function VideoLinkSender({ isOpen, onClose, onSuccess }) {
       setDialogOpen(true);
       setLinkAccepted(false);
       
-      toast.success("Video link sent with your profile information!");
+      toast.success("Video link sent successfully");
       
       // Call success callback if provided
       if (onSuccess) {

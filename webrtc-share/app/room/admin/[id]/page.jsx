@@ -1409,9 +1409,7 @@ export default function Page({ params }) {
   };
 
   const getTotalRecordingsCount = () => {
-    const existingRecordingsCount = existingMeetingData?.recordings?.length || 0;
-    const newRecordingsCount = recordings.length;
-    return existingRecordingsCount + newRecordingsCount;
+    return recordings.length;
   };
 
   // Function to display recordings count in header
@@ -1419,6 +1417,7 @@ export default function Page({ params }) {
     const totalCount = getTotalRecordingsCount();
     return totalCount > 0 ? totalCount : null;
   };
+
 
   // Helper function to get profile image (prioritize token info)
   const getProfileImage = () => {
@@ -1871,7 +1870,7 @@ export default function Page({ params }) {
 
             {/* Image Screenshot Section */}
             <div>
-              <h2 className="text-lg font-medium mb-3">Image screenshot(s): {(existingScreenshots?.length + screenshots?.length) != 0 && (existingScreenshots?.length + screenshots?.length)}</h2>
+              <h2 className="text-lg font-medium mb-3">Image Screenshot(s): {(existingScreenshots?.length + screenshots?.length) != 0 && (existingScreenshots?.length + screenshots?.length)}</h2>
 
               {/* Grid with overflow-visible to allow dropdown to show */}
               <div className="h-[20rem] overflow-y-auto">
@@ -2000,8 +1999,8 @@ export default function Page({ params }) {
                                 saveIndividualScreenshot(cleanScreenshotUrl, index, screenshotId);
                               }}
                               className={`p-1 hover:bg-black/20 rounded text-white transition-all duration-200 ${savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index
-                                  ? 'opacity-80 cursor-not-allowed bg-gray-600'
-                                  : 'hover:scale-105'
+                                ? 'opacity-80 cursor-not-allowed bg-gray-600'
+                                : 'hover:scale-105'
                                 }`}
                               title={savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index ? "Saving..." : "Save screenshot"}
                               disabled={savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index}
@@ -2058,8 +2057,8 @@ export default function Page({ params }) {
                             data-screenshot-id={screenshotId}
                             data-screenshot-index={index}
                             className={`absolute top-0 left-0 w-full h-full z-10 rounded-md transition-all ${isActive
-                                ? 'cursor-crosshair pointer-events-auto'
-                                : 'pointer-events-none'
+                              ? 'cursor-crosshair pointer-events-auto'
+                              : 'pointer-events-none'
                               }`}
                             style={{
                               pointerEvents: isActive ? 'auto' : 'none',
@@ -2193,8 +2192,8 @@ export default function Page({ params }) {
                                           setSelectedTool(tool.name);
                                         }}
                                         className={`p-2 text-xs border rounded hover:scale-105 transition-all duration-200 flex flex-col items-center gap-1 ${selectedTool === tool.name
-                                            ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                            : 'bg-gray-50 border-gray-300 hover:bg-gray-100'
+                                          ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                          : 'bg-gray-50 border-gray-300 hover:bg-gray-100'
                                           }`}
                                         title={tool.title}
                                       >
@@ -2218,8 +2217,8 @@ export default function Page({ params }) {
                                           setSelectedColor(color);
                                         }}
                                         className={`w-6 h-6 rounded border-2 transition-all duration-200 hover:scale-110 ${selectedColor === color
-                                            ? 'border-gray-800 scale-110 ring-2 ring-gray-300'
-                                            : 'border-gray-300 hover:border-gray-500'
+                                          ? 'border-gray-800 scale-110 ring-2 ring-gray-300'
+                                          : 'border-gray-300 hover:border-gray-500'
                                           }`}
                                         style={{ backgroundColor: color }}
                                         title={`Select ${color}`}

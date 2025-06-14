@@ -1,5 +1,5 @@
 import catchAsyncError from '../middlewares/catchAsyncError.js';
-import MeetingModel from '../models/meetings.js'; 
+import MeetingModel from '../models/meetings.js';
 import sendResponse from '../utils/sendResponse.js';
 import ErrorHandler from '../utils/errorHandler.js';
 import sendEmail from '../utils/sendEmail.js';
@@ -8,153 +8,206 @@ import path from "path"
 import fs from "fs"
 import os from "os"
 
-// ============ OPTIMIZED CLOUDINARY CONFIG ============
+// Configure cloudinary with optimized settings
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
-    timeout: parseInt(process.env.CLOUDINARY_UPLOAD_TIMEOUT) || 120000, // Increased to 2 minutes
-    chunk_size: parseInt(process.env.CLOUDINARY_CHUNK_SIZE) || 10000000, // 10MB chunks for better performance
-    secure: true, // Force HTTPS
-    upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET || undefined
+    timeout: parseInt(process.env.CLOUDINARY_UPLOAD_TIMEOUT) || 60000,
+    chunk_size: parseInt(process.env.CLOUDINARY_CHUNK_SIZE) || 6000000
 });
 
-// ============ PERFORMANCE OPTIMIZED VALIDATION ============
+// Progress tracking utility
+const createProgressTracker = (totalFiles, meetingId, userId) => {
+    let completedFiles = 0;
+    let failedFiles = 0;
+    
+    const updateProgress = (success = true) => {
+        if (success) {
+            completedFiles++;
+        } else {
+            failedFiles++;
+        }
+        
+        const totalProcessed = completedFiles + failedFiles;
+        const successPercentage = totalFiles > 0 ? Math.round((completedFiles / totalFiles) * 100) : 100;
+        const overallPercentage = totalFiles > 0 ? Math.round((totalProcessed / totalFiles) * 100) : 100;
+        
+        console.log(`📊 [Meeting: ${meetingId}] [User: ${userId}] Progress: ${overallPercentage}% (${totalProcessed}/${totalFiles}) | Success: ${successPercentage}% (${completedFiles}/${totalFiles}) | Failed: ${failedFiles}`);
+        
+        return {
+            totalFiles,
+            completedFiles,
+            failedFiles,
+            totalProcessed,
+            successPercentage,
+            overallPercentage,
+            isComplete: totalProcessed >= totalFiles
+        };
+    };
+    
+    return { updateProgress, getStats: () => ({ completedFiles, failedFiles, totalFiles }) };
+};
+
+// Helper function to validate file size with faster checking
 const validateFileSize = (base64Data, maxSizeMB = 50) => {
-    // More efficient size calculation without string manipulation
-    const paddingCount = (base64Data.match(/=/g) || []).length;
-    const sizeInBytes = (base64Data.length * 0.75) - paddingCount;
+    const sizeInBytes = (base64Data.length * 3) / 4;
     const sizeInMB = sizeInBytes / (1024 * 1024);
-    
+
     console.log(`📏 File size: ${sizeInMB.toFixed(2)}MB`);
-    
+
     if (sizeInMB > maxSizeMB) {
         throw new ErrorHandler(`File size (${sizeInMB.toFixed(2)}MB) exceeds maximum (${maxSizeMB}MB)`, 413);
     }
-    
+
     return sizeInMB;
 };
 
-// ============ ULTRA-OPTIMIZED UPLOAD FUNCTION ============
-const uploadToCloudinary = async (data, options, retries = 3) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), options.timeout || 120000);
+// Helper function to validate and fix timestamp
+const validateTimestamp = (timestamp) => {
+    if (!timestamp) return new Date();
     
-    for (let attempt = 1; attempt <= retries; attempt++) {
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) {
+        console.log(`⚠️ Invalid timestamp received: ${timestamp}, using current time`);
+        return new Date();
+    }
+    return date;
+};
+
+// Optimized upload function with retry logic and progress tracking
+const uploadToCloudinary = async (data, options, retries = 2, progressCallback = null) => {
+    for (let attempt = 1; attempt <= retries + 1; attempt++) {
         try {
-            console.log(`🚀 Upload attempt ${attempt}/${retries}...`);
+            console.log(`🔄 Upload attempt ${attempt}...`);
             const startTime = Date.now();
             let result;
             
-            if (options.resource_type === "video") {
-                // ============ OPTIMIZED VIDEO UPLOAD WITH STREAMING ============
-                const tempFilePath = path.join(os.tmpdir(), `temp-video-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.webm`);
-                
+            if (options.resource_type == "video") {
+                const tempFilePath = path.join(os.tmpdir(), `temp-video-${Date.now()}.webm`);
+
                 try {
-                    console.log(`📁 Creating temp file: ${path.basename(tempFilePath)}`);
-                    
-                    // Write file in chunks for large videos (memory efficient)
-                    const buffer = Buffer.from(data, 'base64');
-                    const writeStream = fs.createWriteStream(tempFilePath);
-                    
-                    await new Promise((resolve, reject) => {
-                        writeStream.write(buffer, (err) => {
-                            if (err) reject(err);
-                            else {
-                                writeStream.end();
-                                resolve();
-                            }
-                        });
-                        writeStream.on('error', reject);
-                        writeStream.on('finish', resolve);
-                    });
-                    
-                    console.log(`📤 Streaming upload to Cloudinary...`);
-                    
-                    // Optimized upload with better settings
+                    console.log(`📁 Creating temporary file: ${tempFilePath}`);
+                    fs.writeFileSync(tempFilePath, data, 'base64');
+                    console.log(`📤 Uploading temporary file to Cloudinary...`);
+
                     result = await cloudinary.uploader.upload(tempFilePath, {
                         ...options,
-                        resource_type: "video",
-                        timeout: 120000,
-                        chunk_size: 10000000, // 10MB chunks
-                        use_filename: false,
-                        unique_filename: true,
-                        overwrite: false,
-                        // Video optimization settings
-                        video_codec: 'h264',
-                        audio_codec: 'aac',
-                        bit_rate: '1m', // 1 Mbps for faster processing
-                        fps: '24', // Standard frame rate
-                        quality: 'auto:low', // Faster processing
-                        fetch_format: 'auto'
+                        timeout: parseInt(process.env.CLOUDINARY_UPLOAD_TIMEOUT) || 60000,
+                        resource_type: "raw"
                     });
-                    
+
+                    console.log(`🗑️ Cleaning up temporary file...`);
                 } catch (uploadError) {
-                    console.error(`❌ Video upload error:`, uploadError.message);
+                    console.error(`❌ Error during video upload:`, uploadError.message);
                     throw uploadError;
                 } finally {
-                    // Async cleanup - don't wait for it
-                    setImmediate(() => {
-                        try {
-                            if (fs.existsSync(tempFilePath)) {
-                                fs.unlinkSync(tempFilePath);
-                                console.log(`🗑️ Temp file cleaned up`);
-                            }
-                        } catch (deleteError) {
-                            console.warn(`⚠️ Cleanup warning:`, deleteError.message);
+                    try {
+                        if (fs.existsSync(tempFilePath)) {
+                            fs.unlinkSync(tempFilePath);
+                            console.log(`✅ Temporary file deleted successfully`);
                         }
-                    });
+                    } catch (deleteError) {
+                        console.warn(`⚠️ Warning: Could not delete temporary file ${tempFilePath}:`, deleteError.message);
+                    }
                 }
             } else {
-                // ============ OPTIMIZED IMAGE UPLOAD ============
                 result = await cloudinary.uploader.upload(data, {
                     ...options,
-                    timeout: 60000,
-                    use_filename: false,
-                    unique_filename: true,
-                    overwrite: false
+                    timeout: parseInt(process.env.CLOUDINARY_UPLOAD_TIMEOUT) || 60000
                 });
             }
-            
+
             const duration = Date.now() - startTime;
-            console.log(`✅ Upload complete in ${duration}ms`);
-            clearTimeout(timeoutId);
+            console.log(`✅ Upload successful in ${duration}ms`);
             
+            // Update progress on success
+            if (progressCallback) {
+                progressCallback(true);
+            }
+
             return result;
-            
         } catch (error) {
-            console.error(`❌ Attempt ${attempt} failed:`, error.message);
-            
-            // Retry logic for specific errors
-            const retryableErrors = ['ETIMEDOUT', 'timeout', 'ECONNRESET', 'ENOTFOUND'];
-            const shouldRetry = retryableErrors.some(err => 
-                error.message?.toLowerCase().includes(err.toLowerCase()) || 
-                error.code?.toLowerCase().includes(err.toLowerCase())
-            );
-            
-            if (attempt < retries && shouldRetry) {
-                const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff, max 5s
-                console.log(`🔁 Retrying in ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
+            console.log(error)
+            console.error(`❌ Upload attempt ${attempt} failed:`, error.message);
+
+            if (attempt <= retries && (error.code === 'ETIMEDOUT' || error.message.includes('timeout'))) {
+                console.log(`🔁 Retrying in 1 second... (${retries - attempt + 1} retries left)`);
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 continue;
             }
+
+            // Update progress on failure
+            if (progressCallback) {
+                progressCallback(false);
+            }
             
-            clearTimeout(timeoutId);
             throw error;
         }
     }
 };
 
-// ============ MAIN CREATE FUNCTION WITH FULL PARALLELIZATION ============
+// Parallel batch processor with real-time progress
+const processFilesInParallel = async (files, fileType, meetingId, userId, uploadFunction, maxConcurrency = 3) => {
+    if (!files || files.length === 0) return [];
+    
+    console.log(`🚀 [${fileType.toUpperCase()}] Starting parallel processing of ${files.length} files with max concurrency: ${maxConcurrency}`);
+    
+    const progressTracker = createProgressTracker(files.length, meetingId, userId);
+    const results = [];
+    const batches = [];
+    
+    // Create batches for controlled concurrency
+    for (let i = 0; i < files.length; i += maxConcurrency) {
+        batches.push(files.slice(i, i + maxConcurrency));
+    }
+    
+    console.log(`📦 [${fileType.toUpperCase()}] Created ${batches.length} batches for processing`);
+    
+    // Process each batch
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        console.log(`🔄 [${fileType.toUpperCase()}] Processing batch ${batchIndex + 1}/${batches.length} (${batch.length} files)`);
+        
+        const batchPromises = batch.map(async (file, localIndex) => {
+            const globalIndex = batchIndex * maxConcurrency + localIndex;
+            
+            try {
+                return await uploadFunction(file, globalIndex, progressTracker.updateProgress);
+            } catch (error) {
+                console.error(`❌ [${fileType.toUpperCase()}] Failed to process file ${globalIndex + 1}:`, error.message);
+                progressTracker.updateProgress(false);
+                return null;
+            }
+        });
+        
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+        
+        const stats = progressTracker.getStats();
+        const batchProgress = Math.round(((batchIndex + 1) / batches.length) * 100);
+        console.log(`✅ [${fileType.toUpperCase()}] Batch ${batchIndex + 1}/${batches.length} completed (${batchProgress}%)`);
+        console.log(`📊 [${fileType.toUpperCase()}] Current stats: ${stats.completedFiles}/${stats.totalFiles} successful, ${stats.failedFiles} failed`);
+    }
+    
+    const finalStats = progressTracker.getStats();
+    console.log(`🎯 [${fileType.toUpperCase()}] Final Results: ${finalStats.completedFiles}/${finalStats.totalFiles} successful, ${finalStats.failedFiles} failed`);
+    
+    return results.filter(result => result !== null);
+};
+
 export const create = catchAsyncError(async (req, res, next) => {
     const { meeting_id, name, address, post_code, reference, repair_detail, target_time, recordings, screenshots, update_mode } = req.body;
     const user_id = req.user._id;
-    
+
     const startTime = Date.now();
-    console.log(`🚀 [${new Date().toISOString()}] Starting PARALLEL meeting ${update_mode || 'creation'}...`);
-    console.log('👤 User ID:', user_id);
-    console.log('📊 Media counts - Recordings:', recordings?.length || 0, 'Screenshots:', screenshots?.length || 0);
+    const totalFiles = (recordings?.length || 0) + (screenshots?.length || 0);
     
+    console.log(`🎬 [${new Date().toISOString()}] Starting meeting ${update_mode || 'creation'}...`);
+    console.log('👤 User ID:', user_id);
+    console.log('📋 Meeting data:', { meeting_id, name, address, post_code, reference, repair_detail, target_time });
+    console.log(`📊 Total files to process: ${totalFiles} (${recordings?.length || 0} recordings, ${screenshots?.length || 0} screenshots)`);
+
     // Validate required fields
     if (!meeting_id) {
         return next(new ErrorHandler("Meeting ID is required", 400));
@@ -163,130 +216,119 @@ export const create = catchAsyncError(async (req, res, next) => {
     // Check if meeting exists
     const existingMeeting = await MeetingModel.findOne({ meeting_id });
     if (existingMeeting) {
-        console.log('⚠️ Meeting exists, updating with parallel uploads...');
-        
+        console.log('⚠️ Meeting exists, updating with NEW media only...');
         if (!existingMeeting.userId) {
+            console.log('🔧 Setting missing userId for existing meeting...');
             existingMeeting.userId = user_id;
         }
-        
-        return await updateMeetingWithParallelUploads(existingMeeting, req.body, res, next, user_id, req);
+        return await updateMeetingWithNewMediaOnly(existingMeeting, req.body, res, next, user_id, req);
     }
 
-    // ============ PARALLEL UPLOAD PROCESSING ============
-    const uploadPromises = [];
-    const uploadMetadata = [];
+    // Setup parallel processing functions
+    const processRecording = async (recording, index, progressCallback) => {
+        console.log(`📹 Processing recording ${index + 1}/${recordings.length} for user ${user_id}...`);
+        
+        try {
+            validateFileSize(recording.data, 100);
+            const recordingData = recording.data.split(",")[2];
+            
+            const uploadResult = await uploadToCloudinary(recordingData, {
+                folder: 'videodesk_recordings',
+                public_id: `recording_${meeting_id}_${user_id}_${Date.now()}_${index}`,
+                resource_type: 'video',
+                transformation: [
+                    { quality: 'auto:low' },
+                    { fetch_format: 'auto' }
+                ]
+            }, 2, progressCallback);
+
+            console.log(`✅ Recording ${index + 1} uploaded: ${uploadResult.secure_url.substring(0, 50)}...`);
+
+            return {
+                url: uploadResult.secure_url,
+                cloudinary_id: uploadResult.public_id,
+                timestamp: validateTimestamp(recording.timestamp),
+                duration: recording.duration || 0,
+                size: uploadResult.bytes || 0,
+                uploaded_by: user_id
+            };
+        } catch (error) {
+            console.error(`❌ Recording ${index + 1} failed:`, error.message);
+            throw error;
+        }
+    };
+
+    const processScreenshot = async (screenshot, index, progressCallback) => {
+        console.log(`🖼️ Processing screenshot ${index + 1}/${screenshots.length} for user ${user_id}...`);
+        
+        try {
+            validateFileSize(screenshot.data, 25);
+
+            const uploadResult = await uploadToCloudinary(screenshot.data, {
+                folder: 'videodesk_screenshots',
+                public_id: `screenshot_${meeting_id}_${user_id}_${Date.now()}_${index}`,
+                resource_type: 'image',
+                transformation: [
+                    { quality: 'auto:good' },
+                    { fetch_format: 'auto' },
+                    { width: 1280, height: 720, crop: 'limit' }
+                ]
+            }, 2, progressCallback);
+
+            console.log(`✅ Screenshot ${index + 1} uploaded: ${uploadResult.secure_url.substring(0, 50)}...`);
+
+            return {
+                url: uploadResult.secure_url,
+                cloudinary_id: uploadResult.public_id,
+                timestamp: validateTimestamp(screenshot.timestamp),
+                size: uploadResult.bytes || 0,
+                uploaded_by: user_id
+            };
+        } catch (error) {
+            console.error(`❌ Screenshot ${index + 1} failed:`, error.message);
+            throw error;
+        }
+    };
 
     try {
-        // Process recordings in parallel (no waiting)
-        if (recordings && recordings.length > 0) {
-            console.log(`🎥 Preparing ${recordings.length} recordings for PARALLEL upload...`);
-            
-            recordings.forEach((recording, i) => {
-                uploadMetadata.push({ type: 'recording', index: i, user_id });
-                
-                const uploadPromise = (async () => {
-                    try {
-                        console.log(`📹 [PARALLEL] Starting recording ${i + 1}/${recordings.length}...`);
-                        
-                        validateFileSize(recording.data, 100);
-                        
-                        const recordingData = recording.data.includes(',') 
-                            ? recording.data.split(",").pop() 
-                            : recording.data;
-                            
-                        const uploadResult = await uploadToCloudinary(recordingData, {
-                            folder: 'videodesk_recordings',
-                            public_id: `rec_${meeting_id}_${user_id}_${Date.now()}_${i}`,
-                            resource_type: 'video',
-                            transformation: [
-                                { quality: 'auto:low' },
-                                { fetch_format: 'auto' },
-                                { flags: 'streaming_attachment' } // Enable streaming
-                            ]
-                        });
-                        
-                        console.log(`✅ [PARALLEL] Recording ${i + 1} uploaded: ${uploadResult.secure_url.substring(0, 50)}...`);
-                        
-                        return {
-                            type: 'recording',
-                            url: uploadResult.secure_url,
-                            cloudinary_id: uploadResult.public_id,
-                            timestamp: new Date(recording.timestamp),
-                            duration: recording.duration || 0,
-                            size: uploadResult.bytes || 0,
-                            uploaded_by: user_id
-                        };
-                    } catch (error) {
-                        console.error(`❌ [PARALLEL] Recording ${i + 1} failed:`, error.message);
-                        return { type: 'recording', error: error.message };
-                    }
-                })();
-                
-                uploadPromises.push(uploadPromise);
-            });
-        }
-
-        // Process screenshots in parallel (no waiting)
-        if (screenshots && screenshots.length > 0) {
-            console.log(`📸 Preparing ${screenshots.length} screenshots for PARALLEL upload...`);
-            
-            screenshots.forEach((screenshot, i) => {
-                uploadMetadata.push({ type: 'screenshot', index: i, user_id });
-                
-                const uploadPromise = (async () => {
-                    try {
-                        console.log(`🖼️ [PARALLEL] Starting screenshot ${i + 1}/${screenshots.length}...`);
-                        
-                        validateFileSize(screenshot.data, 25);
-                        
-                        const uploadResult = await uploadToCloudinary(screenshot.data, {
-                            folder: 'videodesk_screenshots',
-                            public_id: `shot_${meeting_id}_${user_id}_${Date.now()}_${i}`,
-                            resource_type: 'image',
-                            transformation: [
-                                { quality: 'auto:good' },
-                                { fetch_format: 'auto' },
-                                { width: 1280, height: 720, crop: 'limit' }
-                            ]
-                        });
-                        
-                        console.log(`✅ [PARALLEL] Screenshot ${i + 1} uploaded: ${uploadResult.secure_url.substring(0, 50)}...`);
-                        
-                        return {
-                            type: 'screenshot',
-                            url: uploadResult.secure_url,
-                            cloudinary_id: uploadResult.public_id,
-                            timestamp: new Date(screenshot.timestamp),
-                            size: uploadResult.bytes || 0,
-                            uploaded_by: user_id
-                        };
-                    } catch (error) {
-                        console.error(`❌ [PARALLEL] Screenshot ${i + 1} failed:`, error.message);
-                        return { type: 'screenshot', error: error.message };
-                    }
-                })();
-                
-                uploadPromises.push(uploadPromise);
-            });
-        }
-
-        // ============ WAIT FOR ALL PARALLEL UPLOADS ============
-        console.log(`⚡ Executing ${uploadPromises.length} uploads in PARALLEL...`);
-        const uploadResults = await Promise.allSettled(uploadPromises);
+        console.log(`🚀 Starting parallel file processing...`);
         
-        // Separate successful uploads from failures
-        const successfulUploads = uploadResults
-            .map(result => result.status === 'fulfilled' ? result.value : null)
-            .filter(result => result && !result.error);
-            
-        const failedUploads = uploadResults
-            .map(result => result.status === 'rejected' || (result.status === 'fulfilled' && result.value?.error))
-            .filter(Boolean);
+        // Create overall progress tracker for all files
+        const overallProgressTracker = createProgressTracker(totalFiles, meeting_id, user_id);
+        
+        // Enhanced upload functions with overall progress tracking
+        const processRecordingWithOverallProgress = async (recording, index, localProgressCallback) => {
+            const result = await processRecording(recording, index, (success) => {
+                localProgressCallback(success);
+                overallProgressTracker.updateProgress(success);
+            });
+            return result;
+        };
+        
+        const processScreenshotWithOverallProgress = async (screenshot, index, localProgressCallback) => {
+            const result = await processScreenshot(screenshot, index, (success) => {
+                localProgressCallback(success);
+                overallProgressTracker.updateProgress(success);
+            });
+            return result;
+        };
+        
+        // Process recordings and screenshots in parallel with controlled concurrency
+        const [savedRecordings, savedScreenshots] = await Promise.all([
+            processFilesInParallel(recordings, 'recordings', meeting_id, user_id, processRecordingWithOverallProgress, 2),
+            processFilesInParallel(screenshots, 'screenshots', meeting_id, user_id, processScreenshotWithOverallProgress, 3)
+        ]);
 
-        const savedRecordings = successfulUploads.filter(upload => upload.type === 'recording');
-        const savedScreenshots = successfulUploads.filter(upload => upload.type === 'screenshot');
+        console.log(`📊 Upload Summary - Recordings: ${savedRecordings.length}/${recordings?.length || 0}, Screenshots: ${savedScreenshots.length}/${screenshots?.length || 0}`);
+        
+        // Final progress summary
+        const finalOverallStats = overallProgressTracker.getStats();
+        console.log(`🎯 [RECORDINGS] Final Results: ${savedRecordings.length}/${recordings?.length || 0} successful, ${(recordings?.length || 0) - savedRecordings.length} failed`);
+        console.log(`🎯 [SCREENSHOTS] Final Results: ${savedScreenshots.length}/${screenshots?.length || 0} successful, ${(screenshots?.length || 0) - savedScreenshots.length} failed`);
+        console.log(`📈 Overall Success Rate: ${finalOverallStats.totalFiles > 0 ? Math.round((finalOverallStats.completedFiles / finalOverallStats.totalFiles) * 100) : 100}% (${finalOverallStats.completedFiles}/${finalOverallStats.totalFiles} files)`);
+        console.log(`⚡ Total processing time: ${Date.now() - startTime}ms`);
 
-        // Create meeting with all successful uploads
+        // Create meeting with all data
         const meeting = await MeetingModel.create({
             meeting_id,
             name,
@@ -304,43 +346,56 @@ export const create = catchAsyncError(async (req, res, next) => {
             total_recordings: savedRecordings.length,
             total_screenshots: savedScreenshots.length
         });
-        
+
         const totalTime = Date.now() - startTime;
-        console.log(`🎉 PARALLEL meeting creation completed in ${totalTime}ms!`);
-        console.log(`📊 Success rates - Recordings: ${savedRecordings.length}/${recordings?.length || 0}, Screenshots: ${savedScreenshots.length}/${screenshots?.length || 0}`);
-        console.log(`❌ Failed uploads: ${failedUploads.length}`);
+        const successRate = totalFiles > 0 ? Math.round(((savedRecordings.length + savedScreenshots.length) / totalFiles) * 100) : 100;
         
+        console.log(`✅ Meeting created successfully in ${totalTime}ms`);
+        console.log(`📈 Overall Success Rate: ${successRate}% (${savedRecordings.length + savedScreenshots.length}/${totalFiles} files)`);
+        console.log(`🏷️ Meeting saved with reference: "${reference}" and post_code: "${post_code}"`);
+
         res.status(201).json({
             success: true,
-            message: "Meeting created successfully with parallel uploads",
+            message: "Meeting created successfully",
             meeting: meeting,
             upload_summary: {
                 total_time: `${totalTime}ms`,
-                parallel_uploads: uploadPromises.length,
-                successful_recordings: savedRecordings.length,
-                successful_screenshots: savedScreenshots.length,
-                failed_uploads: failedUploads.length,
-                created_by: user_id,
-                performance_improvement: "PARALLEL PROCESSING ENABLED"
+                success_rate: `${successRate}%`,
+                recordings_uploaded: savedRecordings.length,
+                recordings_attempted: recordings?.length || 0,
+                screenshots_uploaded: savedScreenshots.length,
+                screenshots_attempted: screenshots?.length || 0,
+                total_files_processed: savedRecordings.length + savedScreenshots.length,
+                total_files_attempted: totalFiles,
+                created_by: user_id
             },
             user_message_settings: req.user?.messageSettings
         });
 
     } catch (error) {
         const totalTime = Date.now() - startTime;
-        console.error(`❌ Parallel meeting creation failed after ${totalTime}ms:`, error.message);
-        
-        return next(new ErrorHandler(`Parallel upload failed after ${totalTime}ms. Please try again.`, 500));
+        console.error(`❌ Meeting creation failed after ${totalTime}ms:`, error.message);
+
+        // Cleanup any uploaded files
+        const allUploaded = [...(savedRecordings || []), ...(savedScreenshots || [])];
+        await cleanupUploadedFiles(allUploaded);
+
+        if (error.statusCode === 413) {
+            return next(error);
+        }
+
+        return next(new ErrorHandler(`Upload failed after ${totalTime}ms. Please try with smaller files.`, 500));
     }
 });
 
-// ============ PARALLEL UPDATE FUNCTION ============
-const updateMeetingWithParallelUploads = async (meeting, data, res, next, user_id, req) => {
+// Updated helper function for updating existing meetings with parallel processing
+const updateMeetingWithNewMediaOnly = async (meeting, data, res, next, user_id, req) => {
     const { name, address, post_code, reference, repair_detail, target_time, recordings, screenshots } = data;
-    
-    console.log(`🔄 PARALLEL update for meeting ${meeting.meeting_id}...`);
-    console.log(`📊 New media - Recordings: ${recordings?.length || 0}, Screenshots: ${screenshots?.length || 0}`);
-    
+    const totalNewFiles = (recordings?.length || 0) + (screenshots?.length || 0);
+
+    console.log(`🔄 Updating existing meeting with ${totalNewFiles} new files...`);
+    console.log(`📋 Current state - Recordings: ${meeting.recordings.length}, Screenshots: ${meeting.screenshots.length}`);
+
     try {
         // Update basic fields
         if (name) meeting.name = name;
@@ -349,163 +404,167 @@ const updateMeetingWithParallelUploads = async (meeting, data, res, next, user_i
         if (reference) meeting.reference = reference;
         if (repair_detail) meeting.repair_detail = repair_detail;
         if (target_time) meeting.target_time = target_time;
-        
-        if (!meeting.userId) meeting.userId = user_id;
+
+        if (!meeting.userId) {
+            console.log('🔧 Setting missing userId for existing meeting...');
+            meeting.userId = user_id;
+        }
         meeting.last_updated_by = user_id;
 
-        const uploadPromises = [];
+        // Setup progress tracking for updates
+        const globalProgressTracker = createProgressTracker(totalNewFiles, meeting.meeting_id, user_id);
+        console.log(`🎯 [UPDATE] Starting parallel processing of ${totalNewFiles} new files...`);
+
+        // Process new recordings
         let newRecordingsCount = 0;
-        let newScreenshotsCount = 0;
-
-        // Process recordings in parallel
         if (recordings && recordings.length > 0) {
-            console.log(`🎥 Adding ${recordings.length} recordings in PARALLEL...`);
+            console.log(`🎥 Processing ${recordings.length} new recordings...`);
             
-            recordings.forEach((recording, i) => {
-                const uploadPromise = (async () => {
-                    try {
-                        validateFileSize(recording.data, 100);
-                        const recordingData = recording.data.includes(',') ? recording.data.split(",").pop() : recording.data;
-                        
-                        const uploadResult = await uploadToCloudinary(recordingData, {
-                            folder: 'videodesk_recordings',
-                            public_id: `rec_${meeting.meeting_id}_${user_id}_${Date.now()}_${i}`,
-                            resource_type: 'video',
-                            transformation: [
-                                { quality: 'auto:low' },
-                                { fetch_format: 'auto' }
-                            ]
-                        });
-                        
-                        return {
-                            type: 'recording',
-                            url: uploadResult.secure_url,
-                            cloudinary_id: uploadResult.public_id,
-                            timestamp: new Date(recording.timestamp),
-                            duration: recording.duration || 0,
-                            size: uploadResult.bytes || 0,
-                            uploaded_by: user_id
-                        };
-                    } catch (error) {
-                        console.error(`❌ Recording ${i + 1} failed:`, error.message);
-                        return null;
-                    }
-                })();
-                
-                uploadPromises.push(uploadPromise);
+            const recordingPromises = recordings.map(async (recording, i) => {
+                try {
+                    validateFileSize(recording.data, 100);
+                    const recordingData = recording.data.split(",")[2];
+                    
+                    const uploadResult = await uploadToCloudinary(recordingData, {
+                        folder: 'videodesk_recordings',
+                        public_id: `recording_${meeting.meeting_id}_${user_id}_${Date.now()}_${i}`,
+                        resource_type: 'video',
+                        transformation: [
+                            { quality: 'auto:low' },
+                            { fetch_format: 'auto' }
+                        ]
+                    }, 2, globalProgressTracker.updateProgress);
+
+                    meeting.recordings.push({
+                        url: uploadResult.secure_url,
+                        cloudinary_id: uploadResult.public_id,
+                        timestamp: validateTimestamp(recording.timestamp),
+                        duration: recording.duration || 0,
+                        size: uploadResult.bytes || 0,
+                        uploaded_by: user_id
+                    });
+
+                    newRecordingsCount++;
+                    console.log(`✅ New recording ${i + 1} added successfully`);
+                } catch (error) {
+                    console.error(`❌ Error uploading new recording ${i + 1}:`, error);
+                    globalProgressTracker.updateProgress(false);
+                }
             });
+
+            await Promise.all(recordingPromises);
         }
 
-        // Process screenshots in parallel
+        // Process new screenshots
+        let newScreenshotsCount = 0;
         if (screenshots && screenshots.length > 0) {
-            console.log(`📸 Adding ${screenshots.length} screenshots in PARALLEL...`);
+            console.log(`📸 Processing ${screenshots.length} new screenshots...`);
             
-            screenshots.forEach((screenshot, i) => {
-                const uploadPromise = (async () => {
-                    try {
-                        validateFileSize(screenshot.data, 25);
-                        
-                        const uploadResult = await uploadToCloudinary(screenshot.data, {
-                            folder: 'videodesk_screenshots',
-                            public_id: `shot_${meeting.meeting_id}_${user_id}_${Date.now()}_${i}`,
-                            resource_type: 'image',
-                            transformation: [
-                                { quality: 'auto:good' },
-                                { fetch_format: 'auto' },
-                                { width: 1280, height: 720, crop: 'limit' }
-                            ]
-                        });
-                        
-                        return {
-                            type: 'screenshot',
-                            url: uploadResult.secure_url,
-                            cloudinary_id: uploadResult.public_id,
-                            timestamp: new Date(screenshot.timestamp),
-                            size: uploadResult.bytes || 0,
-                            uploaded_by: user_id
-                        };
-                    } catch (error) {
-                        console.error(`❌ Screenshot ${i + 1} failed:`, error.message);
-                        return null;
-                    }
-                })();
-                
-                uploadPromises.push(uploadPromise);
+            const screenshotPromises = screenshots.map(async (screenshot, i) => {
+                try {
+                    validateFileSize(screenshot.data, 25);
+
+                    const uploadResult = await uploadToCloudinary(screenshot.data, {
+                        folder: 'videodesk_screenshots',
+                        public_id: `screenshot_${meeting.meeting_id}_${user_id}_${Date.now()}_${i}`,
+                        resource_type: 'image',
+                        transformation: [
+                            { quality: 'auto:good' },
+                            { fetch_format: 'auto' },
+                            { width: 1280, height: 720, crop: 'limit' }
+                        ]
+                    }, 2, globalProgressTracker.updateProgress);
+
+                    meeting.screenshots.push({
+                        url: uploadResult.secure_url,
+                        cloudinary_id: uploadResult.public_id,
+                        timestamp: validateTimestamp(screenshot.timestamp),
+                        size: uploadResult.bytes || 0,
+                        uploaded_by: user_id
+                    });
+
+                    newScreenshotsCount++;
+                    console.log(`✅ New screenshot ${i + 1} added successfully`);
+                } catch (error) {
+                    console.error(`❌ Error uploading new screenshot ${i + 1}:`, error);
+                    globalProgressTracker.updateProgress(false);
+                }
             });
+
+            await Promise.all(screenshotPromises);
         }
 
-        // Wait for all uploads
-        const uploadResults = await Promise.all(uploadPromises);
-        
-        // Add successful uploads to meeting
-        const recordingCount = recordings?.length || 0;
-        const newRecordings = uploadResults.slice(0, recordingCount).filter(result => result !== null);
-        const newScreenshots = uploadResults.slice(recordingCount).filter(result => result !== null);
-        
-        meeting.recordings.push(...newRecordings);
-        meeting.screenshots.push(...newScreenshots);
-        
-        newRecordingsCount = newRecordings.length;
-        newScreenshotsCount = newScreenshots.length;
-
-        // Update totals
+        // Update totals and save
         meeting.total_recordings = meeting.recordings.length;
         meeting.total_screenshots = meeting.screenshots.length;
 
         await meeting.save();
-        
-        console.log(`✅ PARALLEL update completed`);
-        
+
+        const finalStats = globalProgressTracker.getStats();
+        const successRate = totalNewFiles > 0 ? Math.round(((newRecordingsCount + newScreenshotsCount) / totalNewFiles) * 100) : 100;
+
+        console.log(`✅ Meeting updated successfully`);
+        console.log(`🎯 [UPDATE RECORDINGS] Final Results: ${newRecordingsCount}/${recordings?.length || 0} successful, ${(recordings?.length || 0) - newRecordingsCount} failed`);
+        console.log(`🎯 [UPDATE SCREENSHOTS] Final Results: ${newScreenshotsCount}/${screenshots?.length || 0} successful, ${(screenshots?.length || 0) - newScreenshotsCount} failed`);
+        console.log(`📈 Update Success Rate: ${successRate}% (${newRecordingsCount + newScreenshotsCount}/${totalNewFiles} new files)`);
+        console.log(`📊 Final totals - Recordings: ${meeting.total_recordings}, Screenshots: ${meeting.total_screenshots}`);
+
         res.status(200).json({
             success: true,
-            message: "Meeting updated successfully with parallel uploads",
+            message: "Meeting updated successfully with new media files",
             meeting: meeting,
             media_summary: {
+                success_rate: `${successRate}%`,
                 total_recordings_count: meeting.recordings.length,
                 total_screenshots_count: meeting.screenshots.length,
                 new_recordings_added: newRecordingsCount,
                 new_screenshots_added: newScreenshotsCount,
+                new_files_attempted: totalNewFiles,
+                new_files_successful: newRecordingsCount + newScreenshotsCount,
                 updated_by: user_id,
-                performance_improvement: "PARALLEL PROCESSING ENABLED"
+                meeting_userId: meeting.userId
             },
             user_message_settings: req.user?.messageSettings
         });
 
     } catch (error) {
-        console.error(`❌ PARALLEL update failed:`, error);
-        return next(new ErrorHandler("Failed to update meeting with parallel uploads.", 500));
+        console.error(`❌ Error updating meeting:`, error);
+        if (error.statusCode === 413) {
+            return next(error);
+        }
+        return next(new ErrorHandler("Failed to update meeting with new media. Please try with smaller files.", 500));
     }
 };
 
-// ============ KEEP ALL OTHER FUNCTIONS UNCHANGED ============
-// (getAllMeetings, archiveMeeting, etc. remain the same as they're not performance bottlenecks)
-
-// Optimized cleanup function with parallel deletion
+// Optimized cleanup function
 const cleanupUploadedFiles = async (uploadedFiles) => {
     if (uploadedFiles.length === 0) return;
-    
-    console.log(`🧹 PARALLEL cleanup of ${uploadedFiles.length} files...`);
-    
+
+    console.log(`🧹 Cleaning up ${uploadedFiles.length} files...`);
+
     const deletePromises = uploadedFiles.map(async (file) => {
         try {
-            await cloudinary.uploader.destroy(file.cloudinary_id, { timeout: 15000 });
+            await cloudinary.uploader.destroy(file.cloudinary_id);
             console.log(`🗑️ Deleted: ${file.cloudinary_id}`);
         } catch (error) {
             console.error(`❌ Delete failed: ${file.cloudinary_id}`, error.message);
         }
     });
-    
-    await Promise.allSettled(deletePromises); // Use allSettled for better error handling
-    console.log('✅ PARALLEL cleanup completed');
+
+    await Promise.all(deletePromises);
+    console.log('✅ Cleanup completed');
 };
 
-// [Rest of the functions remain unchanged - getAllMeetings, archiveMeeting, etc.]
+// Rest of the controller functions remain the same...
+// (getAllMeetings, archiveMeeting, etc. - keeping them as they were in the original code)
+
+// Get all meetings with media (filter by userId and archive status)
 export const getAllMeetings = catchAsyncError(async (req, res, next) => {
     const user_id = req.user._id;
     const { archived } = req.query;
-    
+
     console.log(`📋 Fetching meetings for user: ${user_id}, archived: ${archived}`);
-    
+
     const filter = {
         $or: [
             { owner: user_id },
@@ -513,20 +572,20 @@ export const getAllMeetings = catchAsyncError(async (req, res, next) => {
             { created_by: user_id }
         ]
     };
-    
+
     if (archived === 'true') {
         filter.archived = true;
     } else if (archived === 'false') {
         filter.archived = { $ne: true };
     }
-    
+
     const meetings = await MeetingModel.find(filter)
         .populate('created_by', 'email')
         .populate('last_updated_by', 'email')
         .populate('archivedBy', 'email');
-    
-    console.log(`✅ Found ${meetings.length} meetings for user ${user_id}`);
-    
+
+    console.log(`✅ Found ${meetings.length} meetings for user ${user_id} (archived: ${archived})`);
+
     res.status(200).json({
         success: true,
         meetings,
@@ -536,6 +595,7 @@ export const getAllMeetings = catchAsyncError(async (req, res, next) => {
     });
 });
 
+// Archive meeting
 export const archiveMeeting = catchAsyncError(async (req, res, next) => {
     const meeting = await MeetingModel.findOne({
         _id: req.params.id,
@@ -554,12 +614,16 @@ export const archiveMeeting = catchAsyncError(async (req, res, next) => {
         return next(new ErrorHandler("Meeting is already archived", 400));
     }
 
+    console.log(`📦 Archiving meeting: ${meeting._id} by user ${req.user._id}`);
+
     meeting.archived = true;
     meeting.archivedAt = new Date();
     meeting.archivedBy = req.user._id;
     meeting.last_updated_by = req.user._id;
 
     await meeting.save();
+
+    console.log(`✅ Meeting archived successfully: ${meeting._id}`);
 
     res.status(200).json({
         success: true,
@@ -568,6 +632,7 @@ export const archiveMeeting = catchAsyncError(async (req, res, next) => {
     });
 });
 
+// Unarchive meeting
 export const unarchiveMeeting = catchAsyncError(async (req, res, next) => {
     const meeting = await MeetingModel.findOne({
         _id: req.params.id,
@@ -586,12 +651,16 @@ export const unarchiveMeeting = catchAsyncError(async (req, res, next) => {
         return next(new ErrorHandler("Meeting is not archived", 400));
     }
 
+    console.log(`📤 Unarchiving meeting: ${meeting._id} by user ${req.user._id}`);
+
     meeting.archived = false;
     meeting.archivedAt = null;
     meeting.archivedBy = null;
     meeting.last_updated_by = req.user._id;
 
     await meeting.save();
+
+    console.log(`✅ Meeting unarchived successfully: ${meeting._id}`);
 
     res.status(200).json({
         success: true,
@@ -600,9 +669,10 @@ export const unarchiveMeeting = catchAsyncError(async (req, res, next) => {
     });
 });
 
+// Get archived meetings count
 export const getArchivedCount = catchAsyncError(async (req, res, next) => {
     const user_id = req.user._id;
-    
+
     const archivedCount = await MeetingModel.countDocuments({
         $or: [
             { owner: user_id },
@@ -611,7 +681,7 @@ export const getArchivedCount = catchAsyncError(async (req, res, next) => {
         ],
         archived: true
     });
-    
+
     const totalCount = await MeetingModel.countDocuments({
         $or: [
             { owner: user_id },
@@ -619,7 +689,7 @@ export const getArchivedCount = catchAsyncError(async (req, res, next) => {
             { created_by: user_id }
         ]
     });
-    
+
     res.status(200).json({
         success: true,
         archivedCount,
@@ -628,6 +698,7 @@ export const getArchivedCount = catchAsyncError(async (req, res, next) => {
     });
 });
 
+// Get meeting by ID
 export const getMeetingById = catchAsyncError(async (req, res, next) => {
     const meeting = await MeetingModel.findOne({
         _id: req.params.id,
@@ -645,6 +716,7 @@ export const getMeetingById = catchAsyncError(async (req, res, next) => {
     sendResponse(true, 200, "Meeting retrieved successfully", res, { meeting });
 });
 
+// Get meeting by ID for sharing (public access) - Updated to return history
 export const getMeetingForShare = catchAsyncError(async (req, res, next) => {
     const meeting = await MeetingModel.findOne({
         meeting_id: req.params.id
@@ -654,6 +726,7 @@ export const getMeetingForShare = catchAsyncError(async (req, res, next) => {
         return next(new ErrorHandler("Meeting not found", 404));
     }
 
+    // Return limited data for sharing (exclude sensitive info)
     const shareData = {
         meeting_id: meeting.meeting_id,
         name: meeting.name,
@@ -680,11 +753,18 @@ export const getMeetingForShare = catchAsyncError(async (req, res, next) => {
 export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
     const { visitor_name, visitor_email } = req.body;
     const meetingId = req.params.id;
-    
+
+    console.log(`👤 Recording visitor access for meeting: ${meetingId}`, {
+        visitor_name,
+        visitor_email
+    });
+
+    // Validate required fields
     if (!visitor_name || !visitor_email) {
         return next(new ErrorHandler("Visitor name and email are required", 400));
     }
 
+    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(visitor_email)) {
         return next(new ErrorHandler("Please enter a valid email address", 400));
@@ -698,10 +778,12 @@ export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
         return next(new ErrorHandler("Meeting not found", 404));
     }
 
-    const ip_address = req.ip || req.connection.remoteAddress || req.socket.remoteAddress || 
-                      (req.connection.socket ? req.connection.socket.remoteAddress : null);
+    // Get client information
+    const ip_address = req.ip || req.connection.remoteAddress || req.socket.remoteAddress ||
+        (req.connection.socket ? req.connection.socket.remoteAddress : null);
     const user_agent = req.get('User-Agent') || 'Unknown';
 
+    // Create visitor access record - NO CACHE CHECKS
     const visitorAccess = {
         visitor_name: visitor_name.trim(),
         visitor_email: visitor_email.trim().toLowerCase(),
@@ -710,19 +792,29 @@ export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
         user_agent: user_agent
     };
 
+    // Add to access history
     if (!meeting.access_history) {
         meeting.access_history = [];
     }
-    
+
     meeting.access_history.push(visitorAccess);
     meeting.total_access_count = (meeting.total_access_count || 0) + 1;
 
+    // ============ CLEANUP OLD ACCESS RECORDS ============
+    // Remove access records older than 24 hours to keep database clean
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    meeting.access_history = meeting.access_history.filter(access => 
+    meeting.access_history = meeting.access_history.filter(access =>
         access.access_time > twentyFourHoursAgo
     );
 
     await meeting.save();
+
+    console.log(`✅ Visitor access recorded successfully:`, {
+        meeting_id: meetingId,
+        visitor: visitor_name,
+        email: visitor_email,
+        total_access: meeting.total_access_count
+    });
 
     res.status(200).json({
         success: true,
@@ -736,9 +828,12 @@ export const recordVisitorAccess = catchAsyncError(async (req, res, next) => {
     });
 });
 
+// Update meeting
 export const updateMeeting = catchAsyncError(async (req, res, next) => {
     const { name, address, post_code, reference, repair_detail, target_time } = req.body;
-    
+
+    console.log('🔄 Updating meeting with fields:', { name, address, post_code, reference, repair_detail, target_time });
+
     const meeting = await MeetingModel.findOne({
         _id: req.params.id,
         $or: [
@@ -752,53 +847,29 @@ export const updateMeeting = catchAsyncError(async (req, res, next) => {
         return next(new ErrorHandler("Meeting not found", 404));
     }
 
+    // Update fields if provided - FIXED: Include reference field
     if (name) meeting.name = name;
     if (address) meeting.address = address;
-    if (post_code) meeting.post_code = post_code;
-    if (reference) meeting.reference = reference;
+    if (post_code) meeting.post_code = post_code; // Actual postcode
+    if (reference) meeting.reference = reference; // Reference field - THIS WAS MISSING!
     if (repair_detail) meeting.repair_detail = repair_detail;
     if (target_time) meeting.target_time = target_time;
-    
+
+    // Ensure userId is set if missing
     if (!meeting.userId) {
         meeting.userId = req.user._id;
     }
-    
+
     meeting.last_updated_by = req.user._id;
 
     await meeting.save();
 
+    console.log(`✅ Meeting updated with reference: "${meeting.reference}" and post_code: "${meeting.post_code}"`);
+
     sendResponse(true, 200, "Meeting updated successfully", res);
 });
 
-// Enhanced parallel deletion function
-const deleteFromCloudinaryWithRetry = async (cloudinaryId, resourceType = 'auto', retries = 3) => {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-        try {
-            const result = await cloudinary.uploader.destroy(cloudinaryId, {
-                resource_type: resourceType,
-                timeout: 15000
-            });
-            
-            if (result.result === 'ok' || result.result === 'not found') {
-                return result;
-            } else {
-                throw new Error(`Cloudinary deletion failed: ${result.result}`);
-            }
-        } catch (error) {
-            console.error(`❌ Cloudinary delete attempt ${attempt} failed:`, error.message);
-            
-            if (attempt < retries) {
-                const delay = attempt * 2000;
-                console.log(`🔁 Retrying Cloudinary delete in ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-                continue;
-            }
-            
-            throw error;
-        }
-    }
-};
-
+// Delete meeting with all associated media
 export const deleteMeeting = catchAsyncError(async (req, res, next) => {
     const meeting = await MeetingModel.findOne({
         _id: req.params.id,
@@ -813,96 +884,101 @@ export const deleteMeeting = catchAsyncError(async (req, res, next) => {
         return next(new ErrorHandler("Meeting not found", 404));
     }
 
-    console.log(`🗑️ Starting PARALLEL meeting deletion: ${meeting._id}`);
+    console.log(`🗑️ [${new Date().toISOString()}] Starting complete meeting deletion: ${meeting._id} by user ${req.user._id}`);
+    console.log(`📊 Meeting contains: ${meeting.recordings.length} recordings, ${meeting.screenshots.length} screenshots`);
 
     let deletedRecordings = 0;
     let deletedScreenshots = 0;
     let failedDeletions = [];
 
-    // ============ PARALLEL DELETION FROM CLOUDINARY ============
-    const deletePromises = [];
-
-    // Delete recordings in parallel
+    // Delete all recordings from Cloudinary in parallel
     if (meeting.recordings && meeting.recordings.length > 0) {
+        console.log(`🎥 Deleting ${meeting.recordings.length} recordings from Cloudinary...`);
+
         const recordingPromises = meeting.recordings.map(async (recording, index) => {
             if (recording.cloudinary_id) {
                 try {
                     await deleteFromCloudinaryWithRetry(recording.cloudinary_id, 'video');
                     deletedRecordings++;
-                    console.log(`✅ Recording ${index + 1} deleted`);
+                    console.log(`✅ Recording ${index + 1}/${meeting.recordings.length} deleted from Cloudinary`);
                 } catch (error) {
-                    console.error(`❌ Recording deletion failed: ${recording.cloudinary_id}`);
+                    console.error(`❌ Failed to delete recording ${recording.cloudinary_id}:`, error.message);
                     failedDeletions.push(`recording_${recording.cloudinary_id}`);
                 }
             }
         });
-        
-        deletePromises.push(...recordingPromises);
+
+        await Promise.all(recordingPromises);
     }
 
-    // Delete screenshots in parallel
+    // Delete all screenshots from Cloudinary in parallel
     if (meeting.screenshots && meeting.screenshots.length > 0) {
+        console.log(`📸 Deleting ${meeting.screenshots.length} screenshots from Cloudinary...`);
+
         const screenshotPromises = meeting.screenshots.map(async (screenshot, index) => {
             if (screenshot.cloudinary_id) {
                 try {
                     await deleteFromCloudinaryWithRetry(screenshot.cloudinary_id, 'image');
                     deletedScreenshots++;
-                    console.log(`✅ Screenshot ${index + 1} deleted`);
+                    console.log(`✅ Screenshot ${index + 1}/${meeting.screenshots.length} deleted from Cloudinary`);
                 } catch (error) {
-                    console.error(`❌ Screenshot deletion failed: ${screenshot.cloudinary_id}`);
+                    console.error(`❌ Failed to delete screenshot ${screenshot.cloudinary_id}:`, error.message);
                     failedDeletions.push(`screenshot_${screenshot.cloudinary_id}`);
                 }
             }
         });
-        
-        deletePromises.push(...screenshotPromises);
+
+        await Promise.all(screenshotPromises);
     }
 
-    // Wait for all parallel deletions
-    await Promise.allSettled(deletePromises);
-
-    // Delete the meeting document
+    // Delete the meeting document from database
     await meeting.deleteOne();
-    
-    console.log(`✅ PARALLEL meeting deletion completed`);
-    
+
+    console.log(`✅ Meeting deleted successfully from database`);
+    console.log(`📊 Cloudinary cleanup results - Recordings: ${deletedRecordings}/${meeting.recordings.length}, Screenshots: ${deletedScreenshots}/${meeting.screenshots.length}`);
+
+    if (failedDeletions.length > 0) {
+        console.log(`⚠️ Some Cloudinary files failed to delete: ${failedDeletions.join(', ')}`);
+    }
+
     res.status(200).json({
         success: true,
-        message: "Meeting and all media deleted successfully with parallel processing",
+        message: "Meeting and all associated media deleted successfully",
         deletion_summary: {
             recordings_deleted: deletedRecordings,
             recordings_total: meeting.recordings.length,
             screenshots_deleted: deletedScreenshots,
             screenshots_total: meeting.screenshots.length,
             failed_cloudinary_deletions: failedDeletions.length,
-            meeting_deleted: true,
-            performance_improvement: "PARALLEL DELETION ENABLED"
+            meeting_deleted: true
         }
     });
 });
 
+// Get meeting by meeting_id (for admin to fetch existing data)
 export const getMeetingByMeetingId = async (req, res) => {
     try {
         const { id } = req.params;
         console.log(`🔍 Looking for meeting with ID: ${id}`);
-        
+
+        // Use MeetingModel instead of Meeting
         const meeting = await MeetingModel.findOne({ meeting_id: id });
-        
+
         if (!meeting) {
-            console.log(`ℹ️ No meeting found with ID: ${id}`);
+            console.log(`ℹ️ No meeting found with ID: ${id} (This is normal for new meetings)`);
             return res.status(404).json({
                 success: false,
                 message: "Meeting not found",
                 isNewMeeting: true
             });
         }
-        
+
         console.log(`✅ Found meeting with ID: ${id}`);
         res.status(200).json({
             success: true,
             meeting
         });
-        
+
     } catch (error) {
         console.error('❌ Error in getMeetingByMeetingId:', error);
         res.status(500).json({
@@ -913,12 +989,49 @@ export const getMeetingByMeetingId = async (req, res) => {
     }
 };
 
+// Improved helper function for Cloudinary deletion with better retry logic
+const deleteFromCloudinaryWithRetry = async (cloudinaryId, resourceType = 'auto', retries = 3) => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            console.log(`🔄 Cloudinary delete attempt ${attempt}/${retries} for: ${cloudinaryId} (type: ${resourceType})`);
+            const startTime = Date.now();
+
+            const result = await cloudinary.uploader.destroy(cloudinaryId, {
+                resource_type: resourceType,
+                timeout: 15000 // 15 second timeout
+            });
+
+            const duration = Date.now() - startTime;
+            console.log(`✅ Cloudinary delete successful in ${duration}ms, result: ${result.result}`);
+
+            if (result.result === 'ok' || result.result === 'not found') {
+                return result;
+            } else {
+                throw new Error(`Cloudinary deletion failed: ${result.result}`);
+            }
+        } catch (error) {
+            console.error(`❌ Cloudinary delete attempt ${attempt} failed:`, error.message);
+
+            if (attempt < retries) {
+                const delay = attempt * 2000; // Increasing delay: 2s, 4s, 6s
+                console.log(`🔁 Retrying Cloudinary delete in ${delay}ms... (${retries - attempt} retries left)`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+            }
+
+            console.error(`❌ All Cloudinary delete attempts failed for ${cloudinaryId}`);
+            throw error;
+        }
+    }
+};
+
+// Delete individual recording with guaranteed Cloudinary removal
 export const deleteRecording = catchAsyncError(async (req, res, next) => {
     const { meetingId, recordingId } = req.params;
     const user_id = req.user._id;
-    
-    console.log(`🗑️ Starting OPTIMIZED recording deletion: ${recordingId}`);
-    
+
+    console.log(`🗑️ [${new Date().toISOString()}] Starting recording deletion: ${recordingId} from meeting ${meetingId} by user ${user_id}`);
+
     const meeting = await MeetingModel.findOne({
         meeting_id: meetingId,
         $or: [
@@ -932,58 +1045,72 @@ export const deleteRecording = catchAsyncError(async (req, res, next) => {
         return next(new ErrorHandler("Meeting not found", 404));
     }
 
+    // Find the recording to delete
     const recordingIndex = meeting.recordings.findIndex(rec => rec._id.toString() === recordingId);
-    
+
     if (recordingIndex === -1) {
         return next(new ErrorHandler("Recording not found", 404));
     }
 
     const recording = meeting.recordings[recordingIndex];
+    console.log(`📹 Found recording to delete:`, {
+        cloudinary_id: recording.cloudinary_id,
+        url: recording.url,
+        size: recording.size
+    });
+
     let cloudinaryDeleted = false;
-    
+
     try {
-        // Delete from Cloudinary with optimized retry
+        // First, delete from Cloudinary with aggressive retry
         if (recording.cloudinary_id) {
+            console.log(`☁️ Attempting to delete from Cloudinary: ${recording.cloudinary_id}`);
+
             try {
                 await deleteFromCloudinaryWithRetry(recording.cloudinary_id, 'video');
                 cloudinaryDeleted = true;
-                console.log(`✅ Cloudinary deletion successful`);
+                console.log(`✅ Successfully deleted from Cloudinary: ${recording.cloudinary_id}`);
             } catch (cloudinaryError) {
-                console.error(`❌ Cloudinary deletion failed:`, cloudinaryError.message);
+                console.error(`❌ Failed to delete from Cloudinary after all retries:`, cloudinaryError.message);
+                // Continue with database deletion even if Cloudinary fails
                 cloudinaryDeleted = false;
             }
         } else {
-            cloudinaryDeleted = true;
+            console.log(`⚠️ No Cloudinary ID found for recording`);
+            cloudinaryDeleted = true; // No Cloudinary file to delete
         }
-        
+
         // Remove from database
         meeting.recordings.splice(recordingIndex, 1);
         meeting.total_recordings = meeting.recordings.length;
         meeting.last_updated_by = user_id;
-        
+
         await meeting.save();
-        
+
+        console.log(`✅ Recording deleted from database successfully. Total recordings: ${meeting.total_recordings}`);
+
         res.status(200).json({
             success: true,
-            message: cloudinaryDeleted 
-                ? "Recording deleted successfully from both database and cloud storage" 
+            message: cloudinaryDeleted
+                ? "Recording deleted successfully from both database and cloud storage"
                 : "Recording deleted from database, but cloud storage deletion failed",
             total_recordings: meeting.total_recordings,
             cloudinary_deleted: cloudinaryDeleted
         });
-        
+
     } catch (error) {
-        console.error(`❌ Recording deletion error:`, error);
+        console.error(`❌ Error in recording deletion process:`, error);
         return next(new ErrorHandler("Failed to delete recording", 500));
     }
 });
 
+// Delete individual screenshot with guaranteed Cloudinary removal
 export const deleteScreenshot = catchAsyncError(async (req, res, next) => {
     const { meetingId, screenshotId } = req.params;
     const user_id = req.user._id;
-    
-    console.log(`🗑️ Starting OPTIMIZED screenshot deletion: ${screenshotId}`);
-    
+
+    console.log(`🗑️ [${new Date().toISOString()}] Starting screenshot deletion: ${screenshotId} from meeting ${meetingId} by user ${user_id}`);
+
     const meeting = await MeetingModel.findOne({
         meeting_id: meetingId,
         $or: [
@@ -997,48 +1124,61 @@ export const deleteScreenshot = catchAsyncError(async (req, res, next) => {
         return next(new ErrorHandler("Meeting not found", 404));
     }
 
+    // Find the screenshot to delete
     const screenshotIndex = meeting.screenshots.findIndex(screenshot => screenshot._id.toString() === screenshotId);
-    
+
     if (screenshotIndex === -1) {
         return next(new ErrorHandler("Screenshot not found", 404));
     }
 
     const screenshot = meeting.screenshots[screenshotIndex];
+    console.log(`📸 Found screenshot to delete:`, {
+        cloudinary_id: screenshot.cloudinary_id,
+        url: screenshot.url,
+        size: screenshot.size
+    });
+
     let cloudinaryDeleted = false;
-    
+
     try {
-        // Delete from Cloudinary with optimized retry
+        // First, delete from Cloudinary with aggressive retry
         if (screenshot.cloudinary_id) {
+            console.log(`☁️ Attempting to delete from Cloudinary: ${screenshot.cloudinary_id}`);
+
             try {
                 await deleteFromCloudinaryWithRetry(screenshot.cloudinary_id, 'image');
                 cloudinaryDeleted = true;
-                console.log(`✅ Cloudinary deletion successful`);
+                console.log(`✅ Successfully deleted from Cloudinary: ${screenshot.cloudinary_id}`);
             } catch (cloudinaryError) {
-                console.error(`❌ Cloudinary deletion failed:`, cloudinaryError.message);
+                console.error(`❌ Failed to delete from Cloudinary after all retries:`, cloudinaryError.message);
+                // Continue with database deletion even if Cloudinary fails
                 cloudinaryDeleted = false;
             }
         } else {
-            cloudinaryDeleted = true;
+            console.log(`⚠️ No Cloudinary ID found for screenshot`);
+            cloudinaryDeleted = true; // No Cloudinary file to delete
         }
-        
+
         // Remove from database
         meeting.screenshots.splice(screenshotIndex, 1);
         meeting.total_screenshots = meeting.screenshots.length;
         meeting.last_updated_by = user_id;
-        
+
         await meeting.save();
-        
+
+        console.log(`✅ Screenshot deleted from database successfully. Total screenshots: ${meeting.total_screenshots}`);
+
         res.status(200).json({
             success: true,
-            message: cloudinaryDeleted 
-                ? "Screenshot deleted successfully from both database and cloud storage" 
+            message: cloudinaryDeleted
+                ? "Screenshot deleted successfully from both database and cloud storage"
                 : "Screenshot deleted from database, but cloud storage deletion failed",
             total_screenshots: meeting.total_screenshots,
             cloudinary_deleted: cloudinaryDeleted
         });
-        
+
     } catch (error) {
-        console.error(`❌ Screenshot deletion error:`, error);
+        console.error(`❌ Error in screenshot deletion process:`, error);
         return next(new ErrorHandler("Failed to delete screenshot", 500));
     }
 });
