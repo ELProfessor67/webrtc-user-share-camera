@@ -82,8 +82,14 @@ export default function Page() {
 
       console.log('📋 Fetching meetings with archived param:', archivedParam, 'viewMode:', viewMode);
       const response = await getAllMeetings(archivedParam);
-      setMeetings(response.data.meetings || []);
-      console.log('📋 Fetched meetings:', response.data.meetings?.length || 0, 'meetings');
+      
+      // Sort meetings by createdAt date in descending order (newest first)
+      const sortedMeetings = (response.data.meetings || []).sort((a, b) => {
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+      
+      setMeetings(sortedMeetings);
+      console.log('📋 Fetched meetings:', sortedMeetings.length || 0, 'meetings');
     } catch (error) {
       console.error('Error fetching meetings:', error);
       toast(error?.response?.data?.message || error.message);
@@ -91,7 +97,7 @@ export default function Page() {
       setLoading(false);
     }
   };
-
+  
   const fetchArchivedCount = async () => {
     try {
       const response = await getArchivedCount();
