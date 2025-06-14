@@ -1807,7 +1807,7 @@ export default function Page({ params }) {
 
             {/* Image Screenshot Section */}
             <div>
-              <h2 className="text-lg font-medium mb-3">Image screenshot :</h2>
+              <h2 className="text-lg font-medium mb-3">Image screenshot : {(existingScreenshots?.length + screenshots?.length) != 0 && (existingScreenshots?.length + screenshots?.length)}</h2>
 
               {/* Grid with overflow-visible to allow dropdown to show */}
               <div className="h-[20rem] overflow-y-auto">
