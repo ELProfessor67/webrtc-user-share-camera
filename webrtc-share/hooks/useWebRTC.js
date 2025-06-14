@@ -1,6 +1,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { useIsMobile } from "./useIsMobile";
 
 // Optimized peer configuration for maximum quality
 const peerConfig = {
@@ -44,6 +45,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
     const localStreamRef = useRef(null);
     const [showVideoPlayError, setShowVideoPlayError] = useState(false);
     const router = useRouter();
+    const isMobile = useIsMobile()
     
     useEffect(() => {
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
@@ -117,7 +119,115 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             }
 
             // Step 4: ENHANCED Progressive constraint strategy (from best to basic) - ULTRA HIGH QUALITY VIDEO ONLY
-            const constraintStrategies = [
+            const constraintStrategies = isMobile ? [
+                // Strategy 1: Ultra High Quality 4K with back camera preference
+                {
+                    name: "Ultra High Quality 4K Back Camera",
+                    constraints: {
+                        video: {
+                            facingMode: { ideal: "environment" },
+                            width: { min: 1920, ideal: 3840, max: 7680 },
+                            height: { min: 1080, ideal: 2160, max: 4320 },
+                            frameRate: { min: 24, ideal: 60, max: 120 },
+                            aspectRatio: { ideal: 16/9 }
+                        },
+                        audio: false  // Audio disabled
+                    }
+                },
+                // Strategy 2: High Quality 2K with back camera preference
+                {
+                    name: "High Quality 2K Back Camera",
+                    constraints: {
+                        video: {
+                            facingMode: { ideal: "environment" },
+                            width: { min: 1280, ideal: 2560, max: 3840 },
+                            height: { min: 720, ideal: 1440, max: 2160 },
+                            frameRate: { min: 24, ideal: 60, max: 120 },
+                            aspectRatio: { ideal: 16/9 }
+                        },
+                        audio: false  // Audio disabled
+                    }
+                },
+                // Strategy 3: Premium Full HD with back camera preference
+                {
+                    name: "Premium Full HD Back Camera",
+                    constraints: {
+                        video: {
+                            facingMode: { ideal: "environment" },
+                            width: { min: 1280, ideal: 1920, max: 2560 },
+                            height: { min: 720, ideal: 1080, max: 1440 },
+                            frameRate: { min: 30, ideal: 60, max: 120 },
+                            aspectRatio: { ideal: 16/9 }
+                        },
+                        audio: false  // Audio disabled
+                    }
+                },
+                // Strategy 4: Basic quality with any back camera
+                {
+                    name: "Basic Back Camera",
+                    constraints: {
+                        video: {
+                            facingMode: "environment"
+                        },
+                        audio: false  // Audio disabled
+                    }
+                },
+                // Strategy 5: Ultra High quality any camera
+                {
+                    name: "Ultra High Quality Any Camera",
+                    constraints: {
+                        video: {
+                            width: { min: 1920, ideal: 3840, max: 7680 },
+                            height: { min: 1080, ideal: 2160, max: 4320 },
+                            frameRate: { min: 24, ideal: 60, max: 120 },
+                            aspectRatio: { ideal: 16/9 }
+                        },
+                        audio: false  // Audio disabled
+                    }
+                },
+                // Strategy 6: High quality any camera
+                {
+                    name: "High Quality Any Camera",
+                    constraints: {
+                        video: {
+                            width: { min: 1280, ideal: 1920, max: 3840 },
+                            height: { min: 720, ideal: 1080, max: 2160 },
+                            frameRate: { min: 30, ideal: 60, max: 120 },
+                            aspectRatio: { ideal: 16/9 }
+                        },
+                        audio: false  // Audio disabled
+                    }
+                },
+                // Strategy 7: Basic quality any camera
+                {
+                    name: "Basic Quality Any Camera",
+                    constraints: {
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        },
+                        audio: false  // Audio disabled
+                    }
+                },
+                // Strategy 8: Very basic - just video only
+                {
+                    name: "Very Basic Video Only",
+                    constraints: {
+                        video: true,
+                        audio: false  // Audio disabled
+                    }
+                },
+                // Strategy 9: Default front camera if available
+                {
+                    name: "Front Camera Fallback",
+                    constraints: {
+                        video: {
+                            facingMode: "user"
+                        },
+                        audio: false  // Audio disabled
+                    }
+                }
+            ] : [
                 // Strategy 1: Ultra High Quality 4K with back camera preference
                 {
                     name: "Ultra High Quality 4K Back Camera",
