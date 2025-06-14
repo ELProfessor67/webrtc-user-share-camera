@@ -1356,6 +1356,18 @@ export default function Page({ params }) {
     return null;
   };
 
+  const getTotalRecordingsCount = () => {
+  const existingRecordingsCount = existingMeetingData?.recordings?.length || 0;
+  const newRecordingsCount = recordings.length;
+  return existingRecordingsCount + newRecordingsCount;
+};
+
+// Function to display recordings count in header
+const displayRecordingsCount = () => {
+  const totalCount = getTotalRecordingsCount();
+  return totalCount > 0 ? totalCount : null;
+};
+
   // Helper function to get profile image (prioritize token info)
   const getProfileImage = () => {
     // Check token info first
@@ -1714,7 +1726,7 @@ export default function Page({ params }) {
 
             {/* Video Recording Section */}
             <div>
-              <h2 className="text-lg font-medium mb-3">Video Recording :</h2>
+              <h2 className="text-lg font-medium mb-3">Video Recording(s): {displayRecordingsCount()}</h2>
               <div className="grid grid-cols-2 gap-3 h-[20rem] overflow-y-auto">
                 {recordings.length === 0 && (
                   <h1>No recordings</h1>
@@ -1807,7 +1819,7 @@ export default function Page({ params }) {
 
             {/* Image Screenshot Section */}
             <div>
-              <h2 className="text-lg font-medium mb-3">Image screenshot : {(existingScreenshots?.length + screenshots?.length) != 0 && (existingScreenshots?.length + screenshots?.length)}</h2>
+              <h2 className="text-lg font-medium mb-3">Image screenshot(s): {(existingScreenshots?.length + screenshots?.length) != 0 && (existingScreenshots?.length + screenshots?.length)}</h2>
 
               {/* Grid with overflow-visible to allow dropdown to show */}
               <div className="h-[20rem] overflow-y-auto">

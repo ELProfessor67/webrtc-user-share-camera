@@ -41,7 +41,7 @@ export const HeroSection = () => {
     },
     {
       id: 2,
-      backgroundImage: "url('/slide-2-bg.png')",
+      backgroundImage: "url('/slide-2-bg.jpg')",
       content: (
         <div className="mx-auto relative z-10 px-10 flex flex-col justify-start pt-5">
           
@@ -78,9 +78,9 @@ export const HeroSection = () => {
             }`}
             style={{
               backgroundImage: slide.backgroundImage.startsWith('url') ? slide.backgroundImage : '',
-              backgroundSize: slide.id === 2 ? "100% auto" : "cover",
+              backgroundSize: "cover",
               backgroundRepeat: "no-repeat",
-              backgroundPosition: slide.id === 2 ? "bottom" : "center"
+              backgroundPosition: slide.id === 2 ? "center 100%" : "center"
             }}
           >
             {slide.content}

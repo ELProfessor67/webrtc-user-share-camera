@@ -89,7 +89,7 @@ export const register = catchAsyncError(async (req, res) => {
 
 	res.status(200).json({
 		success: true,
-		message: "OTP Send to your email successfully"
+		message: "OTP Sent to your email successfully"
 	})
 });
 
@@ -144,7 +144,7 @@ export const login = catchAsyncError(async (req, res, next) => {
 
 	res.status(200).json({
 		success: true,
-		message: "OTP Send to your email successfully"
+		message: "OTP Sent to your email successfully"
 	})
 });
 
