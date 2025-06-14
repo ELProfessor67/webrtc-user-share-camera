@@ -10,7 +10,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,  
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -205,7 +205,7 @@ export default function Page({ params }) {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    
+
     saveTimeoutRef.current = setTimeout(() => {
       if (!saveInProgress) {
         saveFunction();
@@ -226,9 +226,9 @@ export default function Page({ params }) {
   // NEW: Extract common save logic - UPDATED to properly handle drawings
   const performSave = useCallback(async (options = {}) => {
     const { disconnectVideo = false } = options;
-    
+
     console.log('💾 Starting save process...');
-    
+
     // Separate new recordings from existing ones
     const newRecordings = recordings.filter(recording => !recording.isExisting && recording.blob);
     const existingRecordings = recordings.filter(recording => recording.isExisting);
@@ -236,18 +236,18 @@ export default function Page({ params }) {
     // Process recordings with duplicate prevention
     const recordingsData = [];
     const processedRecordings = new Set();
-    
+
     for (let i = 0; i < newRecordings.length; i++) {
       const recording = newRecordings[i];
       const recordingKey = `${recording.id}-${recording.timestamp}`;
-      
+
       if (processedRecordings.has(recordingKey)) {
         console.log('⚠️ Skipping duplicate recording:', recordingKey);
         continue;
       }
-      
+
       processedRecordings.add(recordingKey);
-      
+
       try {
         const base64Data = await blobToBase64(recording.blob);
         recordingsData.push({
@@ -262,68 +262,115 @@ export default function Page({ params }) {
       }
     }
 
-    // Process screenshots with duplicate prevention AND drawings merge
+    // FIXED: Process screenshots with duplicate prevention AND drawings merge
     const screenshotsData = [];
     const processedScreenshots = new Set();
-    
+
     for (let i = 0; i < screenshots.length; i++) {
       const screenshot = screenshots[i];
-      // FIXED: Handle different screenshot formats (object or string)
+
+      // Handle different screenshot formats (object or string)
       let screenshotIdentifier;
+      let screenshotData;
+      let screenshotId;
+
       if (typeof screenshot === 'object' && screenshot !== null) {
-        screenshotIdentifier = screenshot.id || screenshot.data?.substring(0, 50) || i;
+        screenshotIdentifier = screenshot.id || screenshot.data?.substring(0, 50) || `screenshot-${i}`;
+        screenshotData = screenshot.data || screenshot;
+        screenshotId = screenshot.id || `screenshot-${screenshot.timestamp || Date.now()}-${Math.random()}`;
       } else if (typeof screenshot === 'string') {
         screenshotIdentifier = screenshot.substring(0, 50);
+        screenshotData = screenshot;
+        screenshotId = `screenshot-${i}-${Date.now()}-${Math.random()}`;
       } else {
         screenshotIdentifier = `screenshot-${i}`;
+        screenshotData = `fallback-screenshot-${i}`;
+        screenshotId = `screenshot-${i}-${Date.now()}-${Math.random()}`;
       }
-      
+
       const screenshotKey = `screenshot-${i}-${screenshotIdentifier}`;
-      
+
       if (processedScreenshots.has(screenshotKey)) {
         console.log('⚠️ Skipping duplicate screenshot:', screenshotKey);
         continue;
       }
-      
+
       processedScreenshots.add(screenshotKey);
-      
+
       try {
-        let finalScreenshotData = typeof screenshot === 'object' ? screenshot.data || screenshot : screenshot;
-        if (typeof finalScreenshotData === 'string') {
+        let finalScreenshotData = typeof screenshotData === 'string' ? screenshotData : String(screenshotData);
+        if (finalScreenshotData.indexOf('#') > 0) {
           finalScreenshotData = finalScreenshotData.split('#')[0]; // Clean URL
         }
-        
-        const canvasId = `new-${i}`;
+
+        // FIXED: Use screenshotId as canvasId to match the drawing system
+        const canvasId = screenshotId;
 
         console.log(`🎨 Checking for drawings in canvas ${canvasId} for screenshot ${i + 1}`);
         console.log('📊 Available drawing data keys:', Object.keys(drawingData));
 
-        // FIXED: Check for drawings and merge them
+        // CRITICAL FIX: Check for drawings and merge them properly
+        let hasDrawings = false;
         if (drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0) {
           console.log(`🎨 Found ${drawingData[canvasId].strokes.length} strokes for screenshot ${i + 1}. Merging drawings...`);
           try {
-            finalScreenshotData = await mergeWithBackground(finalScreenshotData, canvasId);
-            console.log(`✅ Drawing merge completed for screenshot ${i + 1}`);
+            const mergedData = await mergeWithBackground(finalScreenshotData, canvasId);
+            if (mergedData && mergedData !== finalScreenshotData) {
+              finalScreenshotData = mergedData;
+              hasDrawings = true;
+              console.log(`✅ Drawing merge completed for screenshot ${i + 1}`);
+            } else {
+              console.log(`⚠️ Merge returned same data for screenshot ${i + 1}`);
+            }
           } catch (mergeError) {
             console.error(`❌ Error merging drawings for screenshot ${i + 1}:`, mergeError);
           }
         } else {
-          console.log(`ℹ️ No drawings found for screenshot ${i + 1} (canvas: ${canvasId})`);
+          // ADDITIONAL CHECK: Try alternative canvasId formats
+          const alternativeCanvasIds = [
+            `new-${i}`,
+            `screenshot-${i}`,
+            screenshotIdentifier
+          ];
+
+          for (const altCanvasId of alternativeCanvasIds) {
+            if (drawingData[altCanvasId] && drawingData[altCanvasId].strokes && drawingData[altCanvasId].strokes.length > 0) {
+              console.log(`🎨 Found drawings in alternative canvas ID: ${altCanvasId} for screenshot ${i + 1}`);
+              try {
+                const mergedData = await mergeWithBackground(finalScreenshotData, altCanvasId);
+                if (mergedData && mergedData !== finalScreenshotData) {
+                  finalScreenshotData = mergedData;
+                  hasDrawings = true;
+                  console.log(`✅ Drawing merge completed using alternative ID ${altCanvasId} for screenshot ${i + 1}`);
+                  break;
+                }
+              } catch (mergeError) {
+                console.error(`❌ Error merging drawings with alternative ID ${altCanvasId}:`, mergeError);
+              }
+            }
+          }
+
+          if (!hasDrawings) {
+            console.log(`ℹ️ No drawings found for screenshot ${i + 1} (tried canvas IDs: ${canvasId}, ${alternativeCanvasIds.join(', ')})`);
+          }
         }
 
         screenshotsData.push({
           data: finalScreenshotData,
           timestamp: new Date().toISOString(),
           size: finalScreenshotData.length,
-          hasDrawings: drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0
+          hasDrawings: hasDrawings,
+          originalIndex: i,
+          canvasId: canvasId
         });
-        console.log(`✅ NEW screenshot ${i + 1} processed successfully with drawings: ${screenshotsData[screenshotsData.length - 1].hasDrawings}`);
+
+        console.log(`✅ Screenshot ${i + 1} processed successfully with drawings: ${hasDrawings}`);
       } catch (error) {
         console.error(`❌ Error processing screenshot ${i + 1}:`, error);
         // Fallback handling for invalid screenshot data
         let fallbackData;
         try {
-          fallbackData = typeof screenshot === 'object' ? screenshot.data || JSON.stringify(screenshot) : String(screenshot);
+          fallbackData = typeof screenshotData === 'object' ? JSON.stringify(screenshotData) : String(screenshotData);
           if (typeof fallbackData === 'string' && fallbackData.indexOf('#') > 0) {
             fallbackData = fallbackData.split('#')[0];
           }
@@ -331,12 +378,14 @@ export default function Page({ params }) {
           console.error('Failed to create fallback screenshot data:', fallbackError);
           fallbackData = `fallback-screenshot-${i}`;
         }
-        
+
         screenshotsData.push({
           data: fallbackData,
           timestamp: new Date().toISOString(),
           size: typeof fallbackData === 'string' ? fallbackData.length : 0,
-          hasDrawings: false
+          hasDrawings: false,
+          originalIndex: i,
+          canvasId: screenshotId
         });
       }
     }
@@ -368,14 +417,15 @@ export default function Page({ params }) {
     const response = await createRequest(formData);
     console.log('✅ Save successful!');
 
-    // Reset pencil mode and clear all drawing data
+    // Reset pencil mode and clear drawing data for processed screenshots
     setActivePencilScreenshot(null);
+    setShowPencilDropdown(null);
 
-    // Clear all drawing data after successful save
-    Object.keys(drawingData).forEach(canvasId => {
-      if (canvasId.startsWith('new-')) {
-        console.log('🧹 Clearing drawing data for:', canvasId);
-        delete drawingData[canvasId];
+    // Clear drawing data for processed screenshots
+    screenshotsData.forEach(screenshot => {
+      if (screenshot.canvasId && drawingData[screenshot.canvasId]) {
+        console.log('🧹 Clearing drawing data for:', screenshot.canvasId);
+        delete drawingData[screenshot.canvasId];
       }
     });
 
@@ -392,18 +442,19 @@ export default function Page({ params }) {
         url: screenshot.data,
         timestamp: new Date(screenshot.timestamp).toLocaleString(),
         isExisting: true,
-        hasDrawings: screenshot.hasDrawings
+        hasDrawings: screenshot.hasDrawings,
+        quality: 'high'
       }));
 
       setExistingScreenshots(prev => {
         // Filter out any potential duplicates based on URL
         const existingUrls = new Set(prev.map(s => s.url));
         const uniqueNewScreenshots = newSavedScreenshots.filter(s => !existingUrls.has(s.url));
-        
+
         if (uniqueNewScreenshots.length !== newSavedScreenshots.length) {
           console.log('⚠️ Filtered out duplicate screenshots');
         }
-        
+
         // Add to the end of the array instead of beginning for chronological order
         return [...prev, ...uniqueNewScreenshots];
       });
@@ -422,7 +473,8 @@ export default function Page({ params }) {
         meeting_id: id,
         name: residentName,
         address: residentAddress,
-        post_code: postCode,
+        post_code: actualPostCode,
+        reference: postCode,
         repair_detail: repairDetails,
         target_time: targetTime
       });
@@ -593,7 +645,7 @@ export default function Page({ params }) {
     try {
       setSaveInProgress(true);
       setIsSaving(true);
-      
+
       // Use shared save logic
       const result = await performSave();
 
@@ -615,19 +667,19 @@ export default function Page({ params }) {
   const handleLogout = async () => {
     try {
       const res = await logoutRequest();
-      
+
       // Additional cleanup - clear any localStorage/sessionStorage
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       sessionStorage.clear();
-      
+
       // Clear cookies from frontend side as well
       document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; samesite=none";
-      
+
       toast("Logout Successful", {
         description: res.data.message
       });
-      
+
       setIsAuth(false);
       setUser(null);
       router.push('../');
@@ -636,11 +688,11 @@ export default function Page({ params }) {
       setIsAuth(false);
       setUser(null);
       localStorage.clear();
-      
+
       toast("Logout Unsuccessful", {
         description: error?.response?.data?.message || error.message
       });
-      
+
       router.push('../');
     }
   }
@@ -851,7 +903,7 @@ export default function Page({ params }) {
         setRecordings(prev => [...prev, newRecording]);
         setIsRecording(false);
         setRecordingStartTime(null);
-        
+
         console.log('✅ ULTRA HIGH quality recording completed:', {
           duration: `${duration}s`,
           size: `${(blob.size / 1024 / 1024).toFixed(2)}MB`,
@@ -968,7 +1020,7 @@ export default function Page({ params }) {
     try {
       setSavingRecordingId(recording.id);
       console.log('💾 Saving individual recording...');
-      
+
       // Show loading toast
       toast.loading("Saving recording...", {
         id: `save-recording-${recording.id}`
@@ -1091,14 +1143,14 @@ export default function Page({ params }) {
   const deleteNewScreenshot = (screenshotIndex, screenshotId) => {
     try {
       console.log('🗑️ Deleting screenshot:', { index: screenshotIndex, id: screenshotId });
-      
+
       // Clean up any associated drawing data before deleting
       const canvasId = screenshotId || `new-${screenshotIndex}`;
       if (drawingData[canvasId]) {
         console.log('🧹 Cleaning up drawing data for:', canvasId);
         delete drawingData[canvasId];
       }
-      
+
       // Use the deleteScreenshot function from useWebRTC hook
       deleteScreenshot(screenshotIndex);
       toast.success("Screenshot removed!");
@@ -1131,22 +1183,22 @@ export default function Page({ params }) {
   // Update the save individual screenshot function to use screenshot ID
   const saveIndividualScreenshot = useCallback(async (screenshotData, index, screenshotId) => {
     const itemKey = `screenshot-${screenshotId || index}`;
-    
+
     // Prevent duplicate processing
     if (processedItemsRef.current.has(itemKey) || savingScreenshotIds.has(screenshotId)) {
       console.log('⚠️ Screenshot already being processed:', itemKey);
       return;
     }
-    
+
     processedItemsRef.current.add(itemKey);
 
     try {
       // FIXED: Set both index and ID tracking for proper spinner display
       setSavingScreenshotIndex(index);
       setSavingScreenshotIds(prev => new Set(prev).add(screenshotId));
-      
+
       console.log('💾 Saving individual ULTRA HIGH QUALITY screenshot...', index, 'ID:', screenshotId);
-      
+
       // Show loading toast
       toast.loading("Saving screenshot...", {
         id: `save-screenshot-${screenshotId}`
@@ -1154,7 +1206,7 @@ export default function Page({ params }) {
 
       // FIXED: Use clean screenshot data (remove unique identifiers)
       let finalScreenshotData = screenshotData.split('#')[0]; // Remove timestamp markers
-      
+
       // Use screenshot ID to track drawing data instead of index-based canvasId
       const canvasId = screenshotId || `new-${index}`;
 
@@ -1165,7 +1217,7 @@ export default function Page({ params }) {
       if (drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0) {
         console.log('🎨 Found drawings for canvas:', canvasId, 'Strokes:', drawingData[canvasId].strokes.length);
         console.log('🖼️ Merging drawings with screenshot at ULTRA HIGH resolution...');
-        
+
         try {
           finalScreenshotData = await mergeWithBackground(finalScreenshotData, canvasId);
           console.log('✅ ULTRA HIGH quality drawing merge completed successfully');
@@ -1189,16 +1241,16 @@ export default function Page({ params }) {
             const scale = 2; // Additional scaling for ultra quality
             canvas.width = img.width * scale;
             canvas.height = img.height * scale;
-            
+
             const ctx = canvas.getContext('2d');
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
             ctx.scale(scale, scale);
             ctx.drawImage(img, 0, 0);
-            
+
             finalScreenshotData = canvas.toDataURL('image/png', 1.0);
             console.log('✅ Enhanced to ultra high quality PNG');
-            
+
             // Continue with save process
             processSave(finalScreenshotData);
           };
@@ -1241,8 +1293,8 @@ export default function Page({ params }) {
 
         // Show success toast
         toast.success(
-          screenshotsData[0].hasDrawings 
-            ? "Ultra high quality screenshot with drawings saved successfully!" 
+          screenshotsData[0].hasDrawings
+            ? "Ultra high quality screenshot with drawings saved successfully!"
             : "Ultra high quality screenshot saved successfully!",
           {
             id: `save-screenshot-${screenshotId}`
@@ -1277,7 +1329,7 @@ export default function Page({ params }) {
         // Remove the screenshot from new screenshots array
         deleteScreenshot(index);
         console.log(`🧹 Removed ultra high quality screenshot at index ${index} from new screenshots array`);
-        
+
         // Clear the drawing data for this canvas after successful save
         if (drawingData[canvasId]) {
           console.log('🧹 Clearing drawing data for canvas:', canvasId);
@@ -1357,16 +1409,16 @@ export default function Page({ params }) {
   };
 
   const getTotalRecordingsCount = () => {
-  const existingRecordingsCount = existingMeetingData?.recordings?.length || 0;
-  const newRecordingsCount = recordings.length;
-  return existingRecordingsCount + newRecordingsCount;
-};
+    const existingRecordingsCount = existingMeetingData?.recordings?.length || 0;
+    const newRecordingsCount = recordings.length;
+    return existingRecordingsCount + newRecordingsCount;
+  };
 
-// Function to display recordings count in header
-const displayRecordingsCount = () => {
-  const totalCount = getTotalRecordingsCount();
-  return totalCount > 0 ? totalCount : null;
-};
+  // Function to display recordings count in header
+  const displayRecordingsCount = () => {
+    const totalCount = getTotalRecordingsCount();
+    return totalCount > 0 ? totalCount : null;
+  };
 
   // Helper function to get profile image (prioritize token info)
   const getProfileImage = () => {
@@ -1824,7 +1876,7 @@ const displayRecordingsCount = () => {
               {/* Grid with overflow-visible to allow dropdown to show */}
               <div className="h-[20rem] overflow-y-auto">
 
-            
+
                 <div className="grid grid-cols-2 gap-3 overflow-x-visible">
                   {(existingScreenshots.length === 0 && screenshots.length === 0) && (
                     <h1>No screenshots</h1>
@@ -1886,16 +1938,16 @@ const displayRecordingsCount = () => {
                     // ENHANCED: Handle both object and string screenshot formats
                     const screenshotData = typeof screenshot === 'object' ? screenshot.data : screenshot;
                     // FIXED: Use more reliable unique ID for each screenshot
-                    const screenshotId = typeof screenshot === 'object' ? 
-                      (screenshot.id || `screenshot-${screenshot.timestamp || Date.now()}-${Math.random()}`) : 
+                    const screenshotId = typeof screenshot === 'object' ?
+                      (screenshot.id || `screenshot-${screenshot.timestamp || Date.now()}-${Math.random()}`) :
                       `screenshot-${index}-${Date.now()}-${Math.random()}`;
                     const screenshotUniqueId = typeof screenshot === 'object' ? screenshot.uniqueId : `${index}`;
-                    
+
                     // FIXED: Use screenshot ID as canvasId to keep drawings attached to the correct screenshot
                     const canvasId = screenshotId;
                     const isActive = activePencilScreenshot === canvasId;
                     const shouldShowDropdown = showPencilDropdown === canvasId;
-                    
+
                     // FIXED: Use clean screenshot URL without excessive unique identifiers
                     const cleanScreenshotUrl = screenshotData.split('#')[0];
 
@@ -1935,9 +1987,8 @@ const displayRecordingsCount = () => {
                                 console.log('🖋️ Pencil clicked for canvas:', canvasId);
                                 handlePencilClick(canvasId, screenshotId);
                               }}
-                              className={`p-1 hover:bg-black/20 rounded text-white transition-colors border-2 ${
-                                isActive ? 'bg-blue-500 border-blue-300' : 'bg-black/10 border-transparent'
-                              }`}
+                              className={`p-1 hover:bg-black/20 rounded text-white transition-colors border-2 ${isActive ? 'bg-blue-500 border-blue-300' : 'bg-black/10 border-transparent'
+                                }`}
                               title="Drawing tools"
                             >
                               <Pencil className="w-4 h-4" />
@@ -1948,11 +1999,10 @@ const displayRecordingsCount = () => {
                                 console.log('💾 Saving individual screenshot:', { index, cleanScreenshotUrl, id: screenshotId });
                                 saveIndividualScreenshot(cleanScreenshotUrl, index, screenshotId);
                               }}
-                              className={`p-1 hover:bg-black/20 rounded text-white transition-all duration-200 ${
-                                savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index 
-                                  ? 'opacity-80 cursor-not-allowed bg-gray-600' 
+                              className={`p-1 hover:bg-black/20 rounded text-white transition-all duration-200 ${savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index
+                                  ? 'opacity-80 cursor-not-allowed bg-gray-600'
                                   : 'hover:scale-105'
-                              }`}
+                                }`}
                               title={savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index ? "Saving..." : "Save screenshot"}
                               disabled={savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index}
                             >
@@ -1984,7 +2034,7 @@ const displayRecordingsCount = () => {
                             className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
                             onLoad={(e) => {
                               console.log(`📸 Screenshot ${index + 1} loaded successfully`);
-                              
+
                               // CRITICAL: Only initialize canvas ONCE per screenshot
                               const canvas = e.target.parentElement.querySelector(`canvas[data-canvas-id="${canvasId}"]`);
                               if (canvas) {
@@ -2007,11 +2057,10 @@ const displayRecordingsCount = () => {
                             data-canvas-id={canvasId}
                             data-screenshot-id={screenshotId}
                             data-screenshot-index={index}
-                            className={`absolute top-0 left-0 w-full h-full z-10 rounded-md transition-all ${
-                              isActive 
-                                ? 'cursor-crosshair pointer-events-auto' 
+                            className={`absolute top-0 left-0 w-full h-full z-10 rounded-md transition-all ${isActive
+                                ? 'cursor-crosshair pointer-events-auto'
                                 : 'pointer-events-none'
-                            }`}
+                              }`}
                             style={{
                               pointerEvents: isActive ? 'auto' : 'none',
                               touchAction: isActive ? 'none' : 'auto',
@@ -2086,11 +2135,11 @@ const displayRecordingsCount = () => {
 
                           {/* Drawing Tools Dropdown Modal */}
                           {shouldShowDropdown && (
-                            <div 
+                            <div
                               className="fixed bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[240px] z-50 max-h-[400px] overflow-y-auto"
                               style={{
                                 left: `${clickPosition.x}px`,
-                                top: `${clickPosition.y-60}px`,
+                                top: `${clickPosition.y - 60}px`,
                                 transform: 'translate(20px, -50%)'
                               }}
                               onClick={(e) => e.stopPropagation()}
@@ -2129,7 +2178,7 @@ const displayRecordingsCount = () => {
                                     </button>
                                   </div>
                                 </div>
-                                
+
                                 {/* Tools Section */}
                                 <div>
                                   <p className="text-xs font-medium text-gray-700 mb-2">Tools:</p>
@@ -2143,11 +2192,10 @@ const displayRecordingsCount = () => {
                                           console.log('🔧 Tool selected:', tool.name, 'for canvas:', canvasId);
                                           setSelectedTool(tool.name);
                                         }}
-                                        className={`p-2 text-xs border rounded hover:scale-105 transition-all duration-200 flex flex-col items-center gap-1 ${
-                                          selectedTool === tool.name
+                                        className={`p-2 text-xs border rounded hover:scale-105 transition-all duration-200 flex flex-col items-center gap-1 ${selectedTool === tool.name
                                             ? 'bg-blue-100 text-blue-700 border-blue-300'
                                             : 'bg-gray-50 border-gray-300 hover:bg-gray-100'
-                                        }`}
+                                          }`}
                                         title={tool.title}
                                       >
                                         <span className="text-sm">{tool.icon}</span>
@@ -2169,11 +2217,10 @@ const displayRecordingsCount = () => {
                                           console.log('🎨 Color selected:', color, 'for canvas:', canvasId);
                                           setSelectedColor(color);
                                         }}
-                                        className={`w-6 h-6 rounded border-2 transition-all duration-200 hover:scale-110 ${
-                                          selectedColor === color 
-                                            ? 'border-gray-800 scale-110 ring-2 ring-gray-300' 
+                                        className={`w-6 h-6 rounded border-2 transition-all duration-200 hover:scale-110 ${selectedColor === color
+                                            ? 'border-gray-800 scale-110 ring-2 ring-gray-300'
                                             : 'border-gray-300 hover:border-gray-500'
-                                        }`}
+                                          }`}
                                         style={{ backgroundColor: color }}
                                         title={`Select ${color}`}
                                       />

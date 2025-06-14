@@ -350,7 +350,7 @@ export function Footer() {
             <div className="flex items-start flex-col gap-4">
               <label className="text-gray-800 font-semibold text-sm">Best time to call</label>
               <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                <div className="flex items-center justify-between w-full mb-4">
+                <div className="flex items-center justify-between w-full mb-4 border-b pb-4">
                   <span className="text-blue-600 font-medium text-sm">(Select a day)</span>
                   <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-md">
                     <p className="text-gray-700 text-sm">Today</p>
@@ -385,7 +385,7 @@ export function Footer() {
                     />
                   </div>
                 </div>
-                <div className="flex items-start flex-1 w-full gap-6">
+                <div className="flex items-start flex-1 w-full gap-6 pt-2">
                   <div className="flex items-start gap-4 bg-gray-50 p-3 rounded-lg">
                     <div className="space-y-2">
                       <p className="text-gray-700 text-sm font-medium h-6 flex items-center w-20">Morning</p>
