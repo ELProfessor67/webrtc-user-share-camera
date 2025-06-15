@@ -25,7 +25,7 @@ jobs:
           git pull origin main
 
           echo "📦 Building frontend..."
-          cd frontend
+          cd webrtc-share
           npm install
           npm run build
           pm2 restart 1
