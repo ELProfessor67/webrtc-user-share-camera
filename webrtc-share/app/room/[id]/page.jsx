@@ -178,10 +178,12 @@ const page = ({params}) => {
       </div>
 
       <DialogComponent open={open} setOpen={setOpen}>
-        <div className="max-h-[90vh] w-[350px] p-3 flex flex-col items-center justify-center gap-3 overflow-y-auto pb-6">
+        <div className="max-h-[90vh] w-[350px] p-6 flex flex-col items-center justify-center gap-3 overflow-y-auto min-h-[400px]">
           
           {/* Paper Plane Image - Always show */}
-          <Image src="/paper-plane.svg" alt="video-link-dialog-bg" className='object-contain pb-4 pt-2' width={150} height={150} />
+          <div className="flex justify-center">
+            <Image src="/paper-plane.svg" alt="video-link-dialog-bg" className='object-contain pb-4 pt-2' width={150} height={150} />
+          </div>
 
           {/* Landlord Logo - Show below paper plane if available */}
           {profileData.landlordLogo && (
@@ -202,26 +204,34 @@ const page = ({params}) => {
           )}
 
           {/* Landlord Name or Videodesk Default */}
-          <h2 className="text-xl font-bold mt-2 text-center pb-3">
-            {profileData.landlordName ? (
-              <span className="text-xl font-bold">{profileData.landlordName}</span>
-            ) : (
-              <div className="flex items-center justify-center gap-2">
-                <Video className="w-6 h-6 text-gray-700" />
-                <span className="text-xl font-bold">Videodesk</span>
-              </div>
-            )}
-          </h2>
+          <div className="flex justify-center">
+            <h2 className="text-xl font-bold mt-2 text-center pb-3">
+              {profileData.landlordName ? (
+                <span className="text-xl font-bold">{profileData.landlordName}</span>
+              ) : (
+                <div className="flex items-center justify-center gap-2">
+                  <Video className="w-6 h-6 text-gray-700" />
+                  <span className="text-xl font-bold">Videodesk</span>
+                </div>
+              )}
+            </h2>
+          </div>
 
-          <button className='bg-green-600 hover:bg-green-700 text-white font-medium py-3 cursor-pointer rounded-full mt-4 text-lg w-[90%] outline-none transition-colors' onClick={handleStrt}>
-            Tap to allow video <br/> session now
-          </button>
+          <div className="flex justify-center w-full">
+            <button className='bg-green-600 hover:bg-green-700 text-white font-medium py-3 cursor-pointer rounded-full mt-4 text-lg w-[90%] outline-none transition-colors text-center' onClick={handleStrt}>
+              Tap to allow video <br/> session now
+            </button>
+          </div>
 
           {/* Device Icons - moved up */}
-          <img src="/device-icons.png" alt="Videodesk" className="w-30 mt-2" />
+          <div className="flex justify-center mt-2">
+            <img src="/devices.svg" alt="Videodesk" className="w-30" />
+          </div>
 
           {/* Videodesk Heading - moved down */}
-          <h3 className="text-2xl font-bold text-black pt-6 pb-6">Videodesk</h3>
+          <div className="flex justify-center">
+            <h3 className="text-2xl font-bold text-black pt-6 pb-6">Videodesk</h3>
+          </div>
         </div>
       </DialogComponent>
     </>

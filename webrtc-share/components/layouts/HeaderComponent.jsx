@@ -382,7 +382,7 @@ const handleLogout = async () => {
           <form className='w-full relative py-4 space-y-5 mt-8' onSubmit={handleRegister}>
             <input
               type="email"
-              placeholder="Enter Your work Email Address"
+              placeholder="Enter your work email address"
               className={`w-full px-4 py-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white`}
               value={email}
               onChange={(e) => {
