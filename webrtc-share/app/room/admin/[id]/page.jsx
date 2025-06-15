@@ -612,6 +612,7 @@ export default function Page({ params }) {
       const result = await performSave({ disconnectVideo: true });
 
       toast.success("Video ended and all content saved successfully!");
+      router.push("../../../dashboard/");
 
     } catch (error) {
       console.error('❌ End Video and Save failed:', error);

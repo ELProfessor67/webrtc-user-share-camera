@@ -644,6 +644,8 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             if (!isAdmin) {
                 router.push('/?show-feedback=true');
             }
+            else{router.push(`../../../dashboard/`);
+            }
         } catch (error) {
             console.error('Error disconnecting:', error);
         }
