@@ -1,0 +1,49 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main  # Change this if your default branch is different
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Detect changed files
+      id: detect
+      run: |
+        CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+        echo "Changed files:"
+        echo "$CHANGED"
+        if echo "$CHANGED" | grep -q '^frontend/'; then
+          echo "target=frontend" >> $GITHUB_OUTPUT
+        elif echo "$CHANGED" | grep -q '^backend/'; then
+          echo "target=backend" >> $GITHUB_OUTPUT
+        else
+          echo "target=none" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Deploy changes to VPS
+      if: steps.detect.outputs.target != 'none'
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        password: ${{ secrets.VPS_PASSWORD }}
+        script: |
+          cd /path/to/your/project  # replace with actual project directory on your VPS
+          git pull origin main
+
+          if [[ "${{ steps.detect.outputs.target }}" == "frontend" ]]; then
+            cd frontend
+            npm install
+            npm run build
+            pm2 restart 1
+          elif [[ "${{ steps.detect.outputs.target }}" == "backend" ]]; then
+            cd backend
+            pm2 restart 0
+          fi
