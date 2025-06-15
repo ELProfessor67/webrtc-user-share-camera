@@ -1,9 +1,9 @@
-name: Deploy to VPS
+name: Full Deploy to VPS
 
 on:
   push:
     branches:
-      - main  # Change this if your default branch is different
+      - main  # Change this to your default branch if different
 
 jobs:
   deploy:
@@ -13,37 +13,23 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Detect changed files
-      id: detect
-      run: |
-        CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
-        echo "Changed files:"
-        echo "$CHANGED"
-        if echo "$CHANGED" | grep -q '^frontend/'; then
-          echo "target=frontend" >> $GITHUB_OUTPUT
-        elif echo "$CHANGED" | grep -q '^backend/'; then
-          echo "target=backend" >> $GITHUB_OUTPUT
-        else
-          echo "target=none" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Deploy changes to VPS
-      if: steps.detect.outputs.target != 'none'
+    - name: Deploy to VPS
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.VPS_HOST }}
         username: ${{ secrets.VPS_USER }}
         password: ${{ secrets.VPS_PASSWORD }}
         script: |
-          cd /path/to/your/project  # replace with actual project directory on your VPS
+          echo "🔁 Pulling latest code..."
+          cd /path/to/your/project  # 👈 Replace this path
           git pull origin main
 
-          if [[ "${{ steps.detect.outputs.target }}" == "frontend" ]]; then
-            cd frontend
-            npm install
-            npm run build
-            pm2 restart 1
-          elif [[ "${{ steps.detect.outputs.target }}" == "backend" ]]; then
-            cd backend
-            pm2 restart 0
-          fi
+          echo "📦 Building frontend..."
+          cd frontend
+          npm install
+          npm run build
+          pm2 restart 1
+
+          echo "🚀 Restarting backend..."
+          cd ../backend
+          pm2 restart 0
