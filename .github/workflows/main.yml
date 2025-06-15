@@ -21,7 +21,7 @@ jobs:
         password: ${{ secrets.VPS_PASSWORD }}
         script: |
           echo "🔁 Pulling latest code..."
-          cd /path/to/your/project  # 👈 Replace this path
+          cd webrtc-user-share-camera
           git pull origin main
 
           echo "📦 Building frontend..."
