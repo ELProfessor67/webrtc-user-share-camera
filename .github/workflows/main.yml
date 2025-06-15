@@ -32,4 +32,5 @@ jobs:
 
           echo "🚀 Restarting backend..."
           cd ../backend
+          npm install
           pm2 restart 0
