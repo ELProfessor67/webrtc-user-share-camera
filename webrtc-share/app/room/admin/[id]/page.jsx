@@ -81,6 +81,7 @@ export default function Page({ params }) {
 
   const [isSaving, setIsSaving] = useState(false);
   const [isEndingSave, setIsEndingSave] = useState(false);
+  const [isEndingVideo, setIsEndingVideo] = useState(false);
   const [savingRecordingId, setSavingRecordingId] = useState(null);
   const [savingScreenshotIndex, setSavingScreenshotIndex] = useState(null);
   const [savingScreenshotIds, setSavingScreenshotIds] = useState(new Set());
@@ -185,6 +186,38 @@ export default function Page({ params }) {
 
   const removeWorkDetail = (index) => {
     setWorkDetails(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Custom handler for ending video without redirect
+  const handleEndVideo = async () => {
+    try {
+      console.log('📞 End Video button clicked - disconnecting without redirect');
+      
+      // Call handleDisconnect with shouldRedirect = false
+      handleDisconnect(false);
+      
+    } catch (error) {
+      console.error('Error ending video:', error);
+    }
+  };
+
+  // Handler for save and redirect actions
+  const handleSaveAndRedirect = async (saveAction) => {
+    try {
+      setIsEndingVideo(true);
+      
+      // Execute the save action first
+      if (saveAction) {
+        await saveAction();
+      }
+      
+      // Then disconnect with redirect
+      handleDisconnect(true);
+      
+    } catch (error) {
+      console.error('Error in save and redirect:', error);
+      setIsEndingVideo(false);
+    }
   };
 
   useEffect(() => {
@@ -1382,27 +1415,46 @@ export default function Page({ params }) {
       // FIXED: Use clean screenshot data (remove unique identifiers)
       let finalScreenshotData = screenshotData.split('#')[0]; // Remove timestamp markers
 
-      // Use screenshot ID to track drawing data instead of index-based canvasId
-      const canvasId = screenshotId || `new-${index}`;
+      // ENHANCED: Check multiple possible canvas IDs where drawings might exist
+      const possibleCanvasIds = [
+        screenshotId,                                    // Regular canvas ID
+        `new-${index}`,                                  // Legacy canvas ID
+        `maximized-canvas-${screenshotId}`,              // Maximized canvas ID
+        `maximized-canvas-new-${index}`,                 // Legacy maximized canvas ID
+        `screenshot-${index}-${Date.now()}-${Math.random()}` // Generated screenshot ID format
+      ].filter(Boolean); // Remove any undefined values
 
-      console.log('🎨 Checking for drawings in canvas:', canvasId);
-      console.log('📊 Available drawing data:', Object.keys(drawingData));
+      console.log('🎨 Checking for drawings in possible canvas IDs:', possibleCanvasIds);
+      console.log('📊 Available drawing data keys:', Object.keys(drawingData));
+
+      let foundCanvasId = null;
+      let foundDrawingData = null;
+
+      // Check each possible canvas ID for drawings
+      for (const canvasId of possibleCanvasIds) {
+        if (drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0) {
+          foundCanvasId = canvasId;
+          foundDrawingData = drawingData[canvasId];
+          console.log('🎨 Found drawings in canvas:', canvasId, 'Strokes:', foundDrawingData.strokes.length);
+          break;
+        }
+      }
 
       // ENHANCED: Check if this screenshot has drawings and merge them at ULTRA HIGH resolution
-      if (drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0) {
-        console.log('🎨 Found drawings for canvas:', canvasId, 'Strokes:', drawingData[canvasId].strokes.length);
+      if (foundCanvasId && foundDrawingData) {
         console.log('🖼️ Merging drawings with screenshot at ULTRA HIGH resolution...');
 
         try {
-          finalScreenshotData = await mergeWithBackground(finalScreenshotData, canvasId);
+          finalScreenshotData = await mergeWithBackground(finalScreenshotData, foundCanvasId);
           console.log('✅ ULTRA HIGH quality drawing merge completed successfully');
         } catch (mergeError) {
           console.error('❌ Error merging drawings:', mergeError);
           console.log('📷 Proceeding with original screenshot without drawings');
         }
       } else {
-        console.log('ℹ️ No drawings found for canvas:', canvasId);
-        console.log('📋 Canvas data structure:', drawingData[canvasId]);
+        console.log('ℹ️ No drawings found in any of the possible canvas IDs');
+        console.log('📋 Checked canvas IDs:', possibleCanvasIds);
+        console.log('📋 Available drawing data:', Object.keys(drawingData));
       }
 
       // ENHANCED: Additional quality check - ensure PNG format for maximum quality
@@ -1427,22 +1479,22 @@ export default function Page({ params }) {
             console.log('✅ Enhanced to ultra high quality PNG');
 
             // Continue with save process
-            processSave(finalScreenshotData);
+            processSave(finalScreenshotData, possibleCanvasIds, foundCanvasId, foundDrawingData);
           };
           img.src = finalScreenshotData;
         });
       } else {
-        processSave(finalScreenshotData);
+        processSave(finalScreenshotData, possibleCanvasIds, foundCanvasId, foundDrawingData);
       }
 
-      async function processSave(imageData) {
+      async function processSave(imageData, possibleCanvasIds, foundCanvasId, foundDrawingData) {
         const screenshotsData = [{
           data: imageData,
           timestamp: new Date().toISOString(),
           size: imageData.length,
           quality: 'ultra_high',
           index: index, // Add index for tracking
-          hasDrawings: drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0
+          hasDrawings: foundCanvasId !== null && foundDrawingData !== null
         }];
 
         const formData = {
@@ -1461,7 +1513,8 @@ export default function Page({ params }) {
         console.log('📤 Sending screenshot data to server:', {
           hasDrawings: screenshotsData[0].hasDrawings,
           dataSize: Math.round(imageData.length / 1024) + 'KB',
-          canvasId: canvasId
+          foundCanvasId: foundCanvasId,
+          checkedCanvasIds: possibleCanvasIds
         });
 
         const response = await createRequest(formData);
@@ -1505,10 +1558,19 @@ export default function Page({ params }) {
         deleteScreenshot(index);
         console.log(`🧹 Removed ultra high quality screenshot at index ${index} from new screenshots array`);
 
-        // Clear the drawing data for this canvas after successful save
-        if (drawingData[canvasId]) {
-          console.log('🧹 Clearing drawing data for canvas:', canvasId);
-          delete drawingData[canvasId];
+        // Clear the drawing data for the found canvas after successful save
+        if (foundCanvasId && drawingData[foundCanvasId]) {
+          console.log('🧹 Clearing drawing data for canvas:', foundCanvasId);
+          delete drawingData[foundCanvasId];
+          
+          // Also clear any related canvas data (regular/maximized counterparts)
+          const relatedCanvasIds = possibleCanvasIds.filter(id => id !== foundCanvasId);
+          relatedCanvasIds.forEach(relatedId => {
+            if (drawingData[relatedId]) {
+              console.log('🧹 Also clearing related canvas data:', relatedId);
+              delete drawingData[relatedId];
+            }
+          });
         }
       }
 
@@ -1793,12 +1855,45 @@ export default function Page({ params }) {
       </div>
     );
   }  return (
-    <div style={{
-      width: '100vw',
-      height: '100vh',
-      margin: 0,
-      padding: '1vh 1vw',
-      fontFamily: 'sans-serif',
+    <>
+      {/* Ending Video Overlay */}
+      {isEndingVideo && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: '#f9fafb',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          gap: '1rem'
+        }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            border: '4px solid #e5e7eb',
+            borderTop: '4px solid #3b82f6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <p style={{
+            color: '#6b7280',
+            fontSize: '16px',
+            fontWeight: '500'
+          }}>Redirecting you to the Dashboard screen...</p>
+        </div>
+      )}
+
+      <div style={{
+        width: '100vw',
+        height: '100vh',
+        margin: 0,
+        padding: '1vh 1vw',
+        fontFamily: 'sans-serif',
       overflow: 'hidden',
       boxSizing: 'border-box'
     }}>
@@ -2291,18 +2386,24 @@ export default function Page({ params }) {
 
             {/* Logo */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <a href="/" style={{
-                fontSize: '1.2vw',
-                fontWeight: 'bold',
-                color: '#111827',
-                display: 'flex',
-                alignItems: 'center',
-                textDecoration: 'none',
-                minFontSize: '16px'
+              <div style={{
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                border: '2px solid black'
               }}>
-                <VideoIcon style={{ marginRight: '0.5vw', width: '1.5vw', height: '3vh' }} />
-                <span>Videodesk.co.uk</span>
-              </a>
+                <a href="/" style={{
+                  fontSize: '1.2vw',
+                  fontWeight: 'bold',
+                  color: 'black',
+                  display: 'flex',
+                  alignItems: 'center',
+                  textDecoration: 'none',
+                  minFontSize: '16px'
+                }}>
+                  <span>Logo</span>
+                </a>
+              </div>
             </div>
           </div>          {/* Live Video */}
           <div style={{
@@ -2370,53 +2471,76 @@ export default function Page({ params }) {
               />
             </div>
 
-            {/* Recording Timer Overlay - Shows during recording */}
-            {isRecording && (
+            {/* Live/Disconnected Status OR Recording Timer */}
+            <div style={{
+              position: 'absolute',
+              top: '2vh',
+              left: '1.5vw',
+              zIndex: 10
+            }}>
+              {isRecording ? (
+                /* Recording Timer - Shows in place of Live indicator when recording */
+                <div style={{
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  padding: '0.8vh 1.2vw',
+                  fontSize: '0.9vw',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5vw',
+                  borderRadius: '1.2vw',
+                  minFontSize: '14px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                }}>
+                  <span style={{
+                    width: '0.8vw',
+                    height: '1.5vh',
+                    borderRadius: '50%',
+                    backgroundColor: 'white',
+                    animation: 'pulse 1s infinite',
+                    minWidth: '12px',
+                    minHeight: '12px'
+                  }}></span>
+                  <span>REC {formatRecordingTime(currentRecordingDuration)}</span>
+                </div>
+              ) : (
+                /* Live/Disconnected Status - Shows when not recording */
+                <div style={{
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  padding: '0.8vh 1.2vw',
+                  fontSize: '0.9vw',
+                  fontWeight: '600',
+                  borderRadius: '1.2vw',
+                  minFontSize: '14px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                }}>
+                  {isConnected ? "● Live" : "● Disconnected"}
+                </div>
+              )}
+            </div>
+
+            {/* End Video Button - Shows when live on the right side */}
+            {isConnected && (
               <div style={{
                 position: 'absolute',
-                top: '1vh',
-                left: '1vw',
-                backgroundColor: '#dc2626',
-                color: 'white',
-                padding: '0.5vh 1vw',
-                fontSize: '0.8vw',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5vw',
-                borderRadius: '0.3vw',
-                minFontSize: '12px'
-              }}>
-                <span style={{
-                  width: '0.8vw',
-                  height: '1.5vh',
-                  borderRadius: '50%',
-                  backgroundColor: 'white',
-                  animation: 'pulse 1s infinite',
-                  minWidth: '12px',
-                  minHeight: '12px'
-                }}></span>
-                <span>REC {formatRecordingTime(currentRecordingDuration)}</span>
-              </div>
-            )}              <div
-              style={{
-                display: isRecording ? 'none' : 'block',
-                position: 'absolute',
                 top: '2vh',
-                left: '1.5vw',
-                backgroundColor: '#dc2626',
-                color: 'white',
-                padding: '0.8vh 1.2vw',
-                fontSize: '0.9vw',
-                fontWeight: '600',
-                borderRadius: '1.2vw',
-                minFontSize: '14px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                right: '1.5vw',
                 zIndex: 10
-              }}
-            >
-              {isConnected ? "● Live" : "● Disconnected"}
-            </div>
+              }}>
+                <button
+                  onClick={handleEndVideo}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  style={{
+                    fontSize: '0.9vw',
+                    minFontSize: '14px'
+                  }}
+                >
+                  End Video
+                </button>
+              </div>
+            )}
 
             {
               showVideoPlayError &&
@@ -2472,20 +2596,31 @@ export default function Page({ params }) {
             <button
               onClick={handleRecordingToggle}
               disabled={!isConnected}
-              className={`disabled:opacity-50 flex items-center justify-center gap-2 font-medium py-4 rounded-md transition-colors flex-1 ${isRecording
-                ? 'bg-red-500 hover:bg-red-600 text-white'
-                : 'bg-green-500 hover:bg-green-600 text-white'
+              className={`disabled:opacity-50 flex flex-col items-center justify-center gap-2 font-medium py-4 rounded-md transition-colors flex-1 ${isRecording
+                ? 'bg-red-600 hover:bg-red-700 text-white'
+                : 'bg-red-500 hover:bg-red-600 text-white'
                 }`}
             >
-              <span className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
-                <span className={`w-3 h-3 rounded-full ${isRecording ? 'bg-red-500' : 'bg-green-500'}`}></span>
-              </span>
-              {isRecording ? `Stop (${formatRecordingTime(currentRecordingDuration)})` : 'Recording'}
+              <div className="text-center leading-tight">
+                {isRecording ? (
+                  <div>
+                    <div>Stop</div>
+                    <div className="text-sm">({formatRecordingTime(currentRecordingDuration)})</div>
+                  </div>
+                ) : (
+                  <div>
+                    <div>Record</div>
+                    <div>Video</div>
+                  </div>
+                )}
+              </div>
             </button>
 
-            <button onClick={takeScreenshot} disabled={!isConnected} className="disabled:opacity-50 flex items-center justify-center gap-2 bg-orange-400 hover:bg-orange-500 text-white font-medium py-4 rounded-md transition-colors flex-1">
-              <Maximize2 className="w-5 h-5" />
-              Screenshot
+            <button onClick={takeScreenshot} disabled={!isConnected} className="disabled:opacity-50 flex flex-col items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-medium py-4 rounded-md transition-colors flex-1">
+              <div className="text-center leading-tight">
+                <div>Take</div>
+                <div>Screenshot</div>
+              </div>
             </button>
           </div>
         </div>        {/* Center Column - Videos and Screenshots */}
@@ -2870,18 +3005,29 @@ export default function Page({ params }) {
 
             {/* End Video Buttons */}
             <div className="w-full flex items-center gap-4 mt-6">
-              <button onClick={handleDisconnect} disabled={!isConnected} className="bg-red-500 disabled:opacity-50 hover:bg-red-600 text-white font-medium py-4 rounded-md transition-colors flex-1 whitespace-pre">
-                End Video <br /> (Without Saving)
-              </button>
-              <button
-                onClick={handleEndVideoAndSave}
-                disabled={isSaveDisabled()}
-                className="bg-green-500 disabled:opacity-50 hover:bg-green-600 text-white font-medium py-4 rounded-md transition-colors flex-1 whitespace-pre"
+              <button 
+                onClick={() => handleSaveAndRedirect(null)} 
+                disabled={!isConnected || isEndingVideo} 
+                className={`${isEndingVideo ? 'bg-red-400' : 'bg-red-500 hover:bg-red-600'} disabled:opacity-50 text-white font-medium py-4 rounded-md transition-colors flex-1 whitespace-pre`}
               >
-                {isEndingSave ? (
+                {isEndingVideo ? (
                   <div className="flex flex-col items-center gap-1">
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mb-1" />
-                    <span className="text-xs">Ending & Saving...</span>
+                    <span className="text-xs">Ending...</span>
+                  </div>
+                ) : (
+                  <>End Video Recording<br /> Without Saving</>
+                )}
+              </button>
+              <button
+                onClick={() => handleSaveAndRedirect(() => performSave({ disconnectVideo: false }))}
+                disabled={isSaveDisabled() || isEndingVideo}
+                className={`${isEndingVideo ? 'bg-green-400' : 'bg-green-500 hover:bg-green-600'} disabled:opacity-50 text-white font-medium py-4 rounded-md transition-colors flex-1 whitespace-pre`}
+              >
+                {isEndingVideo ? (
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mb-1" />
+                    <span className="text-xs">Saving & Ending...</span>
                   </div>                ) : (
                   <div className="text-center">
                     Save Images and <br />
@@ -3204,5 +3350,6 @@ export default function Page({ params }) {
           </div></div>
       </div>
     </div>
+    </>
   )
 }

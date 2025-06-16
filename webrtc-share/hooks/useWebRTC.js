@@ -632,7 +632,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
         }
     }
 
-    const handleDisconnect = () => {
+    const handleDisconnect = (shouldRedirect = true) => {
         try {
             socketConnection.current.emit('user-disconnected', roomId);
             setIsConnected(false);
@@ -641,10 +641,17 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
             if (remoteStream) {
                 remoteStream.getTracks().forEach(track => track.stop());
             }
-            if (!isAdmin) {
-                router.push('/?show-feedback=true');
-            }
-            else{router.push(`../../../dashboard/`);
+            
+            // Only redirect if shouldRedirect is true
+            if (shouldRedirect) {
+                if (!isAdmin) {
+                    router.push('/?show-feedback=true');
+                }
+                else{
+                    router.push(`../../../dashboard/`);
+                }
+            } else {
+                console.log('📞 Video disconnected without redirect');
             }
         } catch (error) {
             console.error('Error disconnecting:', error);
