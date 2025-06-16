@@ -688,7 +688,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
     }, [isAdmin, roomId]);
 
     // ENHANCED screenshot function with ULTRA HIGH quality and resolution - FIXED for unique screenshots
-    const takeScreenshot = () => {
+    const takeScreenshot = (callback = null) => {
         if (!remoteStream && !localStream) {
             console.error('❌ No stream available for screenshot');
             return;
@@ -811,7 +811,16 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                             // FIXED: Add completely unique screenshot as object
                             setScreenshots((prev) => {
                                 // Add to the end of array for chronological order (oldest first, newest last)
-                                return [...prev, completelyUniqueScreenshot];
+                                const newScreenshots = [...prev, completelyUniqueScreenshot];
+                                
+                                // Call the callback if provided
+                                if (callback) {
+                                    setTimeout(() => {
+                                        callback(completelyUniqueScreenshot, newScreenshots.length - 1);
+                                    }, 100);
+                                }
+                                
+                                return newScreenshots;
                             });
                             
                             console.log('✅ ULTRA HIGH QUALITY screenshot captured (alternative method):', {
@@ -847,7 +856,18 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                     
                     // FIXED: Add completely unique screenshot as object with proper structure
                     // Change to add at end of array to preserve chronological order
-                    setScreenshots((prev) => [...prev, completelyUniqueScreenshot]);
+                    setScreenshots((prev) => {
+                        const newScreenshots = [...prev, completelyUniqueScreenshot];
+                        
+                        // Call the callback if provided
+                        if (callback) {
+                            setTimeout(() => {
+                                callback(completelyUniqueScreenshot, newScreenshots.length - 1);
+                            }, 100);
+                        }
+                        
+                        return newScreenshots;
+                    });
                     console.log('✅ ULTRA HIGH QUALITY screenshot captured:', {
                         resolution: `${canvas.width}x${canvas.height}`,
                         scale: `${scale}x`,

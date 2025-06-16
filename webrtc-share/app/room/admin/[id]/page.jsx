@@ -1610,6 +1610,12 @@ export default function Page({ params }) {
     });
   }, []);
 
+  // Callback function to maximize screenshot when taken
+  const handleScreenshotTaken = useCallback((screenshot, index) => {
+    console.log('📸 Screenshot taken, auto-maximizing:', screenshot);
+    maximizeScreenshot(screenshot, index, false);
+  }, [maximizeScreenshot]);
+
   const closeMaximized = useCallback(() => {
     setMaximizedItem(null);
   }, []);
@@ -1987,8 +1993,16 @@ export default function Page({ params }) {
             {maximizedItem.type === 'screenshot' && (() => {
               const screenshotId = maximizedItem.isExisting ? maximizedItem.data.id : `new-${maximizedItem.index}`;
               const canvasId = `maximized-canvas-${screenshotId}`;
-              const screenshotUrl = maximizedItem.isExisting ? maximizedItem.data.url : maximizedItem.data;
+              const screenshotUrl = maximizedItem.isExisting ? maximizedItem.data.url : maximizedItem.data.url;
               const isActive = activePencilScreenshot === screenshotId;
+              
+              // Debug logging
+              console.log('🔍 Maximized screenshot data:', {
+                isExisting: maximizedItem.isExisting,
+                data: maximizedItem.data,
+                screenshotUrl: screenshotUrl,
+                screenshotId: screenshotId
+              });
               
               return (
                 <div className="relative w-full h-full flex items-center justify-center p-4">
@@ -2001,35 +2015,38 @@ export default function Page({ params }) {
                       minHeight: '300px'
                     }}
                   >
-                    {/* Drawing Tools for Maximized View - Top Left */}
+                    {/* Enhanced Drawing Tools for Maximized View */}
                     <div style={{
                       position: 'absolute',
-                      top: '10px',
-                      left: '10px',
+                      top: '20px',
+                      left: '20px',
                       zIndex: 30,
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '6px',
+                      gap: '8px',
                       alignItems: 'flex-start',
-                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                      padding: '8px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      backdropFilter: 'blur(10px)'
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      padding: '16px',
+                      borderRadius: '16px',
+                      border: '2px solid rgba(59, 130, 246, 0.3)',
+                      backdropFilter: 'blur(20px)',
+                      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.05)'
                     }}>
-                      {/* Tools Label */}
+                      {/* Enhanced Tools Header */}
                       <div style={{
-                        color: 'white',
-                        fontSize: '10px',
-                        fontWeight: 'bold',
-                        marginBottom: '2px',
+                        color: '#1f2937',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        marginBottom: '4px',
                         textAlign: 'center',
-                        width: '100%'
+                        width: '100%',
+                        letterSpacing: '0.5px',
+                        textTransform: 'uppercase'
                       }}>
-                        Tools
+                        🎨 Drawing Tools
                       </div>
 
-                      {/* More Drawing Tools Dropdown Button */}
+                      {/* Enhanced Drawing Tools Button */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -2039,23 +2056,85 @@ export default function Page({ params }) {
                             y: rect.top + (rect.height / 2)
                           });
                           console.log('🎨 More tools clicked for maximized canvas:', canvasId);
-                          // For maximized view, no need to pass screenshot data and index
                           handlePencilClick(canvasId, screenshotId, null, null);
                         }}
-                        className={`p-2 hover:bg-black/20 rounded text-white transition-colors border-2 w-10 h-10 flex items-center justify-center ${isActive ? 'bg-green-500 border-green-300' : 'bg-black/30 border-transparent'
-                          }`}
-                        title="More drawing tools"
+                        className={`group relative p-3 rounded-xl transition-all duration-300 border-2 w-12 h-12 flex items-center justify-center shadow-lg ${isActive 
+                          ? 'bg-gradient-to-r from-blue-500 to-purple-600 border-blue-300 text-white transform scale-105' 
+                          : 'bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200 text-gray-700 hover:from-blue-50 hover:to-purple-50 hover:border-blue-300 hover:text-blue-600 hover:transform hover:scale-105'
+                        }`}
+                        title="Activate Drawing Mode"
                       >
-                        <Palette className="w-4 h-4" />
+                        <Palette className="w-5 h-5" />
+                        {isActive && (
+                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
+                        )}
                       </button>
                       
-                      {/* Clear Canvas Button */}
+                      {/* Enhanced Clear Canvas Button */}
                       <button
                         onClick={() => clearCanvas(canvasId)}
-                        className="p-2 hover:bg-red-600 rounded text-white bg-red-500 transition-colors border-2 w-10 h-10 flex items-center justify-center"
-                        title="Clear all drawings"
+                        className="group relative p-3 rounded-xl transition-all duration-300 border-2 w-12 h-12 flex items-center justify-center shadow-lg bg-gradient-to-r from-red-50 to-pink-50 border-red-200 text-red-600 hover:from-red-500 hover:to-pink-500 hover:border-red-400 hover:text-white hover:transform hover:scale-105"
+                        title="Clear All Drawings"
                       >
-                        <Eraser className="w-4 h-4" />
+                        <Eraser className="w-5 h-5" />
+                        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-red-400 to-pink-400 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                      </button>
+
+                      {/* Enhanced Save Button - Only show for new screenshots */}
+                      {!maximizedItem.isExisting && (
+                        <button
+                          onClick={async () => {
+                            const screenshotData = maximizedItem.data.url;
+                            const index = maximizedItem.index;
+                            const screenshotId = maximizedItem.data.id;
+                            console.log('💾 Saving screenshot from maximized view:', { index, screenshotId });
+                            
+                            try {
+                              await saveIndividualScreenshot(screenshotData, index, screenshotId);
+                              setTimeout(() => {
+                                closeMaximized();
+                              }, 500);
+                            } catch (error) {
+                              console.error('❌ Error saving screenshot:', error);
+                            }
+                          }}
+                          className={`group relative p-3 rounded-xl transition-all duration-300 border-2 w-12 h-12 flex items-center justify-center shadow-lg ${savingScreenshotIds.has(maximizedItem.data.id) 
+                            ? 'bg-gray-400 border-gray-300 text-white cursor-not-allowed' 
+                            : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 text-green-600 hover:from-green-500 hover:to-emerald-500 hover:border-green-400 hover:text-white hover:transform hover:scale-105'
+                          }`}
+                          title={savingScreenshotIds.has(maximizedItem.data.id) ? "Saving..." : "💾 Save & Close"}
+                          disabled={savingScreenshotIds.has(maximizedItem.data.id)}
+                        >
+                          {savingScreenshotIds.has(maximizedItem.data.id) ? (
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Save className="w-5 h-5" />
+                          )}
+                          {!savingScreenshotIds.has(maximizedItem.data.id) && (
+                            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-green-400 to-emerald-400 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                          )}
+                        </button>
+                      )}
+
+                      {/* Enhanced Delete Button */}
+                      <button
+                        onClick={() => {
+                          if (maximizedItem.isExisting) {
+                            console.log('🗑️ Deleting existing screenshot from maximized view:', maximizedItem.data);
+                            deleteExistingScreenshot(maximizedItem.data);
+                          } else {
+                            const index = maximizedItem.index;
+                            const screenshotId = maximizedItem.data.id;
+                            console.log('🗑️ Deleting new screenshot from maximized view:', { index, screenshotId });
+                            deleteNewScreenshot(index, screenshotId);
+                          }
+                          closeMaximized();
+                        }}
+                        className="group relative p-3 rounded-xl transition-all duration-300 border-2 w-12 h-12 flex items-center justify-center shadow-lg bg-gradient-to-r from-red-50 to-orange-50 border-red-200 text-red-600 hover:from-red-500 hover:to-orange-500 hover:border-red-400 hover:text-white hover:transform hover:scale-105"
+                        title="🗑️ Delete Screenshot"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-red-400 to-orange-400 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
                       </button>
                     </div>
 
@@ -2064,7 +2143,7 @@ export default function Page({ params }) {
                       id={`maximized-img-${maximizedItem.id}`}
                       src={screenshotUrl}
                       alt="Maximized screenshot"
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-contain opacity-0 transition-opacity duration-300"
                       style={{
                         maxWidth: '100%',
                         maxHeight: '100%',
@@ -2072,6 +2151,8 @@ export default function Page({ params }) {
                         height: 'auto'
                       }}
                       onLoad={(e) => {
+                        // Smooth fade-in to prevent flashing
+                        e.target.style.opacity = '1';
                         const img = e.target;
                         console.log(`📸 Image loaded: ${img.naturalWidth}x${img.naturalHeight} pixels`);
                         console.log(`� Display size: ${img.clientWidth}x${img.clientHeight} pixels`);
@@ -2134,7 +2215,25 @@ export default function Page({ params }) {
                         // Start synchronization process
                         setTimeout(() => attemptCanvasSync(), 50);
                       }}
+                      onError={(e) => {
+                        console.error('❌ Error loading maximized screenshot:', e);
+                        e.target.style.opacity = '1'; // Show even if error
+                      }}
                     />
+
+                    {/* Loading indicator for smooth transitions */}
+                    <div 
+                      className="absolute inset-0 flex items-center justify-center bg-gray-100 transition-opacity duration-300"
+                      style={{
+                        opacity: screenshotUrl ? '0' : '1',
+                        pointerEvents: 'none'
+                      }}
+                    >
+                      <div className="text-center text-gray-500">
+                        <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-2"></div>
+                        <div className="text-sm">Loading screenshot...</div>
+                      </div>
+                    </div>
 
                     {/* Canvas for drawings overlay on maximized view */}
                     <canvas
@@ -2616,7 +2715,7 @@ export default function Page({ params }) {
               </div>
             </button>
 
-            <button onClick={takeScreenshot} disabled={!isConnected} className="disabled:opacity-50 flex flex-col items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-medium py-4 rounded-md transition-colors flex-1">
+            <button onClick={() => takeScreenshot(handleScreenshotTaken)} disabled={!isConnected} className="disabled:opacity-50 flex flex-col items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-medium py-4 rounded-md transition-colors flex-1">
               <div className="text-center leading-tight">
                 <div>Take</div>
                 <div>Screenshot</div>
@@ -2744,42 +2843,21 @@ export default function Page({ params }) {
                     .map((screenshot, index) => (
                       <div key={`existing-${screenshot.id}`} className="flex-shrink-0 w-[15vw] min-w-[180px]">
                         <img src="/icons/ci_label.svg" className="mb-2" />
-                        <div className="aspect-[9/16] bg-gray-200 rounded-md overflow-hidden flex items-center justify-center relative">
-                          <div className="absolute top-2 right-2 flex flex-row gap-1 z-10">
-                            <button className="p-1 hover:bg-black/20 rounded text-white">
-                              <Minimize2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              className="p-1 hover:bg-black/20 rounded text-white"
-                              onClick={() => maximizeScreenshot(screenshot, index, true)}
-                            >
-                              <Expand className="w-4 h-4" />
-                            </button>
+                        <div className="aspect-square bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center relative cursor-pointer group"
+                             onClick={() => maximizeScreenshot(screenshot, index, true)}>
+                          {/* Enhanced Click to view design for saved screenshots */}
+                          <div className="text-center text-green-700 p-6 transition-all duration-300 group-hover:text-green-800">
+                            <div className="w-12 h-12 mx-auto mb-3 bg-green-200 rounded-full flex items-center justify-center group-hover:bg-green-300 transition-colors duration-300">
+                              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                            <div className="text-sm font-semibold mb-1">Click to view</div>
+                            <div className="text-xs font-medium opacity-80">Saved #{index + 1}</div>
                           </div>
 
-                          {/* Action icons for existing screenshots */}
-                          <div className="absolute bottom-2 right-2 flex flex-col gap-1 z-10">
-                            <button className="p-1 hover:bg-black/20 rounded text-white opacity-50" disabled>
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            <button className="p-1 hover:bg-black/20 rounded text-white opacity-50" disabled title="Already saved">
-                              <Save className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => deleteExistingScreenshot(screenshot)}
-                              className="p-1 hover:bg-black/20 rounded text-white"
-                              title="Delete screenshot"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          {/* Existing Screenshot Image */}
-                          <img
-                            src={screenshot.url}
-                            alt="existing screenshot"
-                            className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
-                          />
+                          {/* Subtle border animation on hover */}
+                          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-green-400 to-emerald-400 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
                         </div>
                       </div>
                     ))}
@@ -2805,186 +2883,25 @@ export default function Page({ params }) {
                     console.log(`🖼️ Rendering screenshot ${index}:`, { canvasId, screenshotId }); return (
                       <div key={`screenshot-container-${screenshotId}`} className="relative pencil-dropdown-container flex-shrink-0 w-[15vw] min-w-[180px]">
                         <img src="/icons/ci_label.svg" className="mb-2" />
-                        <div className="aspect-[9/16] bg-gray-200 rounded-md overflow-visible flex items-center justify-center relative">
-                          {/* Minimize/Maximize icons */}
-                          <div className="absolute top-2 right-2 flex flex-row gap-1 z-20">
-                            <button className="p-1 hover:bg-black/20 rounded text-white">
-                              <Minimize2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              className="p-1 hover:bg-black/20 rounded text-white"
-                              onClick={() => {
-                                console.log('🔍 Maximizing screenshot:', { index, cleanScreenshotUrl });
-                                maximizeScreenshot(cleanScreenshotUrl, index, false);
-                              }}
-                            >
-                              <Expand className="w-4 h-4" />
-                            </button>
+                        <div className="aspect-square bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center relative cursor-pointer group"
+                             onClick={() => {
+                               console.log('🔍 Maximizing screenshot:', { index, cleanScreenshotUrl });
+                               maximizeScreenshot(screenshot, index, false);
+                             }}>
+                          {/* Enhanced Click to view design */}
+                          <div className="text-center text-blue-700 p-6 transition-all duration-300 group-hover:text-blue-800">
+                            <div className="w-12 h-12 mx-auto mb-3 bg-blue-200 rounded-full flex items-center justify-center group-hover:bg-blue-300 transition-colors duration-300">
+                              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </div>
+                            <div className="text-sm font-semibold mb-1">Click to view</div>
+                            <div className="text-xs font-medium opacity-80">Screenshot {index + 1}</div>
                           </div>
 
-                          {/* Action icons */}
-                          <div className="absolute bottom-2 right-2 flex flex-col gap-1 z-20">
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                setClickPosition({
-                                  x: rect.right,
-                                  y: rect.top + (rect.height / 2)
-                                });
-                                console.log('🖋️ Pencil clicked for canvas:', canvasId);
-                                // Pass screenshot data and index for maximize functionality
-                                handlePencilClick(canvasId, screenshotId, cleanScreenshotUrl, index);
-                              }}
-                              className={`p-1 hover:bg-black/20 rounded text-white transition-colors border-2 ${isActive ? 'bg-blue-500 border-blue-300' : 'bg-black/10 border-transparent'
-                                }`}
-                              title="Maximize and draw"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                console.log('💾 Saving individual screenshot:', { index, cleanScreenshotUrl, id: screenshotId });
-                                saveIndividualScreenshot(cleanScreenshotUrl, index, screenshotId);
-                              }}
-                              className={`p-1 hover:bg-black/20 rounded text-white transition-all duration-200 ${savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index
-                                ? 'opacity-80 cursor-not-allowed bg-gray-600'
-                                : 'hover:scale-105'
-                                }`}
-                              title={savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index ? "Saving..." : "Save screenshot"}
-                              disabled={savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index}
-                            >
-                              {(savingScreenshotIds.has(screenshotId) || savingScreenshotIndex === index) ? (
-                                <div className="w-4 h-4 flex items-center justify-center">
-                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                </div>
-                              ) : (
-                                <Save className="w-4 h-4" />
-                              )}
-                            </button>
-                            <button
-                              onClick={() => {
-                                console.log('🗑️ Deleting screenshot:', { index, id: screenshotId });
-                                deleteNewScreenshot(index, screenshotId);
-                              }}
-                              className="p-1 hover:bg-black/20 rounded text-white"
-                              title="Delete screenshot"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          {/* FIXED: Screenshot Image with stable loading and NO LOOPS */}
-                          <img
-                            key={`screenshot-img-${screenshotId}`}
-                            src={cleanScreenshotUrl}
-                            alt={`screenshot ${index + 1}`}
-                            className="w-full h-full object-fill absolute top-0 left-0 z-0 rounded-md"
-                            onLoad={(e) => {
-                              console.log(`📸 Screenshot ${index + 1} loaded successfully`);
-
-                              // CRITICAL: Only initialize canvas ONCE per screenshot
-                              const canvas = e.target.parentElement.querySelector(`canvas[data-canvas-id="${canvasId}"]`);
-                              if (canvas) {
-                                console.log(`🎨 Found canvas for initialization: ${canvasId}`);
-                                // FIXED: Only initialize if not already initialized
-                                initializeCanvas(canvas, cleanScreenshotUrl, canvasId);
-                              } else {
-                                console.warn(`❌ Canvas not found for canvasId: ${canvasId}`);
-                              }
-                            }}
-                            onError={(e) => {
-                              console.error(`❌ Error loading screenshot ${index + 1}:`, e);
-                            }}
-                            data-screenshot-id={screenshotId} // Store ID on the element
-                          />
-
-                          {/* FIXED: Canvas for drawings with STABLE event handling */}
-                          <canvas
-                            key={`canvas-${screenshotId}`}
-                            data-canvas-id={canvasId}
-                            data-screenshot-id={screenshotId}
-                            data-screenshot-index={index}
-                            className={`absolute top-0 left-0 w-full h-full z-10 rounded-md transition-all ${isActive
-                              ? 'cursor-crosshair pointer-events-auto'
-                              : 'pointer-events-none'
-                              }`}
-                            style={{
-                              pointerEvents: isActive ? 'auto' : 'none',
-                              touchAction: isActive ? 'none' : 'auto',
-                              zIndex: isActive ? 15 : 10,
-                              border: isActive ? '2px solid #3b82f6' : 'none'
-                            }}
-                            onMouseDown={(e) => {
-                              if (isActive) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                console.log('🖱️ Mouse down on canvas:', canvasId);
-                                startDrawing(e);
-                              }
-                            }}
-                            onMouseMove={(e) => {
-                              if (isActive) {
-                                e.preventDefault();
-                                draw(e);
-                              }
-                            }}
-                            onMouseUp={(e) => {
-                              if (isActive) {
-                                e.preventDefault();
-                                console.log('🖱️ Mouse up on canvas:', canvasId);
-                                stopDrawing(e);
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (isActive) {
-                                e.preventDefault();
-                                stopDrawing(e);
-                              }
-                            }}
-                            onTouchStart={(e) => {
-                              if (isActive) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                console.log('👆 Touch start on canvas:', canvasId);
-                                const touch = e.touches[0];
-                                const mouseEvent = {
-                                  ...e,
-                                  clientX: touch.clientX,
-                                  clientY: touch.clientY,
-                                  target: e.target,
-                                  currentTarget: e.currentTarget
-                                };
-                                startDrawing(mouseEvent);
-                              }
-                            }}
-                            onTouchMove={(e) => {
-                              if (isActive) {
-                                e.preventDefault();
-                                const touch = e.touches[0];
-                                const mouseEvent = {
-                                  ...e,
-                                  clientX: touch.clientX,
-                                  clientY: touch.clientY,
-                                  target: e.target,
-                                  currentTarget: e.currentTarget
-                                };
-                                draw(mouseEvent);
-                              }
-                            }}
-                            onTouchEnd={(e) => {
-                              if (isActive) {
-                                e.preventDefault();
-                                console.log('👆 Touch end on canvas:', canvasId);
-                                stopDrawing(e);
-                              }
-                            }}
-                          />
-
-                          {/* No dropdown in minimized view - pencil only maximizes */}
-
+                          {/* Subtle border animation on hover */}
+                          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-400 to-purple-400 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
                         </div>
                       </div>
                     );
