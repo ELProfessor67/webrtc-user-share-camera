@@ -13,9 +13,16 @@ export default function SharePage({ params }) {
   const [targetTime, setTargetTime] = useState("Emergency 24 Hours")
   const [residentName, setResidentName] = useState("")
   const [residentAddress, setResidentAddress] = useState("")
+  const [addressLine1, setAddressLine1] = useState("")
+  const [addressLine2, setAddressLine2] = useState("")
+  const [addressLine3, setAddressLine3] = useState("")
+  const [additionalAddressLines, setAdditionalAddressLines] = useState([])
   const [postCode, setPostCode] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
   const [ref, setRef] = useState("")
   const [repairDetails, setRepairDetails] = useState("")
+  const [workDetails, setWorkDetails] = useState([])
+  const [specialNotes, setSpecialNotes] = useState("")
   
   // Meeting data states
   const [meetingData, setMeetingData] = useState(null);
@@ -85,9 +92,16 @@ export default function SharePage({ params }) {
         // Populate form fields with existing data (read-only)
         setResidentName(meetingData.name || "");
         setResidentAddress(meetingData.address || "");
+        setAddressLine1(meetingData.address_line_1 || "");
+        setAddressLine2(meetingData.address_line_2 || "");
+        setAddressLine3(meetingData.address_line_3 || "");
+        setAdditionalAddressLines(meetingData.additional_address_lines || []);
         setPostCode(meetingData.post_code || "");
-        setRef(meetingData.reference || meetingData.ref || meetingData.post_code || "");
+        setPhoneNumber(meetingData.phone_number || "");
+        setRef(meetingData.reference || meetingData.ref || "");
         setRepairDetails(meetingData.repair_detail || "");
+        setWorkDetails(meetingData.work_details || []);
+        setSpecialNotes(meetingData.special_notes || "");
         setTargetTime(meetingData.target_time || "Emergency 24 Hours");
         
         // Load recordings
@@ -400,47 +414,170 @@ export default function SharePage({ params }) {
                   className="w-full p-4 border-4 border-gray-200 rounded-2xl bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 font-medium text-lg focus:outline-none shadow-inner"
                 />
               </div>
-              {/* Enhanced Address Field */}
+              
+              {/* Enhanced Address Fields */}
               <div>
                 <label htmlFor="residentAddress" className="block text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
                   Resident's Address
                 </label>
-                <textarea
-                  id="residentAddress"
-                  value={`${residentAddress}\n\nPostcode: ${postCode}`}
-                  readOnly
-                  rows={4}
-                  className="w-full h-[168px] p-4 border-4 border-gray-200 rounded-2xl bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 font-medium resize-none focus:outline-none shadow-inner leading-relaxed overflow-y-auto"
-                />
+                
+                {/* Main Address */}
+                {residentAddress && (
+                  <textarea
+                    value={residentAddress}
+                    readOnly
+                    rows={2}
+                    className="w-full p-4 border-4 border-gray-200 rounded-2xl bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 font-medium resize-none focus:outline-none shadow-inner leading-relaxed mb-3"
+                  />
+                )}
+                
+                {/* Address Lines */}
+                {addressLine1 && (
+                  <input
+                    value={addressLine1}
+                    readOnly
+                    placeholder="Address Line 1"
+                    className="w-full p-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-800 font-medium focus:outline-none shadow-inner mb-2"
+                  />
+                )}
+                
+                {addressLine2 && (
+                  <input
+                    value={addressLine2}
+                    readOnly
+                    placeholder="Address Line 2"
+                    className="w-full p-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-800 font-medium focus:outline-none shadow-inner mb-2"
+                  />
+                )}
+                
+                {addressLine3 && (
+                  <input
+                    value={addressLine3}
+                    readOnly
+                    placeholder="Address Line 3"
+                    className="w-full p-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-800 font-medium focus:outline-none shadow-inner mb-2"
+                  />
+                )}
+                
+                {/* Additional Address Lines */}
+                {additionalAddressLines.map((line, index) => (
+                  line && (
+                    <input
+                      key={index}
+                      value={line}
+                      readOnly
+                      placeholder={`Address Line ${index + 4}`}
+                      className="w-full p-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-800 font-medium focus:outline-none shadow-inner mb-2"
+                    />
+                  )
+                ))}
               </div>
+              
+              {/* Postcode and Phone */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {postCode && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">
+                      Postcode
+                    </label>
+                    <input
+                      value={postCode}
+                      readOnly
+                      className="w-full p-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-800 font-medium focus:outline-none shadow-inner"
+                    />
+                  </div>
+                )}
+                
+                {phoneNumber && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">
+                      Phone Number
+                    </label>
+                    <input
+                      value={phoneNumber}
+                      readOnly
+                      className="w-full p-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-800 font-medium focus:outline-none shadow-inner"
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {/* Special Notes - Moved to Left Side */}
+              {specialNotes && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                    Special Notes
+                  </label>
+                  <textarea
+                    value={specialNotes}
+                    readOnly
+                    rows={4}
+                    className="w-full p-4 border-4 border-yellow-200 rounded-2xl bg-gradient-to-r from-yellow-50 to-yellow-100 text-gray-800 font-medium resize-none focus:outline-none shadow-inner leading-relaxed"
+                  />
+                </div>
+              )}
             </div>
             
-            {/* Right Side - Ref and Repair Details */}
+            {/* Right Side - Ref and Work Details */}
             <div className="h-full flex flex-col space-y-6">
               {/* Ref Field */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-                  Ref
-                </label>
-                <input
-                  type="text"
-                  value={ref}
-                  readOnly
-                  className="w-full p-4 border-4 border-gray-200 rounded-2xl bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 font-medium text-lg focus:outline-none shadow-inner overflow-x-auto"
-                />
-              </div>
+              {ref && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                    Reference
+                  </label>
+                  <input
+                    type="text"
+                    value={ref}
+                    readOnly
+                    className="w-full p-4 border-4 border-gray-200 rounded-2xl bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 font-medium text-lg focus:outline-none shadow-inner overflow-x-auto"
+                  />
+                </div>
+              )}
+              
               {/* Repair Details */}
-              <div className="flex-1">
-                <label className="block text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-                  Repair Details
-                </label>
-                <textarea
-                  id="repairDetails"
-                  value={repairDetails}
-                  readOnly
-                  className="w-full h-[168px] p-4 border-4 border-gray-200 rounded-2xl bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 font-medium resize-none focus:outline-none shadow-inner leading-relaxed overflow-y-auto"
-                />
-              </div>
+              {repairDetails && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                    Repair Details
+                  </label>
+                  <textarea
+                    value={repairDetails}
+                    readOnly
+                    rows={3}
+                    className="w-full p-4 border-4 border-gray-200 rounded-2xl bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 font-medium resize-none focus:outline-none shadow-inner leading-relaxed"
+                  />
+                </div>
+              )}
+              
+              {/* Work Details */}
+              {workDetails && workDetails.length > 0 && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                    Work Details
+                  </label>
+                  <div className="space-y-3">
+                    {workDetails.map((work, index) => (
+                      <div key={index} className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-sm font-semibold text-blue-800">Work Item {index + 1}</span>
+                          {work.target_time && (
+                            <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full font-medium">
+                              {work.target_time}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-800 font-medium">{work.detail}</p>
+                        {work.timestamp && (
+                          <p className="text-xs text-gray-500 mt-2">
+                            Added: {new Date(work.timestamp).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

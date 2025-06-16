@@ -2500,7 +2500,23 @@ export default function Page({ params }) {
                   textDecoration: 'none',
                   minFontSize: '16px'
                 }}>
-                  <span>Logo</span>
+                  {getLandlordLogo() ? (
+                    <img 
+                      src={getLandlordLogo()}
+                      alt="Landlord Logo"
+                      style={{
+                        maxHeight: '40px',
+                        maxWidth: '120px',
+                        objectFit: 'contain'
+                      }}
+                      onError={(e) => {
+                        console.error('Failed to load landlord logo:', e);
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'inline';
+                      }}
+                    />
+                  ) : null}
+                  <span style={{ display: getLandlordLogo() ? 'none' : 'inline' }}>Logo</span>
                 </a>
               </div>
             </div>

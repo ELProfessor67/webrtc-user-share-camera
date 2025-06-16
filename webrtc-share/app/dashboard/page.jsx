@@ -682,7 +682,7 @@ export default function Page() {
                       <tr key={meeting._id} className="hover:bg-gray-50 border-b">
                         <td className="px-4 py-3 w-2/5">
                           <div className="flex items-center gap-2">
-                            <span>{actualIndex + 1}. {meeting.name || 'Unknown Resident'}, {meeting.address || 'No address provided'}</span>
+                            <span>{actualIndex + 1}. {meeting.name || 'Unknown Resident'}, {meeting.address_line_1 || meeting.address || 'No address provided'}</span>
                             {/* Show archived badge if meeting is archived */}
                             {isArchived && viewMode !== 'archived' && (
                               <span className="bg-gray-200 text-gray-700 px-2 py-1 rounded-full text-xs">

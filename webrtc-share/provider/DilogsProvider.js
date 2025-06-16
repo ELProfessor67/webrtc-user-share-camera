@@ -768,10 +768,23 @@ ${senderName} has shared a meeting report with you.
 
 Meeting Details:
 Meeting ID: ${selectedMeeting.meeting_id}
-Resident Name: ${selectedMeeting.name || 'N/A'}
-Address: ${selectedMeeting.address || 'N/A'}
-Post Code: ${selectedMeeting.post_code || 'N/A'}
-Repair Details: ${selectedMeeting.repair_detail || 'N/A'}
+Resident Name: ${selectedMeeting.name || 'N/A'}${selectedMeeting.address_line_1 ? `
+Address Line 1: ${selectedMeeting.address_line_1}` : ''}${selectedMeeting.address_line_2 ? `
+Address Line 2: ${selectedMeeting.address_line_2}` : ''}${selectedMeeting.address_line_3 ? `
+Address Line 3: ${selectedMeeting.address_line_3}` : ''}${selectedMeeting.additional_address_lines && selectedMeeting.additional_address_lines.length > 0 ? selectedMeeting.additional_address_lines.filter(line => line && line.trim()).map((line, index) => `
+Address Line ${index + 4}: ${line}`).join('') : ''}
+Post Code: ${selectedMeeting.post_code || 'N/A'}${selectedMeeting.phone_number ? `
+Phone Number: ${selectedMeeting.phone_number}` : ''}${selectedMeeting.reference ? `
+Reference: ${selectedMeeting.reference}` : ''}
+Repair Details: ${selectedMeeting.repair_detail || 'N/A'}${selectedMeeting.work_details && selectedMeeting.work_details.length > 0 ? `
+
+Work Details:${selectedMeeting.work_details.map((work, index) => `
+Work Item ${index + 1}: ${work.detail || 'N/A'}${work.target_time ? `
+Target Time: ${work.target_time}` : ''}${work.timestamp ? `
+Added: ${new Date(work.timestamp).toLocaleString()}` : ''}`).join('')}` : ''}${selectedMeeting.special_notes ? `
+
+Special Notes:
+${selectedMeeting.special_notes}` : ''}
 Date Created: ${new Date(selectedMeeting.createdAt).toLocaleDateString()}
 
 You can view the complete meeting content including recordings and screenshots using this link:
@@ -854,9 +867,94 @@ ${senderName}`;
       addLine('Shared by:', senderName);
       addLine('Meeting ID:', selectedMeeting.meeting_id);
       addLine('Resident Name:', selectedMeeting.name);
-      addLine('Address:', selectedMeeting.address);
+      
+      // Add individual address lines if they exist
+      if (selectedMeeting.address_line_1) {
+        addLine('Address Line 1:', selectedMeeting.address_line_1);
+      }
+      if (selectedMeeting.address_line_2) {
+        addLine('Address Line 2:', selectedMeeting.address_line_2);
+      }
+      if (selectedMeeting.address_line_3) {
+        addLine('Address Line 3:', selectedMeeting.address_line_3);
+      }
+      
+      // Add additional address lines if they exist
+      if (selectedMeeting.additional_address_lines && selectedMeeting.additional_address_lines.length > 0) {
+        selectedMeeting.additional_address_lines.forEach((line, index) => {
+          if (line && line.trim()) {
+            addLine(`Address Line ${index + 4}:`, line);
+          }
+        });
+      }
+      
       addLine('Post Code:', selectedMeeting.post_code);
+      
+      // Add phone number if it exists
+      if (selectedMeeting.phone_number) {
+        addLine('Phone Number:', selectedMeeting.phone_number);
+      }
+      
+      // Add reference if it exists
+      if (selectedMeeting.reference) {
+        addLine('Reference:', selectedMeeting.reference);
+      }
+      
       addLine('Repair Details:', selectedMeeting.repair_detail);
+      
+      // Add work details if they exist
+      if (selectedMeeting.work_details && selectedMeeting.work_details.length > 0) {
+        yPosition += 5;
+        pdf.setFont(undefined, 'bold');
+        pdf.text('Work Details:', 20, yPosition);
+        yPosition += 7;
+        
+        selectedMeeting.work_details.forEach((work, index) => {
+          if (yPosition > 270) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+          
+          pdf.setFont(undefined, 'bold');
+          pdf.text(`Work Item ${index + 1}:`, 25, yPosition);
+          yPosition += 7;
+          
+          pdf.setFont(undefined, 'normal');
+          const workLines = pdf.splitTextToSize(work.detail || 'N/A', 115);
+          pdf.text(workLines, 25, yPosition);
+          yPosition += workLines.length * 7;
+          
+          if (work.target_time) {
+            pdf.setFont(undefined, 'italic');
+            pdf.text(`Target Time: ${work.target_time}`, 25, yPosition);
+            yPosition += 7;
+          }
+          
+          if (work.timestamp) {
+            pdf.setFont(undefined, 'normal');
+            pdf.setFontSize(10);
+            pdf.text(`Added: ${new Date(work.timestamp).toLocaleString()}`, 25, yPosition);
+            yPosition += 7;
+            pdf.setFontSize(12);
+          }
+          
+          yPosition += 3; // Extra spacing between work items
+        });
+      }
+      
+      // Add special notes if they exist
+      if (selectedMeeting.special_notes) {
+        yPosition += 5;
+        pdf.setFont(undefined, 'bold');
+        pdf.text('Special Notes:', 20, yPosition);
+        yPosition += 7;
+        
+        pdf.setFont(undefined, 'normal');
+        const notesLines = pdf.splitTextToSize(selectedMeeting.special_notes, 150);
+        pdf.text(notesLines, 20, yPosition);
+        yPosition += notesLines.length * 7 + 5;
+      }
+      
       addLine('Date Created:', new Date(selectedMeeting.createdAt).toLocaleDateString());
       addLine('Share Link:', generateShareLink(selectedMeeting.meeting_id));
 
@@ -1093,24 +1191,127 @@ ${senderName}`;
             new TextRun({ text: selectedMeeting.name || 'N/A' }),
           ],
         }),
-        new Paragraph({
-          children: [
-            new TextRun({ text: "Address: ", bold: true }),
-            new TextRun({ text: selectedMeeting.address || 'N/A' }),
-          ],
-        }),
+
+        // Add individual address lines conditionally
+        ...(selectedMeeting.address_line_1 ? [
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Address Line 1: ", bold: true }),
+              new TextRun({ text: selectedMeeting.address_line_1 }),
+            ],
+          })
+        ] : []),
+
+        ...(selectedMeeting.address_line_2 ? [
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Address Line 2: ", bold: true }),
+              new TextRun({ text: selectedMeeting.address_line_2 }),
+            ],
+          })
+        ] : []),
+
+        ...(selectedMeeting.address_line_3 ? [
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Address Line 3: ", bold: true }),
+              new TextRun({ text: selectedMeeting.address_line_3 }),
+            ],
+          })
+        ] : []),
+
+        // Add additional address lines
+        ...(selectedMeeting.additional_address_lines && selectedMeeting.additional_address_lines.length > 0 ? 
+          selectedMeeting.additional_address_lines.filter(line => line && line.trim()).map((line, index) => 
+            new Paragraph({
+              children: [
+                new TextRun({ text: `Address Line ${index + 4}: `, bold: true }),
+                new TextRun({ text: line }),
+              ],
+            })
+          ) : []),
+
         new Paragraph({
           children: [
             new TextRun({ text: "Post Code: ", bold: true }),
             new TextRun({ text: selectedMeeting.post_code || 'N/A' }),
           ],
         }),
+
+        // Add phone number if exists
+        ...(selectedMeeting.phone_number ? [
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Phone Number: ", bold: true }),
+              new TextRun({ text: selectedMeeting.phone_number }),
+            ],
+          })
+        ] : []),
+
+        // Add reference if exists
+        ...(selectedMeeting.reference ? [
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Reference: ", bold: true }),
+              new TextRun({ text: selectedMeeting.reference }),
+            ],
+          })
+        ] : []),
+
         new Paragraph({
           children: [
             new TextRun({ text: "Repair Details: ", bold: true }),
             new TextRun({ text: selectedMeeting.repair_detail || 'N/A' }),
           ],
         }),
+
+        // Add work details if they exist
+        ...(selectedMeeting.work_details && selectedMeeting.work_details.length > 0 ? [
+          new Paragraph({
+            text: "Work Details:",
+            heading: HeadingLevel.HEADING_2,
+          }),
+          ...selectedMeeting.work_details.flatMap((work, index) => [
+            new Paragraph({
+              children: [
+                new TextRun({ text: `Work Item ${index + 1}: `, bold: true }),
+                new TextRun({ text: work.detail || 'N/A' }),
+              ],
+            }),
+            ...(work.target_time ? [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: "Target Time: ", bold: true }),
+                  new TextRun({ text: work.target_time }),
+                ],
+              })
+            ] : []),
+            ...(work.timestamp ? [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: "Added: ", bold: true }),
+                  new TextRun({ text: new Date(work.timestamp).toLocaleString() }),
+                ],
+              })
+            ] : []),
+            new Paragraph({ text: "" }) // Spacing between work items
+          ])
+        ] : []),
+
+        // Add special notes if they exist
+        ...(selectedMeeting.special_notes ? [
+          new Paragraph({
+            text: "Special Notes:",
+            heading: HeadingLevel.HEADING_2,
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: selectedMeeting.special_notes }),
+            ],
+          }),
+          new Paragraph({ text: "" }) // Spacing
+        ] : []),
+
         new Paragraph({
           children: [
             new TextRun({ text: "Date Created: ", bold: true }),
