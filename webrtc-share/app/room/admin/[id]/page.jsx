@@ -2406,13 +2406,15 @@ export default function Page({ params }) {
         width: '98vw',
         gap: 0,
         margin: 0,
-        padding: 0
+        padding: 0,
+        overflowY: 'auto',
+        overflowX: 'hidden'
       }}>        {/* Left Column - User Profile and Video */}
         <div className="responsive-column hide-scrollbar" style={{
           borderRight: '1px solid #d1d5db',
           padding: '3vh 1vw 1vh 1vw',
           height: '98vh',
-          overflowY: 'auto',
+          overflowY: 'visible',
           overflowX: 'hidden'
         }}>
           {/* User Profile and Logo side by side */}
@@ -2491,7 +2493,7 @@ export default function Page({ params }) {
                 padding: '8px 12px',
                 border: '2px solid black'
               }}>
-                <a href="/" style={{
+                <div style={{
                   fontSize: '1.2vw',
                   fontWeight: 'bold',
                   color: 'black',
@@ -2517,7 +2519,7 @@ export default function Page({ params }) {
                     />
                   ) : null}
                   <span style={{ display: getLandlordLogo() ? 'none' : 'inline' }}>Logo</span>
-                </a>
+                </div>
               </div>
             </div>
           </div>          {/* Live Video */}
@@ -2972,7 +2974,7 @@ export default function Page({ params }) {
         </div>        {/* Right Column - MOVED OUTSIDE LEFT COLUMN */}
         <div className="space-y-6 pl-6 pr-4 hide-scrollbar" style={{
           maxHeight: '100%',
-          overflowY: 'auto',
+          overflowY: 'visible',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
           paddingTop: '3vh',
