@@ -1894,15 +1894,16 @@ export default function Page({ params }) {
         </div>
       )}
 
-      <div style={{
+      <div className="hide-scrollbar" style={{
         width: '100vw',
-        height: '100vh',
+        height: 'auto',
+        minHeight: '100vh',
         margin: 0,
         padding: '1vh 1vw',
         fontFamily: 'sans-serif',
-      overflow: 'hidden',
-      boxSizing: 'border-box'
-    }}>
+        overflow: 'auto',
+        boxSizing: 'border-box'
+      }}>
       <style dangerouslySetInnerHTML={{
         __html: `
           * {
@@ -1914,11 +1915,15 @@ export default function Page({ params }) {
           .hide-scrollbar {
             -ms-overflow-style: none;
             scrollbar-width: none;
+            overflow-x: hidden;
+          }
+          body {
+            overflow-x: hidden;
           }
           .responsive-column {
             padding: 1vh 1vw;
-            height: 98vh;
-            overflow-y: auto;
+            height: auto;
+            overflow-y: visible;
             overflow-x: hidden;
           }
           .responsive-content {
@@ -2399,23 +2404,30 @@ export default function Page({ params }) {
       )}
 
       {/* Main 3-Column Grid Layout */}
-      <div style={{
+      <div className="hide-scrollbar" style={{
         display: 'grid',
-        gridTemplateColumns: '25% 50% 25%',
-        height: '98vh',
-        width: '98vw',
+        gridTemplateColumns: 'minmax(250px, 1fr) minmax(400px, 2fr) minmax(250px, 1fr)',
+        height: 'auto',
+        minHeight: '95vh',
+        width: '100%',
+        maxWidth: '100vw',
         gap: 0,
         margin: 0,
         padding: 0,
-        overflowY: 'auto',
-        overflowX: 'hidden'
+        overflowY: 'visible',
+        overflowX: 'hidden',
+        boxSizing: 'border-box'
       }}>        {/* Left Column - User Profile and Video */}
         <div className="responsive-column hide-scrollbar" style={{
           borderRight: '1px solid #d1d5db',
-          padding: '3vh 1vw 1vh 1vw',
-          height: '98vh',
+          padding: '2vh 1.5vw 1vh 1.5vw',
           overflowY: 'visible',
-          overflowX: 'hidden'
+          overflowX: 'hidden',
+          minWidth: '250px',
+          maxWidth: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
         }}>
           {/* User Profile and Logo side by side */}
           <div style={{
@@ -2423,7 +2435,8 @@ export default function Page({ params }) {
             alignItems: 'center',
             justifyContent: 'space-between',
             marginBottom: '2vh',
-            padding: '1vh 0.5vw'
+            padding: '1vh 0',
+            width: '100%'
           }}>
             {/* User Profile */}
             <div style={{
@@ -2972,15 +2985,18 @@ export default function Page({ params }) {
             </div>
           </div>
         </div>        {/* Right Column - MOVED OUTSIDE LEFT COLUMN */}
-        <div className="space-y-6 pl-6 pr-4 hide-scrollbar" style={{
-          maxHeight: '100%',
+        <div className="space-y-6 hide-scrollbar" style={{
+          maxHeight: 'none',
           overflowY: 'visible',
+          overflowX: 'hidden',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
-          paddingTop: '3vh',
-          paddingLeft: '1vw',
-          paddingRight: '1vw',
-          paddingBottom: '1vh'
+          paddingTop: '2vh',
+          paddingLeft: '1.5vw',
+          paddingRight: '1.5vw',
+          paddingBottom: '1vh',
+          minWidth: '250px',
+          maxWidth: '100%'
         }}>{/* Resident Name */}
           <div>
             <input
