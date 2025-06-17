@@ -2500,46 +2500,45 @@ export default function Page({ params }) {
 
             {/* Logo */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{
-                backgroundColor: 'white',
-                borderRadius: '8px',
-                padding: '8px 12px',
-                border: '2px solid black'
-              }}>
+              {getLandlordLogo() ? (
+                /* Actual Logo Image - No Box */
+                <img 
+                  src={getLandlordLogo()}
+                  alt="Landlord Logo"
+                  style={{
+                    maxHeight: '40px',
+                    maxWidth: '120px',
+                    objectFit: 'contain'
+                  }}
+                  onError={(e) => {
+                    console.error('Failed to load landlord logo:', e);
+                    e.target.style.display = 'none';
+                  }}
+                />
+              ) : (
+                /* Text "Logo" - With Box */
                 <div style={{
-                  fontSize: '1.2vw',
-                  fontWeight: 'bold',
-                  color: 'black',
-                  display: 'flex',
-                  alignItems: 'center',
-                  textDecoration: 'none',
-                  minFontSize: '16px'
+                  backgroundColor: 'white',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  border: '2px solid black'
                 }}>
-                  {getLandlordLogo() ? (
-                    <img 
-                      src={getLandlordLogo()}
-                      alt="Landlord Logo"
-                      style={{
-                        maxHeight: '40px',
-                        maxWidth: '120px',
-                        objectFit: 'contain'
-                      }}
-                      onError={(e) => {
-                        console.error('Failed to load landlord logo:', e);
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'inline';
-                      }}
-                    />
-                  ) : null}
-                  <span style={{ display: getLandlordLogo() ? 'none' : 'inline' }}>Logo</span>
+                  <span style={{
+                    fontSize: '1.2vw',
+                    fontWeight: 'bold',
+                    color: 'black',
+                    minFontSize: '16px'
+                  }}>Logo</span>
                 </div>
-              </div>
+              )}
             </div>
           </div>          {/* Live Video */}
           <div style={{
             position: 'relative',
-            width: '100%',
-            marginBottom: '2vh'
+            width: '90%',
+            marginBottom: '2vh',
+            marginLeft: 'auto',
+            marginRight: 'auto'
           }}>            <div style={{
             backgroundColor: '#e5e7eb',
             borderRadius: '1.5vw',
@@ -2547,7 +2546,7 @@ export default function Page({ params }) {
             position: 'relative',
             width: '100%',
             height: 'auto',
-            minHeight: '30vh',
+            minHeight: '25vh',
             padding: 0,
             margin: 0,
             boxSizing: 'border-box'
@@ -2722,36 +2721,45 @@ export default function Page({ params }) {
                 <ZoomOut className={`w-4 h-4 ${zoomLevel <= 0.5 ? 'opacity-50' : ''}`} />
               </button>
             </div>
-          </div>            <div className="w-full flex gap-2 mt-2">
-            <button
-              onClick={handleRecordingToggle}
-              disabled={!isConnected}
-              className={`disabled:opacity-50 flex flex-col items-center justify-center gap-2 font-medium py-4 rounded-md transition-colors flex-1 ${isRecording
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : 'bg-red-500 hover:bg-red-600 text-white'
-                }`}
-            >
-              <div className="text-center leading-tight">
-                {isRecording ? (
-                  <div>
-                    <div>Stop</div>
-                    <div className="text-sm">({formatRecordingTime(currentRecordingDuration)})</div>
-                  </div>
-                ) : (
-                  <div>
-                    <div>Record</div>
-                    <div>Video</div>
-                  </div>
-                )}
-              </div>
-            </button>
+          </div>
 
-            <button onClick={() => takeScreenshot(handleScreenshotTaken)} disabled={!isConnected} className="disabled:opacity-50 flex flex-col items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-medium py-4 rounded-md transition-colors flex-1">
-              <div className="text-center leading-tight">
-                <div>Take</div>
-                <div>Screenshot</div>
-              </div>
-            </button>
+          {/* Record and Screenshot Controls */}
+          <div style={{
+            width: '90%',
+            marginLeft: 'auto',
+            marginRight: 'auto'
+          }}>
+            <div className="w-full flex gap-2 mt-2">
+              <button
+                onClick={handleRecordingToggle}
+                disabled={!isConnected}
+                className={`disabled:opacity-50 flex flex-col items-center justify-center gap-2 font-medium py-3 rounded-md transition-colors flex-1 ${isRecording
+                  ? 'bg-red-600 hover:bg-red-700 text-white'
+                  : 'bg-red-500 hover:bg-red-600 text-white'
+                  }`}
+              >
+                <div className="text-center leading-tight">
+                  {isRecording ? (
+                    <div>
+                      <div>Stop</div>
+                      <div className="text-sm">({formatRecordingTime(currentRecordingDuration)})</div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div>Record</div>
+                      <div>Video</div>
+                    </div>
+                  )}
+                </div>
+              </button>
+
+              <button onClick={() => takeScreenshot(handleScreenshotTaken)} disabled={!isConnected} className="disabled:opacity-50 flex flex-col items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-medium py-3 rounded-md transition-colors flex-1">
+                <div className="text-center leading-tight">
+                  <div>Take</div>
+                  <div>Screenshot</div>
+                </div>
+              </button>
+            </div>
           </div>
         </div>        {/* Center Column - Videos and Screenshots */}
         <div className="space-y-6 border-r border-gray-300 min-w-0 flex flex-col items-start justify-start hide-scrollbar" style={{
@@ -3095,7 +3103,7 @@ export default function Page({ params }) {
                 rows={1}
                 className="w-full p-3 bg-gray-50 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300"
               />
-            </div>          </div>          {/* Repair/Work Details */}          <div>            <div className="flex items-center gap-6 mb-2 flex-nowrap">
+            </div>          </div>          {/* Repair/Work Details */}          <div>            <div className="flex items-center gap-3 mb-2 flex-nowrap">
               <label className="block text-lg font-medium whitespace-nowrap">
                 Repair/Work Details:
               </label>
@@ -3104,8 +3112,9 @@ export default function Page({ params }) {
                 strokeWidth={3}
                 title="Add work detail"
                 onClick={addWorkDetail}
-              />              <button
-                className="px-2 py-1 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition-colors mt-1 flex-shrink-0 shadow-lg"
+              />
+              <button
+                className="px-3 py-1 mr-4 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition-colors mt-1 flex-shrink-0 shadow-lg"
                 title="Target Time"
               >
                 <span className="text-xs font-medium whitespace-nowrap">Target Time</span>
