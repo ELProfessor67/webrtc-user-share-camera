@@ -178,7 +178,7 @@ const page = ({params}) => {
       </div>
 
       <DialogComponent open={open} setOpen={setOpen}>
-        <div className="max-h-[90vh] w-[350px] p-6 flex flex-col items-center justify-center gap-3 overflow-y-auto min-h-[400px]">
+        <div className={`max-h-[90vh] w-[350px] p-6 flex flex-col items-center justify-center gap-3 overflow-y-auto min-h-[400px] ${!profileData.landlordName && !profileData.landlordLogo ? 'pb-12' : ''}`}>
           
           {/* Paper Plane Image - Always show */}
           <div className="flex justify-center">
@@ -228,10 +228,12 @@ const page = ({params}) => {
             <img src="/devices.svg" alt="Videodesk" className="w-30" />
           </div>
 
-          {/* Videodesk Heading - moved down */}
-          <div className="flex justify-center">
-            <h3 className="text-2xl font-bold text-black pt-6 pb-6">Videodesk</h3>
-          </div>
+          {/* Videodesk Heading - show only if landlord name or logo exists */}
+          {(profileData.landlordName || profileData.landlordLogo) && (
+            <div className="flex justify-center">
+              <h3 className="text-2xl font-bold text-black pt-6 pb-6">Videodesk</h3>
+            </div>
+          )}
         </div>
       </DialogComponent>
     </>

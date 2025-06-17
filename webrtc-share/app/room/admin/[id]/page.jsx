@@ -12,7 +12,6 @@ import { logoutRequest } from "@/http/authHttp"
 import { useUser } from "@/provider/UserProvider"
 
 export default function Page({ params }) {
-  // Add error handling for missing params
   if (!params) {
     console.error('Missing params in Page component');
     return (
@@ -29,11 +28,9 @@ export default function Page({ params }) {
     );
   }
 
-  // Use the params directly (Next.js handles the unwrapping)
   const resolvedParams = use(params);
   const id = resolvedParams?.id;
   
-  // Add validation for id
   if (!id) {
     console.error('Missing meeting ID');
     return (
@@ -76,6 +73,9 @@ export default function Page({ params }) {
   const [existingMeetingData, setExistingMeetingData] = useState(null);
   const [isLoadingMeetingData, setIsLoadingMeetingData] = useState(true);
   const [existingScreenshots, setExistingScreenshots] = useState([]);
+
+  // Screenshot saved status tracking - single source of truth
+  const [screenshotSavedStatus, setScreenshotSavedStatus] = useState(new Map());
 
   const [maximizedItem, setMaximizedItem] = useState(null);
 
@@ -155,7 +155,9 @@ export default function Page({ params }) {
 
   const getTTDisplayText = (fieldId) => {
     const selected = selectedTTValues[fieldId];
-    return selected ? selected.substring(0, 10) + (selected.length > 10 ? '...' : '') : 'T T';
+    if (!selected) return 'T T';
+    
+    return selected.substring(0, 3) + '...';
   };
 
   const addAddressLine = () => {
@@ -188,12 +190,10 @@ export default function Page({ params }) {
     setWorkDetails(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Custom handler for ending video without redirect
   const handleEndVideo = async () => {
     try {
-      console.log('📞 End Video button clicked - disconnecting without redirect');
+      console.log('End Video button clicked - disconnecting without redirect');
       
-      // Call handleDisconnect with shouldRedirect = false
       handleDisconnect(false);
       
     } catch (error) {
@@ -201,17 +201,14 @@ export default function Page({ params }) {
     }
   };
 
-  // Handler for save and redirect actions
   const handleSaveAndRedirect = async (saveAction) => {
     try {
       setIsEndingVideo(true);
       
-      // Execute the save action first
       if (saveAction) {
         await saveAction();
       }
       
-      // Then disconnect with redirect
       handleDisconnect(true);
       
     } catch (error) {
@@ -233,20 +230,19 @@ export default function Page({ params }) {
     const fetchExistingMeetingData = async () => {
       setIsLoadingMeetingData(true);
       try {
-        console.log('🔍 Fetching existing meeting data for ID:', id);
+        console.log('Fetching existing meeting data for ID:', id);
         const response = await getMeetingByMeetingId(id);
 
         if (response?.data?.success && response?.data?.meeting) {
           const meetingData = response.data.meeting;
-          console.log('✅ Found existing meeting data:', meetingData);          // Pre-populate form fields with existing data
-          setResidentName(meetingData.name || "");
+          console.log('Found existing meeting data:', meetingData);          setResidentName(meetingData.name || "");
           setResidentAddress(meetingData.address || "");
           setAddressLine1(meetingData.address_line_1 || "");
           setAddressLine2(meetingData.address_line_2 || "");
           setAddressLine3(meetingData.address_line_3 || "");
           setAddressLines(meetingData.additional_address_lines || []);
-          setPostCode(meetingData.reference || ""); // This is for the "Ref:" field
-          setActualPostCode(meetingData.post_code || ""); // This is for the "Post code:" field
+          setPostCode(meetingData.reference || "");
+          setActualPostCode(meetingData.post_code || "");
           setPhoneNumber(meetingData.phone_number || "");          setRepairDetails(meetingData.repair_detail || "");
           setTargetTime(meetingData.target_time || "Emergency 24 Hours");
           setSpecialNotes(meetingData.special_notes || "");
@@ -262,11 +258,9 @@ export default function Page({ params }) {
             
             meetingData.work_details.forEach((wd, index) => {
               if (wd.detail) {
-                // Check if this is the main repair detail
                 if (wd.detail === meetingData.repair_detail) {
                   ttValues['field1'] = wd.target_time || "Emergency 24 Hours";
                 } else {
-                  // Assign to static fields first, then to dynamic ones
                   if (!workDetail1Text) {
                     workDetail1Text = wd.detail;
                     ttValues['field1'] = wd.target_time || "Emergency 24 Hours";
@@ -277,7 +271,6 @@ export default function Page({ params }) {
                     workDetail3Text = wd.detail;
                     ttValues['field3'] = wd.target_time || "Emergency 24 Hours";
                   } else {
-                    // Add to additional work details
                     additionalWorkDetails.push(wd.detail);
                     ttValues[`workDetail${additionalWorkDetails.length - 1}`] = wd.target_time || "Emergency 24 Hours";
                   }
@@ -285,7 +278,6 @@ export default function Page({ params }) {
               }
             });
             
-            // Set the work detail fields
             setWorkDetail1(workDetail1Text);
             setWorkDetail2(workDetail2Text);
             setWorkDetail3(workDetail3Text);
@@ -293,7 +285,6 @@ export default function Page({ params }) {
             setSelectedTTValues(ttValues);
           }
 
-          // Store existing recordings
           if (meetingData.recordings && meetingData.recordings.length > 0) {
             const existingRecordings = meetingData.recordings.map(rec => ({
               id: rec._id || Date.now() + Math.random(),
@@ -306,7 +297,6 @@ export default function Page({ params }) {
             setRecordings(existingRecordings);
           }
 
-          // Store existing screenshots
           if (meetingData.screenshots && meetingData.screenshots.length > 0) {
             const existingScreenshotsData = meetingData.screenshots.map(screenshot => ({
               id: screenshot._id || Date.now() + Math.random(),
@@ -327,15 +317,15 @@ export default function Page({ params }) {
       } catch (error) {
         // Handle different types of errors gracefully
         if (error.code === 'ERR_NETWORK') {
-          console.log('ℹ️ Cannot connect to server - this is normal if server is starting up');
+          console.log('Cannot connect to server - this is normal if server is starting up');
         } else if (error?.response?.status === 404) {
-          console.log('ℹ️ No existing meeting data found for ID:', id, '(This is normal for new meetings)');
+          console.log('No existing meeting data found for ID:', id, '(This is normal for new meetings)');
         } else if (error?.response?.status === 500) {
-          console.log('ℹ️ Server error while fetching meeting data - this may be temporary');
+          console.log('Server error while fetching meeting data - this may be temporary');
         } else if (error.code === 'ECONNABORTED') {
-          console.log('ℹ️ Request timeout while fetching meeting data');
+          console.log('Request timeout while fetching meeting data');
         } else {
-          console.log('ℹ️ Error fetching meeting data:', error.message);
+          console.log('Error fetching meeting data:', error.message);
         }
       } finally {
         setIsLoadingMeetingData(false);
@@ -376,7 +366,7 @@ export default function Page({ params }) {
   const performSave = useCallback(async (options = {}) => {
     const { disconnectVideo = false } = options;
 
-    console.log('💾 Starting save process...');
+    console.log('Starting save process...');
 
     const newRecordings = recordings.filter(recording => !recording.isExisting && recording.blob);
     const existingRecordings = recordings.filter(recording => recording.isExisting);
@@ -389,7 +379,7 @@ export default function Page({ params }) {
       const recordingKey = `${recording.id}-${recording.timestamp}`;
 
       if (processedRecordings.has(recordingKey)) {
-        console.log('⚠️ Skipping duplicate recording:', recordingKey);
+        console.log('Skipping duplicate recording:', recordingKey);
         continue;
       }
 
@@ -409,14 +399,12 @@ export default function Page({ params }) {
       }
     }
 
-    // FIXED: Process screenshots with duplicate prevention AND drawings merge
     const screenshotsData = [];
     const processedScreenshots = new Set();
 
     for (let i = 0; i < screenshots.length; i++) {
       const screenshot = screenshots[i];
 
-      // Handle different screenshot formats (object or string)
       let screenshotIdentifier;
       let screenshotData;
       let screenshotId;
@@ -438,7 +426,7 @@ export default function Page({ params }) {
       const screenshotKey = `screenshot-${i}-${screenshotIdentifier}`;
 
       if (processedScreenshots.has(screenshotKey)) {
-        console.log('⚠️ Skipping duplicate screenshot:', screenshotKey);
+        console.log('Skipping duplicate screenshot:', screenshotKey);
         continue;
       }
 
@@ -453,27 +441,25 @@ export default function Page({ params }) {
         // FIXED: Use screenshotId as canvasId to match the drawing system
         const canvasId = screenshotId;
 
-        console.log(`🎨 Checking for drawings in canvas ${canvasId} for screenshot ${i + 1}`);
-        console.log('📊 Available drawing data keys:', Object.keys(drawingData));
+        console.log(`Checking for drawings in canvas ${canvasId} for screenshot ${i + 1}`);
+        console.log('Available drawing data keys:', Object.keys(drawingData));
 
-        // CRITICAL FIX: Check for drawings and merge them properly
         let hasDrawings = false;
         if (drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0) {
-          console.log(`🎨 Found ${drawingData[canvasId].strokes.length} strokes for screenshot ${i + 1}. Merging drawings...`);
+          console.log(`Found ${drawingData[canvasId].strokes.length} strokes for screenshot ${i + 1}. Merging drawings...`);
           try {
             const mergedData = await mergeWithBackground(finalScreenshotData, canvasId);
             if (mergedData && mergedData !== finalScreenshotData) {
               finalScreenshotData = mergedData;
               hasDrawings = true;
-              console.log(`✅ Drawing merge completed for screenshot ${i + 1}`);
+              console.log(`Drawing merge completed for screenshot ${i + 1}`);
             } else {
-              console.log(`⚠️ Merge returned same data for screenshot ${i + 1}`);
+              console.log(`Merge returned same data for screenshot ${i + 1}`);
             }
           } catch (mergeError) {
-            console.error(`❌ Error merging drawings for screenshot ${i + 1}:`, mergeError);
+            console.error(`Error merging drawings for screenshot ${i + 1}:`, mergeError);
           }
         } else {
-          // ADDITIONAL CHECK: Try alternative canvasId formats
           const alternativeCanvasIds = [
             `new-${i}`,
             `screenshot-${i}`,
@@ -482,23 +468,23 @@ export default function Page({ params }) {
 
           for (const altCanvasId of alternativeCanvasIds) {
             if (drawingData[altCanvasId] && drawingData[altCanvasId].strokes && drawingData[altCanvasId].strokes.length > 0) {
-              console.log(`🎨 Found drawings in alternative canvas ID: ${altCanvasId} for screenshot ${i + 1}`);
+              console.log(`Found drawings in alternative canvas ID: ${altCanvasId} for screenshot ${i + 1}`);
               try {
                 const mergedData = await mergeWithBackground(finalScreenshotData, altCanvasId);
                 if (mergedData && mergedData !== finalScreenshotData) {
                   finalScreenshotData = mergedData;
                   hasDrawings = true;
-                  console.log(`✅ Drawing merge completed using alternative ID ${altCanvasId} for screenshot ${i + 1}`);
+                  console.log(`Drawing merge completed using alternative ID ${altCanvasId} for screenshot ${i + 1}`);
                   break;
                 }
               } catch (mergeError) {
-                console.error(`❌ Error merging drawings with alternative ID ${altCanvasId}:`, mergeError);
+                console.error(`Error merging drawings with alternative ID ${altCanvasId}:`, mergeError);
               }
             }
           }
 
           if (!hasDrawings) {
-            console.log(`ℹ️ No drawings found for screenshot ${i + 1} (tried canvas IDs: ${canvasId}, ${alternativeCanvasIds.join(', ')})`);
+            console.log(`No drawings found for screenshot ${i + 1} (tried canvas IDs: ${canvasId}, ${alternativeCanvasIds.join(', ')})`);
           }
         }
 
@@ -599,11 +585,9 @@ export default function Page({ params }) {
     const response = await createRequest(formData);
     console.log('✅ Save successful!');
 
-    // Reset pencil mode and clear drawing data for processed screenshots
     setActivePencilScreenshot(null);
     setShowPencilDropdown(null);
 
-    // Clear drawing data for processed screenshots
     screenshotsData.forEach(screenshot => {
       if (screenshot.canvasId && drawingData[screenshot.canvasId]) {
         console.log('🧹 Clearing drawing data for:', screenshot.canvasId);
@@ -611,13 +595,11 @@ export default function Page({ params }) {
       }
     });
 
-    // Update recordings state to mark all recordings as existing/saved - ATOMIC UPDATE
     setRecordings(prev => prev.map(rec => ({
       ...rec,
       isExisting: true
     })));
 
-    // Move all new screenshots to existing screenshots and mark them as saved - ATOMIC UPDATE
     if (screenshotsData.length > 0) {
       const newSavedScreenshots = screenshotsData.map((screenshot, index) => ({
         id: `saved-${Date.now()}-${index}-${Math.random()}`, // Add random to ensure uniqueness
@@ -629,7 +611,6 @@ export default function Page({ params }) {
       }));
 
       setExistingScreenshots(prev => {
-        // Filter out any potential duplicates based on URL
         const existingUrls = new Set(prev.map(s => s.url));
         const uniqueNewScreenshots = newSavedScreenshots.filter(s => !existingUrls.has(s.url));
 
@@ -637,11 +618,9 @@ export default function Page({ params }) {
           console.log('⚠️ Filtered out duplicate screenshots');
         }
 
-        // Add to the end of the array instead of beginning for chronological order
         return [...prev, ...uniqueNewScreenshots];
       });
 
-      // Clear all screenshots from useWebRTC after saving
       const screenshotCount = screenshots.length;
       for (let i = screenshotCount - 1; i >= 0; i--) {
         deleteScreenshot(i);
@@ -649,7 +628,6 @@ export default function Page({ params }) {
       console.log(`🧹 Cleared ${screenshotCount} screenshots from new screenshots array`);
     }
 
-    // Update existing meeting data reference
     if (!existingMeetingData) {
       setExistingMeetingData({
         meeting_id: id,
@@ -746,7 +724,6 @@ export default function Page({ params }) {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Optional: Reset zoom when video connection changes
   useEffect(() => {
     if (!isConnected) {
       setZoomLevel(1);
@@ -755,19 +732,15 @@ export default function Page({ params }) {
     }
   }, [isConnected]);
 
-  // UPDATED: Add new function to handle "End Video and Save Images" with better protection
   const handleEndVideoAndSave = async (e) => {
-    // Prevent form submission and page refresh
     if (e) {
       e.preventDefault();
       e.stopPropagation();
-      // Check if stopImmediatePropagation exists before calling it
       if (typeof e.stopImmediatePropagation === 'function') {
         e.stopImmediatePropagation();
       }
     }
 
-    // Check if already in progress
     if (isEndingSave || isSaving || saveInProgress) {
       console.log('⚠️ End video save already in progress');
       return;
@@ -778,30 +751,24 @@ export default function Page({ params }) {
       setIsEndingSave(true);
       console.log('🎬 Starting End Video and Save process...');
 
-      // First disconnect the video call
       if (isConnected) {
         handleDisconnect();
       }
 
-      // Stop any ongoing recording
       if (isRecording) {
         stopScreenRecording();
       }
 
-      // Wait a moment for any final recording to process
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Use shared save logic
       const result = await performSave({ disconnectVideo: true });
 
       toast.success("Video ended and all content saved successfully!");
       
-      // Clear states before navigation
       setIsLoadingMeetingData(false);
       setSaveInProgress(false);
       setIsEndingSave(false);
       
-      // Navigate to dashboard
       router.push("/dashboard");
 
     } catch (error) {
@@ -815,19 +782,15 @@ export default function Page({ params }) {
     }
   };
 
-  // UPDATED: handleSave with better protection and shared logic
   const handleSave = async (e) => {
-    // Prevent form submission and page refresh
     if (e) {
       e.preventDefault();
       e.stopPropagation();
-      // Check if stopImmediatePropagation exists before calling it
       if (typeof e.stopImmediatePropagation === 'function') {
         e.stopImmediatePropagation();
       }
     }
 
-    // Check if already in progress
     if (isSaving || isEndingSave || saveInProgress) {
       console.log('⚠️ Save already in progress');
       return;
@@ -837,7 +800,6 @@ export default function Page({ params }) {
       setSaveInProgress(true);
       setIsSaving(true);
 
-      // Use shared save logic
       const result = await performSave();
 
       toast.success("Repair saved successfully!", {
@@ -859,12 +821,10 @@ export default function Page({ params }) {
     try {
       const res = await logoutRequest();
 
-      // Additional cleanup - clear any localStorage/sessionStorage
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       sessionStorage.clear();
 
-      // Clear cookies from frontend side as well
       document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; samesite=none";
 
       toast("Logout Successful", {
@@ -875,7 +835,6 @@ export default function Page({ params }) {
       setUser(null);
       router.push('../');
     } catch (error) {
-      // Even if logout API fails, clear local state
       setIsAuth(false);
       setUser(null);
       localStorage.clear();
@@ -1430,7 +1389,6 @@ export default function Page({ params }) {
       let foundCanvasId = null;
       let foundDrawingData = null;
 
-      // Check each possible canvas ID for drawings
       for (const canvasId of possibleCanvasIds) {
         if (drawingData[canvasId] && drawingData[canvasId].strokes && drawingData[canvasId].strokes.length > 0) {
           foundCanvasId = canvasId;
@@ -1440,7 +1398,6 @@ export default function Page({ params }) {
         }
       }
 
-      // ENHANCED: Check if this screenshot has drawings and merge them at ULTRA HIGH resolution
       if (foundCanvasId && foundDrawingData) {
         console.log('🖼️ Merging drawings with screenshot at ULTRA HIGH resolution...');
 
@@ -1457,7 +1414,6 @@ export default function Page({ params }) {
         console.log('📋 Available drawing data:', Object.keys(drawingData));
       }
 
-      // ENHANCED: Additional quality check - ensure PNG format for maximum quality
       if (!finalScreenshotData.startsWith('data:image/png')) {
         console.log('🔄 Converting to PNG for maximum quality...');
 
@@ -1465,7 +1421,7 @@ export default function Page({ params }) {
           const img = new Image();
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            const scale = 2; // Additional scaling for ultra quality
+            const scale = 2; 
             canvas.width = img.width * scale;
             canvas.height = img.height * scale;
 
@@ -1478,7 +1434,6 @@ export default function Page({ params }) {
             finalScreenshotData = canvas.toDataURL('image/png', 1.0);
             console.log('✅ Enhanced to ultra high quality PNG');
 
-            // Continue with save process
             processSave(finalScreenshotData, possibleCanvasIds, foundCanvasId, foundDrawingData);
           };
           img.src = finalScreenshotData;
@@ -1493,7 +1448,7 @@ export default function Page({ params }) {
           timestamp: new Date().toISOString(),
           size: imageData.length,
           quality: 'ultra_high',
-          index: index, // Add index for tracking
+          index: index,
           hasDrawings: foundCanvasId !== null && foundDrawingData !== null
         }];
 
@@ -1519,7 +1474,6 @@ export default function Page({ params }) {
 
         const response = await createRequest(formData);
 
-        // Show success toast
         toast.success(
           screenshotsData[0].hasDrawings
             ? "Ultra high quality screenshot with drawings saved successfully!"
@@ -1529,48 +1483,41 @@ export default function Page({ params }) {
           }
         );
 
-        // Clear pencil mode and drawing data after successful save
+        // Mark screenshot as saved
+        markScreenshotAsSaved(screenshotId);
+
+        // Update screenshot URL locally to show merged drawing immediately
+        if (screenshotsData[0].hasDrawings) {
+          console.log('🖼️ Updating screenshot to show merged drawing locally');
+          
+          // Create a temporary display update by forcing component re-render
+          // Since we can't directly update the useWebRTC screenshots array,
+          // we'll keep the merged image data available for immediate display
+          
+          // Store the merged screenshot data for immediate display
+          const mergedScreenshotKey = `merged-${screenshotId}`;
+          window.tempMergedScreenshots = window.tempMergedScreenshots || {};
+          window.tempMergedScreenshots[mergedScreenshotKey] = {
+            originalIndex: index,
+            mergedData: imageData,
+            timestamp: Date.now()
+          };
+          
+          console.log('🔄 Merged screenshot stored for immediate display');
+        }
+
+        // Clear pencil mode
         setActivePencilScreenshot(null);
         setShowPencilDropdown(null);
 
-        // Add saved screenshot to existing screenshots with unique ID
-        const newSavedScreenshot = {
-          id: `saved-${Date.now()}-${index}-${Math.random()}`,
-          url: imageData,
-          timestamp: new Date().toLocaleString(),
-          isExisting: true,
-          quality: 'ultra_high',
-          hasDrawings: screenshotsData[0].hasDrawings
-        };
+        console.log(`✅ Screenshot ${index} marked as saved with ID: ${screenshotId}`);
 
-        setExistingScreenshots(prev => {
-          // Check for duplicates
-          const alreadyExists = prev.some(s => s.url === newSavedScreenshot.url);
-          if (alreadyExists) {
-            console.log('⚠️ Screenshot already in existing array, skipping add');
-            return prev;
-          }
-          // Add to the end of the array instead of beginning for chronological order
-          return [...prev, newSavedScreenshot];
-        });
-
-        // Remove the screenshot from new screenshots array
-        deleteScreenshot(index);
-        console.log(`🧹 Removed ultra high quality screenshot at index ${index} from new screenshots array`);
-
-        // Clear the drawing data for the found canvas after successful save
+        // DON'T clear drawing data immediately - keep it for local display
+        // Only clear when user closes maximized view or takes new action
         if (foundCanvasId && drawingData[foundCanvasId]) {
-          console.log('🧹 Clearing drawing data for canvas:', foundCanvasId);
-          delete drawingData[foundCanvasId];
-          
-          // Also clear any related canvas data (regular/maximized counterparts)
-          const relatedCanvasIds = possibleCanvasIds.filter(id => id !== foundCanvasId);
-          relatedCanvasIds.forEach(relatedId => {
-            if (drawingData[relatedId]) {
-              console.log('🧹 Also clearing related canvas data:', relatedId);
-              delete drawingData[relatedId];
-            }
-          });
+          console.log('💾 Keeping drawing data for local display after save');
+          // Instead of deleting, mark it as saved so we know it's been processed
+          drawingData[foundCanvasId].isSaved = true;
         }
       }
 
@@ -1580,7 +1527,6 @@ export default function Page({ params }) {
         id: `save-screenshot-${screenshotId}`
       });
     } finally {
-      // FIXED: Clear both index and ID tracking
       setSavingScreenshotIndex(null);
       setSavingScreenshotIds(prev => {
         const newSet = new Set(prev);
@@ -1591,7 +1537,6 @@ export default function Page({ params }) {
     }
   }, [id, residentName, residentAddress, actualPostCode, postCode, repairDetails, targetTime, existingMeetingData, drawingData, mergeWithBackground, deleteScreenshot, savingScreenshotIds]);
 
-  // Maximize handlers - Memoize these functions
   const maximizeVideo = useCallback((recording) => {
     setMaximizedItem({
       type: 'video',
@@ -1610,67 +1555,125 @@ export default function Page({ params }) {
     });
   }, []);
 
-  // Callback function to maximize screenshot when taken
   const handleScreenshotTaken = useCallback((screenshot, index) => {
     console.log('📸 Screenshot taken, auto-maximizing:', screenshot);
     maximizeScreenshot(screenshot, index, false);
   }, [maximizeScreenshot]);
 
   const closeMaximized = useCallback(() => {
+    // Clean up drawing data when closing maximized view
+    if (maximizedItem && maximizedItem.type === 'screenshot' && !maximizedItem.isExisting) {
+      const screenshotId = maximizedItem.data.id;
+      const canvasId = screenshotId;
+      
+      // Clean up temporary merged screenshot data
+      const mergedScreenshotKey = `merged-${screenshotId}`;
+      if (window.tempMergedScreenshots && window.tempMergedScreenshots[mergedScreenshotKey]) {
+        console.log('🧹 Cleaning up temporary merged screenshot data:', mergedScreenshotKey);
+        delete window.tempMergedScreenshots[mergedScreenshotKey];
+      }
+      
+      // Only clear drawing data if it's marked as saved
+      if (drawingData[canvasId] && drawingData[canvasId].isSaved) {
+        console.log('🧹 Cleaning up saved drawing data on close:', canvasId);
+        delete drawingData[canvasId];
+        
+        // Clear related canvas data
+        const relatedCanvasIds = [
+          `maximized-canvas-${screenshotId}`,
+          `new-${maximizedItem.index}`,
+          `maximized-canvas-new-${maximizedItem.index}`
+        ];
+        
+        relatedCanvasIds.forEach(relatedId => {
+          if (drawingData[relatedId] && drawingData[relatedId].isSaved) {
+            console.log('🧹 Also clearing related saved canvas data:', relatedId);
+            delete drawingData[relatedId];
+          }
+        });
+      }
+    }
+    
     setMaximizedItem(null);
-  }, []);
+  }, [maximizedItem, drawingData]);
 
-  // Handle escape key to close maximized view
   useEffect(() => {
     const handleEscape = (e) => {
-      if (e.key === 'Escape' && maximizedItem) {
-        closeMaximized();
+      if (e.key === 'Escape') {
+        if (maximizedItem) {
+          closeMaximized();
+        }
+        if (showTTDropdown) {
+          setShowTTDropdown(null);
+        }
+        if (showPencilDropdown) {
+          setShowPencilDropdown(null);
+          setActivePencilScreenshot(null);
+        }
       }
     };
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [maximizedItem]);
+  }, [maximizedItem, showTTDropdown, showPencilDropdown]);
 
-  // Enhanced handlePencilClick function to maximize screenshot and activate pencil tool
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      const isCanvasClick = e.target.tagName === 'CANVAS' || 
+                           e.target.closest('[data-canvas-id]') ||
+                           e.target.hasAttribute('data-canvas-id');
+      
+      if (showTTDropdown) {
+        const dropdownElement = document.querySelector(`[data-dropdown-id="${showTTDropdown}"]`);
+        if (dropdownElement && !dropdownElement.contains(e.target)) {
+          setShowTTDropdown(null);
+        }
+      }
+      if (showPencilDropdown && !isCanvasClick) {
+        const pencilDropdownElement = document.querySelector(`[data-pencil-dropdown-id="${showPencilDropdown}"]`);
+        const toolsButton = document.querySelector('[data-tools-button]');
+        
+        if (pencilDropdownElement && !pencilDropdownElement.contains(e.target) && 
+            (!toolsButton || !toolsButton.contains(e.target))) {
+          setShowPencilDropdown(null);
+          setActivePencilScreenshot(null);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showTTDropdown, showPencilDropdown]);
+
   const handlePencilClick = useCallback((canvasId, screenshotId, screenshotData = null, index = null) => {
     console.log('🖋️ Pencil button clicked for canvas:', canvasId, 'screenshot ID:', screenshotId);
     console.log('Current state - active:', activePencilScreenshot, 'dropdown:', showPencilDropdown);
 
-    // Use the screenshot ID as the identifier
     const activeId = screenshotId || canvasId;
 
-    // Check if we're currently in minimized view (no maximizedItem)
     const isInMinimizedView = !maximizedItem;
 
     if (isInMinimizedView && screenshotData && index !== null) {
-      // If clicked from minimized view, maximize the screenshot and activate pencil (no dropdown)
       console.log('📱 Pencil clicked in minimized view - maximizing screenshot');
       
-      // Maximize the screenshot
       maximizeScreenshot(screenshotData, index, false);
       
-      // Set the pencil tool as active (brush tool for immediate drawing)
       setSelectedTool('brush');
       
-      // Set active screenshot for drawing
       setActivePencilScreenshot(activeId);
       
-      // Don't show dropdown in minimized view - only activate pencil
       console.log('✨ Screenshot maximized with pencil tool activated (no dropdown)');
       return;
     }
 
-    // Logic for maximized view only - toggle dropdown
     if (showPencilDropdown === activeId) {
-      // If dropdown is already open for this canvas, close it
       console.log('Closing dropdown for:', activeId);
       setShowPencilDropdown(null);
+      setActivePencilScreenshot(null);
     } else {
-      // Open dropdown for this canvas
       console.log('Opening dropdown for:', activeId);
-      setActivePencilScreenshot(activeId);  // Set active for drawing
-      setShowPencilDropdown(activeId);     // Show dropdown
+      setActivePencilScreenshot(activeId); 
+      setShowPencilDropdown(activeId);     
       
       // Also set brush tool as default when opening dropdown
       if (selectedTool !== 'brush') {
@@ -1706,6 +1709,57 @@ export default function Page({ params }) {
   const displayRecordingsCount = () => {
     const totalCount = getTotalRecordingsCount();
     return totalCount > 0 ? totalCount : null;
+  };
+
+  // Screenshot status functions
+  const getScreenshotSavedCount = () => {
+    let savedCount = 0;
+    // Count existing screenshots (all are saved)
+    savedCount += existingScreenshots.length;
+    
+    // Count saved new screenshots
+    screenshots.forEach((screenshot, index) => {
+      const screenshotId = typeof screenshot === 'object' ? 
+        (screenshot.id || `screenshot-${index}-${Date.now()}`) : 
+        `screenshot-${index}-${Date.now()}`;
+      if (screenshotSavedStatus.get(screenshotId)) {
+        savedCount++;
+      }
+    });
+    
+    return savedCount;
+  };
+
+  const getScreenshotUnsavedCount = () => {
+    let unsavedCount = 0;
+    
+    // Count unsaved new screenshots
+    screenshots.forEach((screenshot, index) => {
+      const screenshotId = typeof screenshot === 'object' ? 
+        (screenshot.id || `screenshot-${index}-${Date.now()}`) : 
+        `screenshot-${index}-${Date.now()}`;
+      if (!screenshotSavedStatus.get(screenshotId)) {
+        unsavedCount++;
+      }
+    });
+    
+    return unsavedCount;
+  };
+
+  const getTotalScreenshotCount = () => {
+    return existingScreenshots.length + screenshots.length;
+  };
+
+  const markScreenshotAsSaved = (screenshotId) => {
+    setScreenshotSavedStatus(prev => {
+      const newMap = new Map(prev);
+      newMap.set(screenshotId, true);
+      return newMap;
+    });
+  };
+
+  const getScreenshotStatus = (screenshotId) => {
+    return screenshotSavedStatus.get(screenshotId) || false;
   };
 
 
@@ -1955,50 +2009,74 @@ export default function Page({ params }) {
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            {/* Close button */}
-            <button
-              onClick={closeMaximized}
-              style={{
-                position: 'absolute',
-                top: '2vh',
-                right: '2vw',
-                zIndex: 10,
-                padding: '1vh 1vw',
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                color: 'white',
-                borderRadius: '50%',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              <X style={{ width: '1.5vw', height: '1.5vh' }} />
-            </button>
-
             {/* Maximized Video */}
             {maximizedItem.type === 'video' && (
-              <video
-                src={maximizedItem.data.url}
-                controls={true}
-                autoPlay={false}
-                muted={false}
-                style={{
-                  maxWidth: '90vw',
-                  maxHeight: '90vh',
-                  width: 'auto',
-                  height: 'auto',
-                  objectFit: 'contain'
-                }}
-                onLoadedMetadata={(e) => {
-                  console.log('Video resolution:', e.target.videoWidth, 'x', e.target.videoHeight);
-                }}
-              />
+              <>
+                {/* Close button for video */}
+                <button
+                  id="maximize-close-button-video"
+                  onClick={closeMaximized}
+                  style={{
+                    position: 'absolute',
+                    top: '20px',
+                    right: '20px',
+                    zIndex: 100,
+                    padding: '8px',
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    color: 'white',
+                    borderRadius: '50%',
+                    border: '2px solid rgba(255, 255, 255, 0.4)',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '36px',
+                    height: '36px',
+                    backdropFilter: 'blur(10px)',
+                    opacity: '1',
+                    visibility: 'visible'
+                  }}
+                >
+                  <X style={{ width: '18px', height: '18px', strokeWidth: '3' }} />
+                </button>
+                
+                <video
+                  src={maximizedItem.data.url}
+                  controls={true}
+                  autoPlay={false}
+                  muted={false}
+                  style={{
+                    maxWidth: '90vw',
+                    maxHeight: '90vh',
+                    width: 'auto',
+                    height: 'auto',
+                    objectFit: 'contain'
+                  }}
+                  onLoadedMetadata={(e) => {
+                    console.log('Video resolution:', e.target.videoWidth, 'x', e.target.videoHeight);
+                  }}
+                />
+              </>
             )}
 
             {/* Maximized Screenshot */}
             {maximizedItem.type === 'screenshot' && (() => {
               const screenshotId = maximizedItem.isExisting ? maximizedItem.data.id : `new-${maximizedItem.index}`;
               const canvasId = `maximized-canvas-${screenshotId}`;
-              const screenshotUrl = maximizedItem.isExisting ? maximizedItem.data.url : maximizedItem.data.url;
+              
+              // Check if we have a merged version of this screenshot
+              const mergedScreenshotKey = `merged-${screenshotId}`;
+              const mergedData = window.tempMergedScreenshots?.[mergedScreenshotKey];
+              const isSaved = getScreenshotStatus(screenshotId);
+              
+              // Use merged data if available and this screenshot is saved, otherwise use original
+              let screenshotUrl = maximizedItem.isExisting ? maximizedItem.data.url : maximizedItem.data.url;
+              if (mergedData && isSaved && mergedData.originalIndex === maximizedItem.index) {
+                screenshotUrl = mergedData.mergedData;
+                console.log('🖼️ Using merged screenshot data for display');
+              }
+              
               const isActive = activePencilScreenshot === screenshotId;
               
               // Debug logging
@@ -2006,11 +2084,42 @@ export default function Page({ params }) {
                 isExisting: maximizedItem.isExisting,
                 data: maximizedItem.data,
                 screenshotUrl: screenshotUrl,
-                screenshotId: screenshotId
+                screenshotId: screenshotId,
+                isSaved: isSaved,
+                hasMergedData: !!mergedData
               });
               
               return (
                 <div className="relative w-full h-full flex items-center justify-center p-4">
+                  {/* Close button for screenshot/image */}
+                  <button
+                    id="maximize-close-button-screenshot"
+                    onClick={closeMaximized}
+                    style={{
+                      position: 'absolute',
+                      top: '0%',
+                      right: '33.3%',
+                      zIndex: 100,
+                      padding: '8px',
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      color: 'white',
+                      borderRadius: '50%',
+                      border: '2px solid rgba(255, 255, 255, 0.4)',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '36px',
+                      height: '36px',
+                      backdropFilter: 'blur(10px)',
+                      opacity: '1',
+                      visibility: 'visible'
+                    }}
+                  >
+                    <X style={{ width: '18px', height: '18px', strokeWidth: '3' }} />
+                  </button>
+                  
                   <div
                     className="relative flex items-center justify-center w-full h-full"
                     style={{
@@ -2024,7 +2133,7 @@ export default function Page({ params }) {
                     <div style={{
                       position: 'absolute',
                       top: '20px',
-                      left: '20px',
+                      right: '27%',
                       zIndex: 30,
                       display: 'flex',
                       flexDirection: 'column',
@@ -2048,11 +2157,12 @@ export default function Page({ params }) {
                         letterSpacing: '0.5px',
                         textTransform: 'uppercase'
                       }}>
-                        🎨 Drawing Tools
+                         Tools
                       </div>
 
                       {/* Enhanced Drawing Tools Button */}
                       <button
+                        data-tools-button="true"
                         onClick={(e) => {
                           e.stopPropagation();
                           const rect = e.target.getBoundingClientRect();
@@ -2160,7 +2270,7 @@ export default function Page({ params }) {
                         e.target.style.opacity = '1';
                         const img = e.target;
                         console.log(`📸 Image loaded: ${img.naturalWidth}x${img.naturalHeight} pixels`);
-                        console.log(`� Display size: ${img.clientWidth}x${img.clientHeight} pixels`);
+                        console.log(`📱 Display size: ${img.clientWidth}x${img.clientHeight} pixels`);
                         
                         // Force proper image sizing first
                         img.style.maxWidth = '100%';
@@ -2169,6 +2279,34 @@ export default function Page({ params }) {
                         img.style.height = 'auto';
                         img.style.objectFit = 'contain';
                         img.style.display = 'block';
+                        
+                        // Position close button exactly at the top-right corner of the image
+                        const positionCloseButton = () => {
+                          const closeButton = document.getElementById('maximize-close-button');
+                          if (closeButton && img) {
+                            const imgRect = img.getBoundingClientRect();
+                            const containerRect = img.parentElement.getBoundingClientRect();
+                            
+                            // Calculate the exact position where the image ends (top-right corner)
+                            const imageRight = imgRect.right - containerRect.left;
+                            const imageTop = imgRect.top - containerRect.top;
+                            
+                            // Position the close button exactly at the image's top-right corner
+                            closeButton.style.left = `${imageRight - 18}px`; // 18px is half button width for perfect corner
+                            closeButton.style.top = `${imageTop}px`;
+                            closeButton.style.right = 'auto'; // Remove right positioning
+                            closeButton.style.opacity = '1';
+                            closeButton.style.visibility = 'visible';
+                            
+                            console.log(`🎯 Close button positioned at image top-right: left=${imageRight - 18}px, top=${imageTop}px`);
+                            console.log(`📏 Image bounds: right=${imageRight}px, top=${imageTop}px`);
+                          }
+                        };
+                        
+                        // Position immediately and retry for accuracy
+                        setTimeout(positionCloseButton, 50);
+                        setTimeout(positionCloseButton, 150);
+                        setTimeout(positionCloseButton, 300);
                         
                         // Multiple attempts to get correct dimensions with retries
                         const attemptCanvasSync = (attempt = 1) => {
@@ -2286,21 +2424,23 @@ export default function Page({ params }) {
                     {/* Drawing tools dropdown for maximized view */}
                     {isActive && showPencilDropdown === screenshotId && (
                       <div 
+                        data-pencil-dropdown-id={screenshotId}
                         style={{
                           position: 'fixed',
-                          top: '50%',
-                          right: '20px',
-                          transform: 'translateY(-50%)',
+                          top: '50px',
+                          left: `${Math.min(clickPosition.x + 65, window.innerWidth - 280)}px`,
                           zIndex: 1000,
                           backgroundColor: 'white',
-                          borderRadius: '12px',
-                          border: '1px solid #e5e7eb',
-                          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-                          padding: '16px',
-                          minWidth: '250px',
-                          maxWidth: '400px',
-                          maxHeight: '80vh',
-                          overflowY: 'auto'
+                          borderRadius: '16px',
+                          border: '2px solid #e5e7eb',
+                          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1)',
+                          padding: '20px',
+                          minWidth: '280px',
+                          maxWidth: '320px',
+                          maxHeight: '70vh',
+                          overflowY: 'auto',
+                          backdropFilter: 'blur(10px)',
+                          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)'
                         }}
                       >
                         <div className="space-y-4">
@@ -2862,9 +3002,12 @@ export default function Page({ params }) {
                       </div>
                     </div>
                   </div>))}              </div>
-            </div>          {/* Image Screenshot Section */}
+            </div>          {/*Screenshot Section */}
             <div className="w-full px-4">
-              <h2 className="text-lg font-medium mb-3 text-left">Image Screenshot(s): {(existingScreenshots?.length + screenshots?.length) != 0 && (existingScreenshots?.length + screenshots?.length)}</h2>
+              <h2 className="text-lg font-medium mb-3 text-left">
+               Screenshot(s): {getTotalScreenshotCount() > 0 && getTotalScreenshotCount()}
+                
+              </h2>
               <div className="overflow-y-visible min-h-[8rem]">
                 <div className="flex gap-3 overflow-x-auto pb-2 justify-start" style={{ scrollbarWidth: 'thin' }}>
                   {(existingScreenshots.length === 0 && screenshots.length === 0) && (
@@ -2892,7 +3035,10 @@ export default function Page({ params }) {
                               </svg>
                             </div>
                             <div className="text-sm font-semibold mb-1">Click to view</div>
-                            <div className="text-xs font-medium opacity-80">Saved #{index + 1}</div>
+                            <div className="text-xs font-medium opacity-80">
+                              Screenshot {index + 1}<br />
+                              Saved
+                            </div>
                           </div>
 
                           {/* Subtle border animation on hover */}
@@ -2911,6 +3057,9 @@ export default function Page({ params }) {
                       `screenshot-${index}-${Date.now()}-${Math.random()}`;
                     const screenshotUniqueId = typeof screenshot === 'object' ? screenshot.uniqueId : `${index}`;
 
+                    // Check if this screenshot is saved
+                    const isSaved = getScreenshotStatus(screenshotId);
+
                     // FIXED: Use screenshot ID as canvasId to keep drawings attached to the correct screenshot
                     const canvasId = screenshotId;
                     const isActive = activePencilScreenshot === canvasId;
@@ -2919,28 +3068,55 @@ export default function Page({ params }) {
                     // FIXED: Use clean screenshot URL without excessive unique identifiers
                     const cleanScreenshotUrl = screenshotData.split('#')[0];
 
-                    console.log(`🖼️ Rendering screenshot ${index}:`, { canvasId, screenshotId }); return (
+                    console.log(`🖼️ Rendering screenshot ${index}:`, { canvasId, screenshotId, isSaved }); 
+                    
+                    return (
                       <div key={`screenshot-container-${screenshotId}`} className="relative pencil-dropdown-container flex-shrink-0 w-[15vw] min-w-[180px]">
                         <img src="/icons/ci_label.svg" className="mb-2" />
-                        <div className="aspect-square bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center relative cursor-pointer group"
+                        <div className={`aspect-square bg-gradient-to-br ${
+                          isSaved 
+                            ? 'from-green-50 to-green-100 border-green-200' 
+                            : 'from-blue-50 to-blue-100 border-blue-200'
+                        } border-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center relative cursor-pointer group`}
                              onClick={() => {
                                console.log('🔍 Maximizing screenshot:', { index, cleanScreenshotUrl });
                                maximizeScreenshot(screenshot, index, false);
                              }}>
                           {/* Enhanced Click to view design */}
-                          <div className="text-center text-blue-700 p-6 transition-all duration-300 group-hover:text-blue-800">
-                            <div className="w-12 h-12 mx-auto mb-3 bg-blue-200 rounded-full flex items-center justify-center group-hover:bg-blue-300 transition-colors duration-300">
-                              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
+                          <div className={`text-center ${
+                            isSaved ? 'text-green-700' : 'text-blue-700'
+                          } p-6 transition-all duration-300 ${
+                            isSaved ? 'group-hover:text-green-800' : 'group-hover:text-blue-800'
+                          }`}>
+                            <div className={`w-12 h-12 mx-auto mb-3 ${
+                              isSaved ? 'bg-green-200' : 'bg-blue-200'
+                            } rounded-full flex items-center justify-center ${
+                              isSaved ? 'group-hover:bg-green-300' : 'group-hover:bg-blue-300'
+                            } transition-colors duration-300`}>
+                              {isSaved ? (
+                                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                              )}
                             </div>
                             <div className="text-sm font-semibold mb-1">Click to view</div>
-                            <div className="text-xs font-medium opacity-80">Screenshot {index + 1}</div>
+                            <div className="text-xs font-medium opacity-80">
+                              Screenshot {existingScreenshots.length + index + 1}
+                              {isSaved && <><br />Saved</>}
+                            </div>
                           </div>
 
                           {/* Subtle border animation on hover */}
-                          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-400 to-purple-400 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                          <div className={`absolute inset-0 rounded-xl ${
+                            isSaved 
+                              ? 'bg-gradient-to-r from-green-400 to-emerald-400' 
+                              : 'bg-gradient-to-r from-blue-400 to-purple-400'
+                          } opacity-0 group-hover:opacity-20 transition-opacity duration-300`}></div>
                         </div>
                       </div>
                     );
@@ -3013,7 +3189,7 @@ export default function Page({ params }) {
               value={residentName}
               onChange={(e) => setResidentName(e.target.value)}
               placeholder="Resident Name"
-              className="w-full p-3 bg-gray-50 border border-black rounded-xl focus:outline-none focus:border-transparent focus:ring-2 focus:ring-orange-300"
+              className="w-full p-3 bg-gray-50 border border-black rounded-lg focus:outline-none focus:border-transparent focus:ring-2 focus:ring-orange-300"
               style={{ borderWidth: '3px' }}
             />
           </div>{/* Resident Information */}
@@ -3029,7 +3205,7 @@ export default function Page({ params }) {
                     value={addressLine1}
                     onChange={(e) => setAddressLine1(e.target.value)}
                     rows={1}
-                    className="w-full p-3 bg-gray-50 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    className="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                   />
                 </div>
 
@@ -3040,7 +3216,7 @@ export default function Page({ params }) {
                     value={addressLine2}
                     onChange={(e) => setAddressLine2(e.target.value)}
                     rows={1}
-                    className="w-full p-3 bg-gray-50 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    className="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                   />
                 </div>                {/* Address Line 3 */}                <div className="mb-3">
                   <textarea
@@ -3048,7 +3224,7 @@ export default function Page({ params }) {
                     value={addressLine3}
                     onChange={(e) => setAddressLine3(e.target.value)}
                     rows={1}
-                    className="w-full p-3 bg-gray-50 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    className="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                   />
                 </div>                {/* Additional Address Lines */}
                 {addressLines.map((line, index) => (
@@ -3058,7 +3234,7 @@ export default function Page({ params }) {
                       value={line}
                       onChange={(e) => updateAddressLine(index, e.target.value)}
                       rows={1}
-                      className="w-full p-3 bg-gray-50 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300"
+                      className="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                     />
                   </div>
                 ))}
@@ -3081,7 +3257,7 @@ export default function Page({ params }) {
                   placeholder="Postcode:"
                   value={actualPostCode}
                   onChange={(e) => setActualPostCode(e.target.value)}
-                  className="w-full p-3 bg-gray-50 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  className="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                   rows={1}
                 />
               </div>
@@ -3091,7 +3267,7 @@ export default function Page({ params }) {
                 placeholder="Phone no:"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                className="w-full p-3 bg-gray-50 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                 rows={1}
               />
             </div>            <div className="mb-3">
@@ -3101,7 +3277,7 @@ export default function Page({ params }) {
                 onChange={(e) => setPostCode(e.target.value)}
                 placeholder="Ref:"
                 rows={1}
-                className="w-full p-3 bg-gray-50 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
               />
             </div>          </div>          {/* Repair/Work Details */}          <div>            <div className="flex items-center gap-3 mb-2 flex-nowrap">
               <label className="block text-lg font-medium whitespace-nowrap">
@@ -3126,13 +3302,13 @@ export default function Page({ params }) {
                 value={workDetail1}
                 onChange={(e) => setWorkDetail1(e.target.value)}
                 rows={1}
-                className="flex-1 p-3 bg-gray-50 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="flex-1 p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
               />
-              <div className="relative">
+              <div className="relative" data-dropdown-id="field1">
                 <button
                   onClick={() => handleTTDropdownToggle('field1')}
                   className="p-3 bg-gray-50 text-black border border-gray-300 rounded-full flex items-center gap-1 hover:bg-gray-100 transition-colors"
-                  title="Task Type Dropdown"
+                  title="Target Time Dropdown"
                 >
                   <span className="text-sm font-medium">{getTTDisplayText('field1')}</span>
                   <ChevronDown className="w-4 h-4" />
@@ -3162,13 +3338,13 @@ export default function Page({ params }) {
                 value={workDetail2}
                 onChange={(e) => setWorkDetail2(e.target.value)}
                 rows={1}
-                className="flex-1 p-3 bg-gray-50 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="flex-1 p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
               />
-              <div className="relative">
+              <div className="relative" data-dropdown-id="field2">
                 <button
                   onClick={() => handleTTDropdownToggle('field2')}
                   className="p-3 bg-gray-50 text-black border border-gray-300 rounded-full flex items-center gap-1 hover:bg-gray-100 transition-colors"
-                  title="Task Type Dropdown"
+                  title="Target Time Dropdown"
                 >
                   <span className="text-sm font-medium">{getTTDisplayText('field2')}</span>
                   <ChevronDown className="w-4 h-4" />
@@ -3198,13 +3374,13 @@ export default function Page({ params }) {
                 value={workDetail3}
                 onChange={(e) => setWorkDetail3(e.target.value)}
                 rows={1}
-                className="flex-1 p-3 bg-gray-50 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="flex-1 p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
               />
-              <div className="relative">
+              <div className="relative" data-dropdown-id="field3">
                 <button
                   onClick={() => handleTTDropdownToggle('field3')}
                   className="p-3 bg-gray-50 text-black border border-gray-300 rounded-full flex items-center gap-1 hover:bg-gray-100 transition-colors"
-                  title="Task Type Dropdown"
+                  title="Target Time Dropdown"
                 >
                   <span className="text-sm font-medium">{getTTDisplayText('field3')}</span>
                   <ChevronDown className="w-4 h-4" />
@@ -3235,13 +3411,13 @@ export default function Page({ params }) {
                   value={detail}
                   onChange={(e) => updateWorkDetail(index, e.target.value)}
                   rows={1}
-                  className="flex-1 p-3 bg-gray-50 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  className="flex-1 p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                 />
-                <div className="relative">
+                <div className="relative" data-dropdown-id={`workDetail${index}`}>
                   <button
                     onClick={() => handleTTDropdownToggle(`workDetail${index}`)}
                     className="p-3 bg-gray-50 text-black border border-gray-300 rounded-full flex items-center gap-1 hover:bg-gray-100 transition-colors"
-                    title="Task Type Dropdown"
+                    title="Target Time Dropdown"
                   >
                     <span className="text-sm font-medium">{getTTDisplayText(`workDetail${index}`)}</span>
                     <ChevronDown className="w-4 h-4" />
@@ -3304,7 +3480,7 @@ export default function Page({ params }) {
                 onChange={(e) => setSpecialNotes(e.target.value)}
                 rows={5}
                 placeholder="Enter any special notes or additional information..."
-                className="w-full p-4 bg-gray-50 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-300 resize-vertical"
+                className="w-full p-4 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 resize-vertical"
               />
             </div>
           </div></div>

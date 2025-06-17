@@ -688,7 +688,7 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
     }, [isAdmin, roomId]);
 
     // ENHANCED screenshot function with ULTRA HIGH quality and resolution - FIXED for unique screenshots
-    const takeScreenshot = (callback = null) => {
+    const takeScreenshot = (onScreenshotTaken = null) => {
         if (!remoteStream && !localStream) {
             console.error('❌ No stream available for screenshot');
             return;
@@ -813,11 +813,10 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                                 // Add to the end of array for chronological order (oldest first, newest last)
                                 const newScreenshots = [...prev, completelyUniqueScreenshot];
                                 
-                                // Call the callback if provided
-                                if (callback) {
-                                    setTimeout(() => {
-                                        callback(completelyUniqueScreenshot, newScreenshots.length - 1);
-                                    }, 100);
+                                // Call the callback with the screenshot and its index
+                                if (onScreenshotTaken) {
+                                    const screenshotIndex = newScreenshots.length - 1;
+                                    onScreenshotTaken(completelyUniqueScreenshot, screenshotIndex);
                                 }
                                 
                                 return newScreenshots;
@@ -859,11 +858,10 @@ const useWebRTC = (isAdmin, roomId, videoRef) => {
                     setScreenshots((prev) => {
                         const newScreenshots = [...prev, completelyUniqueScreenshot];
                         
-                        // Call the callback if provided
-                        if (callback) {
-                            setTimeout(() => {
-                                callback(completelyUniqueScreenshot, newScreenshots.length - 1);
-                            }, 100);
+                        // Call the callback with the screenshot and its index
+                        if (onScreenshotTaken) {
+                            const screenshotIndex = newScreenshots.length - 1;
+                            onScreenshotTaken(completelyUniqueScreenshot, screenshotIndex);
                         }
                         
                         return newScreenshots;
